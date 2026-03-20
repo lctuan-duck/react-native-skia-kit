@@ -1,9 +1,41 @@
-import { NitroModules } from 'react-native-nitro-modules';
-import type { SkiaKit } from './SkiaKit.nitro';
+// react-native-skia-kit — Flutter-like UI Kit powered by Skia
+// Phase 2: Core Foundation
 
-const SkiaKitHybridObject =
-  NitroModules.createHybridObject<SkiaKit>('SkiaKit');
+// ===== Core =====
+export { CanvasRoot } from './core/CanvasRoot';
 
-export function multiply(a: number, b: number): number {
-  return SkiaKitHybridObject.multiply(a, b);
-}
+// ===== Types =====
+export type {
+  WidgetProps,
+  HitTestBehavior,
+  LayoutRect,
+  WidgetData,
+  GestureCallbacks,
+  PanEvent,
+} from './core/types';
+
+// ===== Components =====
+export { Box } from './components/Box';
+export { Text } from './components/Text';
+
+export type { BoxProps } from './components/Box';
+export type { TextProps } from './components/Text';
+
+// ===== Hooks =====
+export { useTheme } from './hooks/useTheme';
+export { useWidget } from './hooks/useWidget';
+
+// ===== Stores =====
+export { useThemeStore, enableThemePersistence } from './stores/themeStore';
+export { useWidgetStore } from './stores/widgetStore';
+
+export type {
+  ThemeColors,
+  ThemeConfig,
+  ThemeTypography,
+  ThemeSpacing,
+  ThemeBorderRadius,
+  ThemeElevation,
+  ThemeMode,
+  TextStyle,
+} from './stores/themeStore';

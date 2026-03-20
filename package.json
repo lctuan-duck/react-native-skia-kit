@@ -69,6 +69,7 @@
     "@react-native/babel-preset": "0.83.0",
     "@react-native/eslint-config": "0.83.0",
     "@release-it/conventional-changelog": "^10.0.1",
+    "@shopify/react-native-skia": "^1.5.0",
     "@types/jest": "^29.5.14",
     "@types/react": "^19.2.0",
     "commitlint": "^19.8.1",
@@ -83,15 +84,25 @@
     "react": "19.2.0",
     "react-native": "0.83.0",
     "react-native-builder-bob": "^0.40.13",
+    "react-native-gesture-handler": "^2.20.0",
     "react-native-nitro-modules": "^0.29.8",
+    "react-native-reanimated": "^3.16.0",
     "release-it": "^19.0.4",
     "turbo": "^2.5.6",
     "typescript": "^5.9.2"
   },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^3.0.1",
+    "immer": "^10.1.0",
+    "zustand": "^5.0.0"
+  },
   "peerDependencies": {
+    "@shopify/react-native-skia": ">=1.0.0",
     "react": "*",
     "react-native": "*",
-    "react-native-nitro-modules": "^0.29.8"
+    "react-native-gesture-handler": ">=2.0.0",
+    "react-native-nitro-modules": "^0.29.8",
+    "react-native-reanimated": ">=3.0.0"
   },
   "workspaces": [
     "example"
