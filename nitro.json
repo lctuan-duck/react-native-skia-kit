@@ -1,0 +1,17 @@
+{
+  "cxxNamespace": ["skiakit"],
+  "ios": {
+    "iosModuleName": "SkiaKit"
+  },
+  "android": {
+    "androidNamespace": ["skiakit"],
+    "androidCxxLibName": "skiakit"
+  },
+  "autolinking": {
+    "SkiaKit": {
+      "swift": "SkiaKit",
+      "kotlin": "SkiaKit"
+    }
+  },
+  "ignorePaths": ["node_modules"]
+}
