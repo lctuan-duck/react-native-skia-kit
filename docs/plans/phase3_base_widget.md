@@ -80,11 +80,11 @@ function Modal({ visible, x, y, width, height, children }) {
 ```
 
 ## Checklist
-- [ ] Định nghĩa `WidgetProps` interface (x, y, width, height, color, children, onPress...)
-- [ ] Component Box: `<Group><RoundedRect/>{children}</Group>`
-- [ ] Component Text: `<Paragraph>` với SkParagraph builder
-- [ ] Component Image: `<Image>` với `useImage` hook
-- [ ] Tất cả components đều nhận `x, y, width, height` từ Yoga layout result
+- [x] Định nghĩa `WidgetProps` interface (x, y, width, height, color, children, onPress...)
+- [x] Component Box: `<Group><RoundedRect/>{children}</Group>`
+- [x] Component Text: `<Paragraph>` với SkParagraph builder
+- [x] Component Image: `<Image>` với `useImage` hook
+- [x] Tất cả components đều nhận `x, y, width, height` từ Yoga layout result
 
 ## WidgetProps Interface
 ```ts

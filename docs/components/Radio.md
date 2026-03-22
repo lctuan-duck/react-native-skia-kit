@@ -51,7 +51,7 @@ import React from 'react';
 import { Circle } from '@shopify/react-native-skia';
 import { Box } from './Box';
 import { useWidget } from '../hooks/useWidget';
-import { useHitTest } from '../hooks/useHitTest';
+import { useTheme } from '../hooks/useTheme';
 
 export const Radio = React.memo(function Radio({
   x = 0, y = 0,
@@ -78,17 +78,13 @@ export const Radio = React.memo(function Radio({
   };
 
   // === Hook thay thế boilerplate ===
-  const widgetId = useWidget<{ selected: boolean; disabled: boolean }>({
+  useWidget<{ selected: boolean; disabled: boolean }>({
     type: 'Radio',
     layout: { x, y, width: size, height: size },
     props: { selected, disabled },
   });
 
-  useHitTest(widgetId, {
-    rect: { left: x, top: y, width: size, height: size },
-    callbacks: { onPress: handlePress },
-    behavior: 'opaque',
-  });
+  // Box handles onPress via hitTestBehavior + onPress prop — no useHitTest needed
 
   return (
     <Box

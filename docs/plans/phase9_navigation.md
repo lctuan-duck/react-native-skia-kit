@@ -15,10 +15,10 @@
 # Phase 9: Internal Navigation Manager
 
 ## Checklist
-- [ ] Quản lý biến currentScreen để chuyển màn hình
-- [ ] Vẽ hiệu ứng Slide/Fade giữa các danh sách widget
-- [ ] Không dùng react-navigation, tự quản lý navigation logic
-- [ ] Triển khai Navigator 2.0 (Router) cho deep linking
+- [x] Quản lý biến currentScreen để chuyển màn hình
+- [x] Vẽ hiệu ứng Slide/Fade giữa các danh sách widget
+- [x] Không dùng react-navigation, tự quản lý navigation logic
+- [x] Triển khai Navigator 2.0 (Router) cho deep linking
 - [ ] Triển khai Hero Animation cho shared element transition
 
 ## Steps

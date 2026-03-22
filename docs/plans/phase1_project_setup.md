@@ -4,16 +4,16 @@
 Khởi tạo monorepo: package source (`src/`) + example app (`example/`) + build pipeline.
 
 ## Checklist
-- [ ] Tạo root `package.json` với workspaces + `react-native-builder-bob`
-- [ ] Tạo `tsconfig.json` + `tsconfig.build.json`
-- [ ] Tạo `src/index.ts` entry point (export rỗng ban đầu)
-- [ ] Tạo example app với RN CLI
-- [ ] Setup `example/metro.config.js` — watch `../src/`, resolve package
-- [ ] Setup `example/babel.config.js` — reanimated plugin
-- [ ] Install peer deps: `@shopify/react-native-skia`, `react-native-reanimated`, `react-native-gesture-handler`
-- [ ] Install deps: `zustand`, `immer`, `yoga-layout-prebuilt`
-- [ ] Verify: `yarn build` chạy thành công
-- [ ] Verify: `yarn example:android` chạy + hot reload khi sửa `src/`
+- [x] Tạo root `package.json` với workspaces + `react-native-builder-bob`
+- [x] Tạo `tsconfig.json` + `tsconfig.build.json`
+- [x] Tạo `src/index.ts` entry point (export rỗng ban đầu)
+- [x] Tạo example app với RN CLI
+- [x] Setup `example/metro.config.js` — watch `../src/`, resolve package
+- [x] Setup `example/babel.config.js` — reanimated plugin
+- [x] Install peer deps: `@shopify/react-native-skia`, `react-native-reanimated`, `react-native-gesture-handler`
+- [x] Install deps: `zustand`, `immer`, `yoga-layout-prebuilt`
+- [x] Verify: `yarn build` chạy thành công
+- [x] Verify: `yarn example:android` chạy + hot reload khi sửa `src/`
 
 ## Dependencies
 

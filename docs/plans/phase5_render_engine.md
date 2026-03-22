@@ -6,10 +6,10 @@
 # Phase 5: Render Engine (Skia Canvas)
 
 ## Checklist
-- [ ] Chuyển kết quả layout thành lệnh vẽ Skia (canvas.drawRect, canvas.drawText...)
-- [ ] Đảm bảo render đồng nhất trên Android/iOS
-- [ ] Hỗ trợ vẽ Box, Text, Image
-- [ ] Triển khai smart re-render (React.memo + Zustand selector + useDerivedValue)
+- [x] Chuyển kết quả layout thành lệnh vẽ Skia (canvas.drawRect, canvas.drawText...)
+- [x] Đảm bảo render đồng nhất trên Android/iOS
+- [x] Hỗ trợ vẽ Box, Text, Image
+- [x] Triển khai smart re-render (React.memo + Zustand selector + useDerivedValue)
 
 ## Steps
 1. Nhận map layout từ Layout Engine (layoutMap chứa left, top, width, height cho từng widget)

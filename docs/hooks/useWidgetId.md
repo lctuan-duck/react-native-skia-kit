@@ -38,12 +38,22 @@ function MyComponent() {
 
 ```ts
 import { useRef } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 
-export function useWidgetId(): string {
-  const idRef = useRef<string>();
-  if (!idRef.current) {
-    idRef.current = uuidv4();
+let _counter = 0;
+
+/**
+ * Generate a unique, stable widget ID for a component instance.
+ * ID is created once and persists across re-renders via useRef.
+ *
+ * Uses a simple counter instead of UUID for lighter weight (no external dependency).
+ *
+ * @param prefix - Optional prefix (e.g., component type name)
+ * @returns Stable unique string ID
+ */
+export function useWidgetId(prefix = 'w'): string {
+  const idRef = useRef<string | null>(null);
+  if (idRef.current === null) {
+    idRef.current = `${prefix}_${++_counter}`;
   }
   return idRef.current;
 }

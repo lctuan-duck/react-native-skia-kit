@@ -12,6 +12,26 @@ export interface WidgetProps {
   height?: number;
   /** Accessibility label */
   accessibilityLabel?: string;
+
+  // ===== Flex layout participation props =====
+  // These are read by useYogaLayout when this widget is a child of a flex container.
+
+  /** Flex grow factor (like CSS flex: N) */
+  flex?: number;
+  /** Flex grow factor (alias) */
+  flexGrow?: number;
+  /** Override parent's alignItems for this child */
+  alignSelf?: 'auto' | 'start' | 'center' | 'end' | 'stretch';
+  /** Positioning mode: 'absolute' removes from flow, 'relative' is default */
+  position?: 'relative' | 'absolute';
+  /** Offset from top (only with position='absolute') */
+  top?: number;
+  /** Offset from left (only with position='absolute') */
+  left?: number;
+  /** Offset from right (only with position='absolute') */
+  right?: number;
+  /** Offset from bottom (only with position='absolute') */
+  bottom?: number;
 }
 
 /**
@@ -40,6 +60,7 @@ export interface WidgetData {
   type: string;
   layout: LayoutRect;
   props: Record<string, unknown>;
+  state: Record<string, unknown>;
   children: string[];
   parentId?: string;
 }

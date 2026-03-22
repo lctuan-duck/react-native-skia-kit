@@ -1,10 +1,10 @@
 # Phase 8: Animation Controller (Reanimated)
 
 ## Checklist
-- [ ] Dùng useSharedValue để điều khiển thuộc tính Skia (scale, opacity...)
-- [ ] Chỉ re-render khi giá trị thay đổi qua useDerivedValue
-- [ ] Tích hợp animation cho các widget (Button, Box...)
-- [ ] Kết hợp với Gesture Arena cho animation tương tác
+- [x] Dùng useSharedValue để điều khiển thuộc tính Skia (scale, opacity...)
+- [x] Chỉ re-render khi giá trị thay đổi qua useDerivedValue
+- [x] Tích hợp animation cho các widget (Button, Box...)
+- [x] Kết hợp với Gesture Arena cho animation tương tác
 
 ## Steps
 1. Tích hợp react-native-reanimated vào project

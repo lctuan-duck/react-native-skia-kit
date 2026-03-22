@@ -6,16 +6,16 @@
 # Phase 10: Performance Optimization
 
 ## Checklist
-- [ ] Chỉ re-render widget khi layout, props hoặc animation thay đổi (smart re-render 3 tầng)
-- [ ] Load font và image trước khi render, tránh delay UI
-- [ ] Quản lý hitMap và Yoga Node hiệu quả, cleanup khi unmount
-- [ ] Tối ưu hóa draw calls, tránh vẽ thừa trên Canvas
-- [ ] Quản lý navigation stack, cache UI và state từng màn hình
-- [ ] Chỉ render màn hình active, giữ state khi quay lại
-- [ ] Tối ưu hóa animation cho nhiều widget đồng thời
-- [ ] Đảm bảo đồng nhất UI trên Android/iOS (font, layout, render)
-- [ ] Kiểm tra memory leak định kỳ, giải phóng tài nguyên không dùng
-- [ ] Triển khai Sliver/Lazy rendering cho ListView lớn
+- [x] Chỉ re-render widget khi layout, props hoặc animation thay đổi (smart re-render 3 tầng)
+- [x] Load font và image trước khi render, tránh delay UI
+- [x] Quản lý hitMap và Yoga Node hiệu quả, cleanup khi unmount
+- [x] Tối ưu hóa draw calls, tránh vẽ thừa trên Canvas
+- [x] Quản lý navigation stack, cache UI và state từng màn hình
+- [x] Chỉ render màn hình active, giữ state khi quay lại
+- [x] Tối ưu hóa animation cho nhiều widget đồng thời
+- [x] Đảm bảo đồng nhất UI trên Android/iOS (font, layout, render)
+- [x] Kiểm tra memory leak định kỳ, giải phóng tài nguyên không dùng
+- [x] Triển khai Sliver/Lazy rendering cho ListView lớn
 
 ## Smart Re-render (3 tầng)
 Tương đương `markNeedsPaint` / `markNeedsLayout` của Flutter:

@@ -1,138 +1,85 @@
 import { useWindowDimensions } from 'react-native';
-import { CanvasRoot, Box, Text, useTheme } from 'react-native-skia-kit';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import {
+  CanvasRoot,
+  Box,
+  Text,
+  Nav,
+  Screen,
+  BottomNavigationBar,
+  useNav,
+  useNavStore,
+} from 'react-native-skia-kit';
+import { OrderScreen } from './screens/OrderScreen';
+import { HomeScreen } from './screens/HomeScreen';
 
-function DemoContent() {
-  const theme = useTheme();
+const TAB_SCREENS = ['home', 'order', 'notifications', 'account'] as const;
+const bottomNavItems = [
+  { icon: 'home', label: 'Trang chủ' },
+  { icon: 'menu', label: 'Order' },
+  { icon: 'notifications', label: 'Thông báo' },
+  { icon: 'person', label: 'Tài khoản' },
+];
+
+/**
+ * AppContent — separated so useNav can access the navStore context
+ * set up by <Nav> parent.
+ */
+function AppContent() {
+  const { width, height } = useWindowDimensions();
+  const nav = useNav();
+  const bottomNavH = 64;
+
+  // Determine active index from current screen name
+  const currentScreen = useNavStore(
+    (s) => s.getCurrentScreenName('main') ?? 'home'
+  );
+  const activeIndex = TAB_SCREENS.indexOf(currentScreen as any);
+
+  const handleTabChange = (index: number) => {
+    const screenName = TAB_SCREENS[index];
+    if (screenName) {
+      nav.switchTo(screenName);
+    }
+  };
 
   return (
     <>
-      {/* Background */}
-      <Box
+      <Nav initial="home" width={width} height={height - bottomNavH}>
+        <Screen name="home">
+          <HomeScreen width={width} height={height} />
+        </Screen>
+
+        <Screen name="order">
+          <OrderScreen width={width} height={height} />
+        </Screen>
+
+        <Screen name="notifications">
+          <Box x={0} y={0} width={width} height={height - bottomNavH} color="#F5F5F5">
+            <Text x={width / 2 - 50} y={height / 2 - 40} text="Thông báo" fontSize={20} fontWeight="bold" />
+            <Text x={width / 2 - 60} y={height / 2 - 10} text="Chưa có thông báo" fontSize={14} color="#9CA3AF" />
+          </Box>
+        </Screen>
+
+        <Screen name="account">
+          <Box x={0} y={0} width={width} height={height - bottomNavH} color="#F5F5F5">
+            <Text x={width / 2 - 40} y={height / 2 - 40} text="Tài khoản" fontSize={20} fontWeight="bold" />
+            <Text x={width / 2 - 80} y={height / 2 - 10} text="Quản lý tài khoản của bạn" fontSize={14} color="#9CA3AF" />
+          </Box>
+        </Screen>
+      </Nav>
+
+      {/* Bottom Navigation — always visible, uses Nav switchTo */}
+      <BottomNavigationBar
         x={0}
-        y={0}
-        width={360}
-        height={800}
-        color={theme.colors.background}
-      />
-
-      {/* Header */}
-      <Box x={0} y={0} width={360} height={56} color={theme.colors.primary}>
-        <Text
-          x={16}
-          y={18}
-          text="React Native Skia Kit"
-          fontSize={20}
-          fontWeight="bold"
-          color={theme.colors.onPrimary}
-        />
-      </Box>
-
-      {/* Card */}
-      <Box
-        x={16}
-        y={72}
-        width={328}
-        height={120}
-        color={theme.colors.surface}
-        borderRadius={12}
-        elevation={4}
-      >
-        <Text
-          x={32}
-          y={88}
-          text="Hello Skia Kit! 🚀"
-          fontSize={18}
-          fontWeight="600"
-          color={theme.colors.textBody}
-        />
-        <Text
-          x={32}
-          y={114}
-          text="Flutter-like UI rendered on Skia Canvas"
-          fontSize={14}
-          color={theme.colors.textSecondary}
-        />
-        <Text
-          x={32}
-          y={140}
-          text="Box + Text + Theme working!"
-          fontSize={14}
-          color={theme.colors.success}
-        />
-      </Box>
-
-      {/* Color palette demo */}
-      <Text
-        x={16}
-        y={212}
-        text="Theme Colors"
-        fontSize={16}
-        fontWeight="bold"
-      />
-      <Box
-        x={16}
-        y={236}
-        width={70}
-        height={40}
-        borderRadius={8}
-        color={theme.colors.primary}
-      />
-      <Box
-        x={94}
-        y={236}
-        width={70}
-        height={40}
-        borderRadius={8}
-        color={theme.colors.secondary}
-      />
-      <Box
-        x={172}
-        y={236}
-        width={70}
-        height={40}
-        borderRadius={8}
-        color={theme.colors.tertiary}
-      />
-      <Box
-        x={250}
-        y={236}
-        width={70}
-        height={40}
-        borderRadius={8}
-        color={theme.colors.success}
-      />
-
-      <Box
-        x={16}
-        y={284}
-        width={70}
-        height={40}
-        borderRadius={8}
-        color={theme.colors.error}
-      />
-      <Box
-        x={94}
-        y={284}
-        width={70}
-        height={40}
-        borderRadius={8}
-        color={theme.colors.warning}
-      />
-      <Box
-        x={172}
-        y={284}
-        width={70}
-        height={40}
-        borderRadius={8}
-        color={theme.colors.info}
-      />
-      <Box
-        x={250}
-        y={284}
-        width={70}
-        height={40}
-        borderRadius={8}
-        color={theme.colors.surfaceVariant}
+        y={height - bottomNavH}
+        width={width}
+        height={bottomNavH}
+        items={bottomNavItems}
+        activeIndex={activeIndex >= 0 ? activeIndex : 0}
+        activeColor="#16A34A"
+        onChange={handleTabChange}
+        elevation={8}
       />
     </>
   );
@@ -142,8 +89,10 @@ export default function App() {
   const { width, height } = useWindowDimensions();
 
   return (
-    <CanvasRoot style={{ width, height }}>
-      <DemoContent />
-    </CanvasRoot>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <CanvasRoot style={{ width, height }}>
+        <AppContent />
+      </CanvasRoot>
+    </GestureHandlerRootView>
   );
 }

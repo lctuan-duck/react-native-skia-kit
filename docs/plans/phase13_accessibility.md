@@ -1,9 +1,9 @@
 # Phase 13: Advanced Accessibility
 
 ## Checklist
-- [ ] Hỗ trợ screen reader, semantics tree, global shortcut
-- [ ] Tích hợp accessibilityStore cho widget, layout, nav
-- [ ] Đảm bảo UI kit đạt chuẩn accessibility
+- [x] Hỗ trợ screen reader, semantics tree, global shortcut
+- [x] Tích hợp accessibilityStore cho widget, layout, nav
+- [x] Đảm bảo UI kit đạt chuẩn accessibility
 
 ## Steps
 1. Tạo accessibilityStore (Zustand + Map) lưu role, label, state cho từng widget

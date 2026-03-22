@@ -33,10 +33,10 @@ App
 | Portal / absolute overlay toàn app | Canvas thứ 2 với `position: absolute` đè lên (chấp nhận được vì ít xảy ra) |
 
 ## Checklist
-- [ ] Tạo `CanvasRoot` component chứa `<Canvas>` phủ toàn màn hình
-- [ ] `<Canvas>` nhận toàn bộ Skia tree của screen làm children
-- [ ] Tích hợp với `layoutStore` để lấy layout đã tính từ Yoga
-- [ ] Xử lý `onTouch` ở Canvas → forward vào `eventStore` (Gesture Arena)
+- [x] Tạo `CanvasRoot` component chứa `<Canvas>` phủ toàn màn hình
+- [x] `<Canvas>` nhận toàn bộ Skia tree của screen làm children
+- [x] Tích hợp với `layoutStore` để lấy layout đã tính từ Yoga
+- [x] Xử lý `onTouch` ở Canvas → forward vào `eventStore` (Gesture Arena)
 
 ## Steps
 

@@ -1,0 +1,78 @@
+import * as React from 'react';
+import { Group } from '@shopify/react-native-skia';
+import { Box } from './Box';
+import { useWidget } from '../hooks/useWidget';
+import { useTheme } from '../hooks/useTheme';
+import type { WidgetProps } from '../core/types';
+
+export interface ScaffoldProps extends WidgetProps {
+  appBar?: React.ReactNode;
+  body: React.ReactNode;
+  bottomNavigationBar?: React.ReactNode;
+  floatingActionButton?: React.ReactNode;
+  drawer?: React.ReactNode;
+  fabPosition?: 'bottomRight' | 'bottomCenter' | 'bottomLeft';
+  backgroundColor?: string;
+}
+
+export const Scaffold = React.memo(function Scaffold({
+  width = 360,
+  height = 800,
+  appBar,
+  body,
+  bottomNavigationBar,
+  floatingActionButton,
+  drawer,
+  fabPosition = 'bottomRight',
+  backgroundColor,
+}: ScaffoldProps) {
+  const theme = useTheme();
+  const bgColor = backgroundColor ?? theme.colors.background;
+
+  useWidget({ type: 'Scaffold', layout: { x: 0, y: 0, width, height } });
+
+  const appBarHeight = appBar ? 56 : 0;
+  const bottomNavHeight = bottomNavigationBar ? 64 : 0;
+  const bodyY = appBarHeight;
+  const bodyHeight = height - appBarHeight - bottomNavHeight;
+
+  const fabPositions = {
+    bottomRight: { x: width - 72, y: height - bottomNavHeight - 72 },
+    bottomCenter: { x: width / 2 - 28, y: height - bottomNavHeight - 72 },
+    bottomLeft: { x: 16, y: height - bottomNavHeight - 72 },
+  };
+  const fabPos = fabPositions[fabPosition];
+
+  return (
+    <Group>
+      <Box x={0} y={0} width={width} height={height} color={bgColor} />
+      {appBar && (
+        <Group>
+          {React.cloneElement(appBar as React.ReactElement<WidgetProps>, {
+            x: 0,
+            y: 0,
+            width,
+          })}
+        </Group>
+      )}
+      <Group clip={{ x: 0, y: bodyY, width, height: bodyHeight }}>{body}</Group>
+      {bottomNavigationBar && (
+        <Group>
+          {React.cloneElement(
+            bottomNavigationBar as React.ReactElement<WidgetProps>,
+            { x: 0, y: height - bottomNavHeight, width }
+          )}
+        </Group>
+      )}
+      {floatingActionButton && (
+        <Group>
+          {React.cloneElement(
+            floatingActionButton as React.ReactElement<WidgetProps>,
+            { x: fabPos.x, y: fabPos.y }
+          )}
+        </Group>
+      )}
+      {drawer}
+    </Group>
+  );
+});

@@ -1,11 +1,11 @@
 # Phase 6: Gesture Manager (Hit Testing + Event Bubbling + Gesture Arena)
 
 ## Checklist
-- [ ] Lưu trữ vùng bấm (Rect) + HitTestBehavior của các widget
-- [ ] Bắt sự kiện chạm, xác định widget nào được nhấn dựa trên tọa độ
-- [ ] Triển khai Event Bubbling dựa trên HitTestBehavior
-- [ ] Triển khai Gesture Arena để xử lý xung đột gesture
-- [ ] Kích hoạt callback cho widget (onPress, onLongPress, onPan)
+- [x] Lưu trữ vùng bấm (Rect) + HitTestBehavior của các widget
+- [x] Bắt sự kiện chạm, xác định widget nào được nhấn dựa trên tọa độ
+- [x] Triển khai Event Bubbling dựa trên HitTestBehavior
+- [x] Triển khai Gesture Arena để xử lý xung đột gesture
+- [x] Kích hoạt callback cho widget (onPress, onLongPress, onPan)
 
 ## HitTestBehavior
 Mỗi widget khai báo cách xử lý event:

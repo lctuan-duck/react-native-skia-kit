@@ -12,13 +12,17 @@ import { useScrollPhysics } from 'react-native-skia-kit/hooks';
 function ScrollView({ height, horizontal, children }) {
   const contentHeight = 1200; // Đo từ layout
   
-  const { scrollOffset, handlePan } = useScrollPhysics(
+  const { scrollOffset, handlePanUpdate, handlePanEnd, scrollTo } = useScrollPhysics(
     'bouncing', // 'bouncing' | 'clamping'
     {
       viewportSize: height, 
       contentSize: contentHeight 
     }
   );
+
+  // handlePanUpdate(delta) — gọi khi đang kéo
+  // handlePanEnd(velocity) — gọi khi thả tay
+  // scrollTo(offset) — scroll programmatically
 
   return (
     <Group transform={[{ translateY: -scrollOffset.value }]}>

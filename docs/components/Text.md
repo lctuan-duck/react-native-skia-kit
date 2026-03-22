@@ -79,22 +79,29 @@ interface TextProps extends WidgetProps {
 ## Core Implementation (với Store Integration)
 
 ```tsx
-import { Paragraph, Skia, TextAlign } from '@shopify/react-native-skia';
+import { Paragraph, Skia, TextAlign, Group } from '@shopify/react-native-skia';
+import type { SkParagraphStyle } from '@shopify/react-native-skia';
 import React, { useMemo } from 'react';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
 import { useTheme } from '../hooks/useTheme';
-import { measureText } from '../functions/measureText';
 
-export const Text = React.memo(function Text({
+// IMPORTANT: Skia ParagraphBuilder bug fix
+// paragraphStyle/textStyle MUST NOT contain undefined values for numeric fields.
+// Skia native crashes with "Value is undefined, expected a number".
+// Only include optional numeric fields when they are defined.
+
+export const Text = React.memo(function SkiaText({
   x = 0, y = 0,
   width = 300,
+  height,
   text,
   children,
   fontSize = 14,
-  fontFamily = 'System',
+  fontFamily,
   fontWeight = 'normal',
-  color,                    // undefined → theme.colors.textBody
+  fontStyle = 'normal',
+  color,
   textAlign = 'left',
   numberOfLines,
   ellipsis = false,
@@ -104,66 +111,73 @@ export const Text = React.memo(function Text({
   onPress,
   onLongPress,
   hitTestBehavior = 'deferToChild',
-  accessibilityLabel,
 }: TextProps) {
   const theme = useTheme();
   const textColor = color ?? theme.colors.textBody;
-  const content = text ?? (typeof children === 'string' ? children : '');
+  const content = text ?? (typeof children === 'string' ? children : '') ?? '';
+  const family = fontFamily ?? theme.typography.fontFamily;
 
-  // Đo kích thước text cho Yoga layout
-  const measured = measureText(content, { fontSize, fontWeight, fontFamily, maxWidth: width });
-
-  // === Hook thay thế boilerplate ===
-  const widgetId = useWidget<{ text: string; fontSize: number; color: string }>({
+  const widgetId = useWidget({
     type: 'Text',
-    layout: { x, y, width: measured.width, height: measured.height },
-    props: { text: content, fontSize, color },
+    layout: { x, y, width, height: height ?? fontSize * 1.5 },
   });
 
+  // Text renders raw <Paragraph>, NOT <Box>, so it needs its own useHitTest
   useHitTest(widgetId, {
-    rect: { left: x, top: y, width: measured.width, height: measured.height },
+    rect: { left: x, top: y, width, height: height ?? fontSize * 1.5 },
     callbacks: { onPress, onLongPress },
     behavior: hitTestBehavior,
   });
 
-  // === Skia Paragraph ===
   const paragraph = useMemo(() => {
-    const alignMap = {
+    const alignMap: Record<string, TextAlign> = {
       center: TextAlign.Center,
       right: TextAlign.Right,
       left: TextAlign.Left,
     };
-    const p = Skia.ParagraphBuilder.Make(
-      {
-        maxLines: numberOfLines,
-        ellipsis: ellipsis ? '...' : undefined,
-        textAlign: alignMap[textAlign] ?? TextAlign.Left,
+
+    // BUG FIX: Only include maxLines when it's a valid positive number
+    const paragraphStyle: SkParagraphStyle = {
+      textAlign: alignMap[textAlign] ?? TextAlign.Left,
+      ...(numberOfLines != null && numberOfLines > 0
+        ? { maxLines: numberOfLines }
+        : {}),
+      ...(ellipsis ? { ellipsis: '...' } : {}),
+    };
+
+    const textStyle: Record<string, any> = {
+      color: Skia.Color(textColor),
+      fontSize,
+      fontFamilies: [family],
+      fontStyle: {
+        weight: fontWeight === 'bold' ? 700 : 400,
+        ...(fontStyle === 'italic' ? { slant: 1 } : {}),
       },
-      Skia.FontMgr.System()
-    )
-      .pushStyle({
-        color: Skia.Color(textColor),
-        fontSize,
-        fontFamilies: [fontFamily],
-        fontStyle: { weight: fontWeight === 'bold' ? 700 : 400 },
-        letterSpacing,
-        heightMultiplier: lineHeight ? lineHeight / fontSize : undefined,
-      })
-      .addText(content)
-      .pop()
-      .build();
-    p.layout(width);
-    return p;
-  }, [content, fontSize, fontFamily, fontWeight, color, textAlign, numberOfLines, ellipsis, width, lineHeight, letterSpacing]);
+    };
+
+    // BUG FIX: Only add optional values when they are defined
+    if (letterSpacing != null) {
+      textStyle.letterSpacing = letterSpacing;
+    }
+    if (lineHeight != null) {
+      textStyle.heightMultiplier = lineHeight / fontSize;
+    }
+
+    const builder = Skia.ParagraphBuilder.Make(paragraphStyle);
+    builder.pushStyle(textStyle);
+    builder.addText(content);
+    builder.pop();
+
+    const para = builder.build();
+    para.layout(width);
+    return para;
+  }, [content, textColor, fontSize, family, fontWeight, fontStyle,
+      textAlign, numberOfLines, ellipsis, width, lineHeight, letterSpacing]);
 
   return (
-    <Paragraph
-      paragraph={paragraph}
-      x={x}
-      y={y}
-      width={width}
-      opacity={opacity}
-    />
+    <Group opacity={opacity}>
+      <Paragraph paragraph={paragraph} x={x} y={y} width={width} />
+    </Group>
   );
 });
 ```

@@ -61,7 +61,6 @@ import { Circle } from '@shopify/react-native-skia';
 import { useDerivedValue } from 'react-native-reanimated';
 import { Box } from './Box';
 import { useWidget } from '../hooks/useWidget';
-import { useHitTest } from '../hooks/useHitTest';
 import { useTheme } from '../hooks/useTheme';
 
 export const Slider = React.memo(function Slider({
@@ -99,17 +98,13 @@ export const Slider = React.memo(function Slider({
   };
 
   // === Hook thay thế boilerplate ===
-  const widgetId = useWidget<{ value: number; min: number; max: number; disabled: boolean }>({
+  useWidget<{ value: number; min: number; max: number; disabled: boolean }>({
     type: 'Slider',
     layout: { x, y, width, height: totalHeight },
     props: { value, min, max, disabled },
   });
 
-  useHitTest(widgetId, {
-    rect: { left: x, top: y, width, height: totalHeight },
-    callbacks: { onPanUpdate: handlePanUpdate },
-    behavior: 'opaque',
-  });
+  // Box handles onPanUpdate via props — no useHitTest needed
 
   return (
     <Box
@@ -118,12 +113,13 @@ export const Slider = React.memo(function Slider({
       color="transparent"
       opacity={disabled ? 0.5 : 1}
       hitTestBehavior="opaque"
+      onPanUpdate={handlePanUpdate}
     >
       {/* Track background */}
-      <Box x={x} y={trackY} width={width} height={trackH} borderRadius={trackH / 2} color={trackColor} />
+      <Box x={x} y={trackY} width={width} height={trackH} borderRadius={trackH / 2} color={trackBg} />
 
       {/* Active fill */}
-      <Box x={x} y={trackY} width={fillWidth} height={trackH} borderRadius={trackH / 2} color={color} />
+      <Box x={x} y={trackY} width={fillWidth} height={trackH} borderRadius={trackH / 2} color={activeColor} />
 
       {/* Thumb — Circle + border */}
       <Circle cx={thumbCx} cy={y + thumbR} r={thumbR} color={thumbColor} />

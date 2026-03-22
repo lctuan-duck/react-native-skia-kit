@@ -60,7 +60,6 @@ interface ListTileProps extends WidgetProps {
 import React from 'react';
 import { Box, Text, Row, Column, Expanded } from 'react-native-skia-kit';
 import { useWidget } from '../hooks/useWidget';
-import { useHitTest } from '../hooks/useHitTest';
 import { useTheme } from '../hooks/useTheme';
 
 export const ListTile = React.memo(function ListTile({
@@ -87,16 +86,12 @@ export const ListTile = React.memo(function ListTile({
   // Auto height: dense=48, subtitle=72, default=56
   const tileHeight = height ?? (dense ? 48 : subtitle ? 72 : 56);
 
-  const widgetId = useWidget({
+  useWidget({
     type: 'ListTile',
     layout: { x, y, width, height: tileHeight },
   });
 
-  useHitTest(widgetId, {
-    rect: { left: x, top: y, width, height: tileHeight },
-    callbacks: { onPress, onLongPress },
-    behavior: 'opaque',
-  });
+  // Box handles onPress/onLongPress via props — no useHitTest needed
 
   return (
     <Box

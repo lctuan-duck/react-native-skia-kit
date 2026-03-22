@@ -1,85 +1,86 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { enableMapSet } from 'immer';
-import type { WidgetData, LayoutRect } from '../core/types';
-
-enableMapSet();
+import './setup';
+import type { WidgetData } from '../core/types';
 
 // ===== Store =====
 
 interface WidgetStoreState {
-  widgets: Map<string, WidgetData>;
+  widgetMap: Map<string, WidgetData>;
 
-  register: (id: string, data: Omit<WidgetData, 'id'>) => void;
-  unregister: (id: string) => void;
-  updateLayout: (id: string, layout: LayoutRect) => void;
-  getWidget: (id: string) => WidgetData | undefined;
+  registerWidget: (widgetInfo: WidgetData) => void;
+  unregisterWidget: (widgetId: string) => void;
+  updateWidgetState: (
+    widgetId: string,
+    newState: Record<string, unknown>
+  ) => void;
+  getWidget: (widgetId: string) => WidgetData | undefined;
   getChildren: (parentId: string) => WidgetData[];
 }
 
 export const useWidgetStore = create<WidgetStoreState>()(
   immer((set, get) => ({
-    widgets: new Map<string, WidgetData>(),
+    widgetMap: new Map<string, WidgetData>(),
 
-    register: (id, data) =>
+    registerWidget: (widgetInfo) =>
       set((state) => {
-        state.widgets.set(id, { ...data, id });
+        state.widgetMap.set(widgetInfo.id, widgetInfo);
 
         // Add to parent's children list
-        if (data.parentId) {
-          const parent = state.widgets.get(data.parentId);
-          if (parent && !parent.children.includes(id)) {
-            parent.children.push(id);
+        if (widgetInfo.parentId) {
+          const parent = state.widgetMap.get(widgetInfo.parentId);
+          if (parent && !parent.children.includes(widgetInfo.id)) {
+            parent.children.push(widgetInfo.id);
           }
         }
       }),
 
-    unregister: (id) =>
+    unregisterWidget: (widgetId) =>
       set((state) => {
-        const widget = state.widgets.get(id);
+        const widget = state.widgetMap.get(widgetId);
         if (!widget) return;
 
         // Remove from parent's children list
         if (widget.parentId) {
-          const parent = state.widgets.get(widget.parentId);
+          const parent = state.widgetMap.get(widget.parentId);
           if (parent) {
-            parent.children = parent.children.filter((cid) => cid !== id);
+            parent.children = parent.children.filter((cid) => cid !== widgetId);
           }
         }
 
         // Remove all children recursively
         const removeChildren = (parentId: string) => {
-          const w = state.widgets.get(parentId);
+          const w = state.widgetMap.get(parentId);
           if (w) {
             for (const childId of w.children) {
               removeChildren(childId);
-              state.widgets.delete(childId);
+              state.widgetMap.delete(childId);
             }
           }
         };
-        removeChildren(id);
+        removeChildren(widgetId);
 
-        state.widgets.delete(id);
+        state.widgetMap.delete(widgetId);
       }),
 
-    updateLayout: (id, layout) =>
+    updateWidgetState: (widgetId, newState) =>
       set((state) => {
-        const widget = state.widgets.get(id);
+        const widget = state.widgetMap.get(widgetId);
         if (widget) {
-          widget.layout = layout;
+          widget.state = newState;
         }
       }),
 
-    getWidget: (id) => {
-      return get().widgets.get(id);
+    getWidget: (widgetId) => {
+      return get().widgetMap.get(widgetId);
     },
 
     getChildren: (parentId) => {
       const state = get();
-      const parent = state.widgets.get(parentId);
+      const parent = state.widgetMap.get(parentId);
       if (!parent) return [];
       return parent.children
-        .map((cid) => state.widgets.get(cid))
+        .map((cid) => state.widgetMap.get(cid))
         .filter(Boolean) as WidgetData[];
     },
   }))

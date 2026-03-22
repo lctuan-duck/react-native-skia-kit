@@ -1,9 +1,9 @@
 # Phase 11: State Restoration for Navigation
 
 ## Checklist
-- [ ] Lưu và khôi phục trạng thái (scroll, form, animation) khi chuyển hoặc quay lại màn hình
-- [ ] Tích hợp stateMap cho từng screen/nav
-- [ ] Đảm bảo restore UI, animation, input value, scroll position
+- [x] Lưu và khôi phục trạng thái (scroll, form, animation) khi chuyển hoặc quay lại màn hình
+- [x] Tích hợp stateMap cho từng screen/nav
+- [x] Đảm bảo restore UI, animation, input value, scroll position
 
 ## Steps
 1. Mỗi màn hình khi render, lưu state vào stateMap (Zustand store)

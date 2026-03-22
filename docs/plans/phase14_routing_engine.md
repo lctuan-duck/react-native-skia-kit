@@ -1,9 +1,9 @@
 # Phase 14: Advanced Routing Engine
 
 ## Checklist
-- [ ] Hỗ trợ nested navigation, dynamic route, guarded route
-- [ ] Tích hợp routing logic vào navStore
-- [ ] Đảm bảo điều hướng linh hoạt, bảo mật, dễ mở rộng
+- [x] Hỗ trợ nested navigation, dynamic route, guarded route
+- [x] Tích hợp routing logic vào navStore
+- [x] Đảm bảo điều hướng linh hoạt, bảo mật, dễ mở rộng
 
 ## Steps
 1. Thiết kế routing engine: route tree, params, guard

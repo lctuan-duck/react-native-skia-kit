@@ -55,7 +55,6 @@ import { Circle } from '@shopify/react-native-skia';
 import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { Box } from './Box';
 import { useWidget } from '../hooks/useWidget';
-import { useHitTest } from '../hooks/useHitTest';
 import { useTheme } from '../hooks/useTheme';
 
 export const Switch = React.memo(function Switch({
@@ -90,17 +89,13 @@ export const Switch = React.memo(function Switch({
   };
 
   // === Hook thay thế boilerplate ===
-  const widgetId = useWidget<{ value: boolean; disabled: boolean }>({
+  useWidget<{ value: boolean; disabled: boolean }>({
     type: 'Switch',
     layout: { x, y, width, height },
     props: { value, disabled },
   });
 
-  useHitTest(widgetId, {
-    rect: { left: x, top: y, width, height },
-    callbacks: { onPress: handlePress },
-    behavior: 'opaque',
-  });
+  // Box handles onPress via hitTestBehavior + onPress prop — no useHitTest needed
 
   return (
     <Box

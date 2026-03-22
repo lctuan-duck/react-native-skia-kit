@@ -1,61 +1,61 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
+import { useWidgetId } from './useWidgetId';
 import { useWidgetStore } from '../stores/widgetStore';
+import { useLayoutStore } from '../stores/layoutStore';
 import type { LayoutRect } from '../core/types';
 
-let widgetCounter = 0;
-
-function generateWidgetId(type: string): string {
-  return `${type}_${++widgetCounter}`;
-}
-
-interface UseWidgetOptions {
+interface UseWidgetOptions<P = Record<string, unknown>> {
   type: string;
   layout: LayoutRect;
   parentId?: string;
-  props?: Record<string, unknown>;
+  props?: P;
 }
 
 /**
  * Hook to register a widget in the widget tree.
- * Auto-registers on mount, auto-unregisters on unmount.
+ * Auto-registers on mount in BOTH widgetStore and layoutStore.
+ * Auto-unregisters on unmount from both stores.
+ *
+ * Uses useWidgetId() for stable, unique IDs.
  *
  * Returns the widget's unique ID.
  */
-export function useWidget(options: UseWidgetOptions): string {
-  const idRef = useRef<string>(generateWidgetId(options.type));
-  const register = useWidgetStore((s) => s.register);
-  const unregister = useWidgetStore((s) => s.unregister);
-  const updateLayout = useWidgetStore((s) => s.updateLayout);
-
-  const id = idRef.current;
+export function useWidget<P = Record<string, unknown>>(
+  options: UseWidgetOptions<P>
+): string {
+  const widgetId = useWidgetId(options.type);
 
   useEffect(() => {
-    register(id, {
+    // Register widget in widgetStore
+    useWidgetStore.getState().registerWidget({
+      id: widgetId,
       type: options.type,
-      layout: options.layout,
-      props: options.props ?? {},
+      props: (options.props as Record<string, unknown>) ?? {},
+      state: {},
+      parentId: options.parentId ?? undefined,
       children: [],
-      parentId: options.parentId,
+      layout: options.layout,
     });
 
-    return () => {
-      unregister(id);
-    };
-    // Only run on mount/unmount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // Register layout in layoutStore
+    useLayoutStore.getState().setLayout(widgetId, options.layout);
 
-  // Update layout when props change
+    // Cleanup on unmount
+    return () => {
+      useWidgetStore.getState().unregisterWidget(widgetId);
+      useLayoutStore.getState().removeLayout(widgetId);
+    };
+  }, [widgetId]);
+
+  // Update layout when position/size changes
   useEffect(() => {
-    updateLayout(id, options.layout);
+    useLayoutStore.getState().setLayout(widgetId, options.layout);
   }, [
-    id,
     options.layout.x,
     options.layout.y,
     options.layout.width,
     options.layout.height,
-    updateLayout,
   ]);
 
-  return id;
+  return widgetId;
 }

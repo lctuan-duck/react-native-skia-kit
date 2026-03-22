@@ -1,14 +1,16 @@
-import React from 'react';
+import * as React from 'react';
 import { Group, RoundedRect, Rect, Shadow } from '@shopify/react-native-skia';
-import { Skia } from '@shopify/react-native-skia';
-import type { WidgetProps, HitTestBehavior } from '../core/types';
+import type { WidgetProps, HitTestBehavior, PanEvent } from '../core/types';
 import { useTheme } from '../hooks/useTheme';
 import { useWidget } from '../hooks/useWidget';
+import { useHitTest } from '../hooks/useHitTest';
+import { useYogaLayout } from '../hooks/useYogaLayout';
+import type { YogaFlexProps } from '../hooks/useYogaLayout';
 
-export interface BoxProps extends WidgetProps {
-  /** Background color */
+export interface BoxProps extends WidgetProps, YogaFlexProps {
+  /** Background color (default: 'transparent') */
   color?: string;
-  /** Border radius — number or [topLeft, topRight, bottomRight, bottomLeft] */
+  /** Border radius */
   borderRadius?: number;
   /** Border color */
   borderColor?: string;
@@ -18,10 +20,39 @@ export interface BoxProps extends WidgetProps {
   elevation?: number;
   /** Opacity 0-1 */
   opacity?: number;
+
+  // === Box-specific flex child props (not in WidgetProps) ===
+  /** Flex shrink */
+  flexShrink?: number;
+  /** Flex basis */
+  flexBasis?: number | 'auto';
+  /** Margin */
+  margin?: number | [number, number, number, number];
+
   /** Hit test behavior */
   hitTestBehavior?: HitTestBehavior;
-  /** Press callback */
+  /** z-index for hit test ordering */
+  zIndex?: number;
+  /** Overflow behavior: 'visible' (default) or 'hidden' (clips children) */
+  overflow?: 'visible' | 'hidden';
+
+  // === Events ===
   onPress?: () => void;
+  onLongPress?: () => void;
+  onPanStart?: (e: PanEvent) => void;
+  onPanUpdate?: (e: PanEvent) => void;
+  onPanEnd?: (e: PanEvent) => void;
+  onLayout?: (layout: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) => void;
+
+  // === Accessibility ===
+  accessibilityLabel?: string;
+  accessibilityRole?: string;
+
   /** Children */
   children?: React.ReactNode;
 }
@@ -29,6 +60,9 @@ export interface BoxProps extends WidgetProps {
 /**
  * Box — base container widget.
  * Renders a rectangle (optionally rounded) on Skia canvas.
+ * When flex props are provided, uses the JS flex layout engine
+ * to calculate child positions automatically.
+ *
  * Tương đương Flutter Container/DecoratedBox.
  */
 export const Box = React.memo(function Box({
@@ -36,27 +70,109 @@ export const Box = React.memo(function Box({
   y = 0,
   width = 100,
   height = 100,
-  color,
+  color = 'transparent',
   borderRadius = 0,
-  borderColor,
+  borderColor = 'transparent',
   borderWidth = 0,
   elevation = 0,
   opacity = 1,
+  hitTestBehavior = 'deferToChild',
+  zIndex = 0,
+  // Events
+  onPress,
+  onLongPress,
+  onPanStart,
+  onPanUpdate,
+  onPanEnd,
+  onLayout,
+  // Overflow
+  overflow = 'visible',
+  // Flex container props
+  flexDirection,
+  flexWrap,
+  justifyContent,
+  alignItems,
+  gap,
+  rowGap,
+  padding,
+  // Flex child props (consumed by parent layout, not used here)
+  flex: _flex,
+  flexGrow: _flexGrow,
+  flexShrink: _flexShrink,
+  flexBasis: _flexBasis,
+  alignSelf: _alignSelf,
+  margin: _margin,
+  position: _position,
+  top: _top,
+  left: _left,
+  right: _right,
+  bottom: _bottom,
+  // Accessibility
+  accessibilityLabel: _accessibilityLabel,
+  accessibilityRole: _accessibilityRole,
+  // Children
   children,
 }: BoxProps) {
   const theme = useTheme();
-  const bgColor = color ?? theme.colors.surface;
+  const bgColor = color;
 
-  useWidget({
+  const widgetId = useWidget({
     type: 'Box',
     layout: { x, y, width, height },
   });
 
-  const paint = Skia.Paint();
-  paint.setColor(Skia.Color(bgColor));
+  // Register hit test for events
+  useHitTest(widgetId, {
+    rect: { left: x, top: y, width, height },
+    callbacks: { onPress, onLongPress, onPanStart, onPanUpdate, onPanEnd },
+    behavior: hitTestBehavior,
+    zIndex,
+  });
+
+  // Always call useYogaLayout (hooks must not be conditional).
+  // When no flex props, it returns children unmodified.
+  const flexProps: YogaFlexProps = {
+    flexDirection,
+    flexWrap,
+    justifyContent,
+    alignItems,
+    gap,
+    rowGap,
+    padding,
+  };
+
+  const hasFlex = !!(
+    flexDirection ||
+    justifyContent ||
+    alignItems ||
+    gap != null
+  );
+  const result = useYogaLayout(
+    widgetId,
+    { x, y, width, height },
+    hasFlex ? flexProps : {},
+    hasFlex ? children : null
+  );
+
+  const renderedChildren = hasFlex ? result.renderedChildren : children;
+
+  // Fire onLayout callback
+  if (onLayout) {
+    onLayout({ x, y, width, height });
+  }
+
+  const showBackground = bgColor !== 'transparent';
+  const shouldClip = overflow === 'hidden';
+
+  // Clip rect for overflow:'hidden'
+  const clipRect = shouldClip
+    ? borderRadius > 0
+      ? { x, y, width, height, rx: borderRadius, ry: borderRadius }
+      : { x, y, width, height }
+    : undefined;
 
   return (
-    <Group opacity={opacity}>
+    <Group opacity={opacity} clip={clipRect}>
       {/* Shadow */}
       {elevation > 0 && (
         <Group>
@@ -67,13 +183,13 @@ export const Box = React.memo(function Box({
               width={width}
               height={height}
               r={borderRadius}
-              color={bgColor}
+              color={showBackground ? bgColor : theme.colors.surface}
             >
               <Shadow
                 dx={0}
                 dy={elevation / 2}
-                blur={elevation}
-                color={theme.colors.shadow}
+                blur={elevation * 2}
+                color="rgba(0,0,0,0.2)"
               />
             </RoundedRect>
           ) : (
@@ -82,21 +198,22 @@ export const Box = React.memo(function Box({
               y={y}
               width={width}
               height={height}
-              color={bgColor}
+              color={showBackground ? bgColor : theme.colors.surface}
             >
               <Shadow
                 dx={0}
                 dy={elevation / 2}
-                blur={elevation}
-                color={theme.colors.shadow}
+                blur={elevation * 2}
+                color="rgba(0,0,0,0.2)"
               />
             </Rect>
           )}
         </Group>
       )}
 
-      {/* Background */}
+      {/* Background — only render when color is not transparent */}
       {elevation === 0 &&
+        showBackground &&
         (borderRadius > 0 ? (
           <RoundedRect
             x={x}
@@ -111,7 +228,7 @@ export const Box = React.memo(function Box({
         ))}
 
       {/* Border */}
-      {borderWidth > 0 && borderColor && (
+      {borderWidth > 0 && borderColor !== 'transparent' && (
         <>
           {borderRadius > 0 ? (
             <RoundedRect
@@ -139,7 +256,7 @@ export const Box = React.memo(function Box({
       )}
 
       {/* Children */}
-      {children}
+      {renderedChildren}
     </Group>
   );
 });

@@ -1,9 +1,9 @@
 # Phase 7: Typography Engine (Text Rendering)
 
 ## Checklist
-- [ ] Nhúng font .ttf vào assets, không dùng font hệ thống
-- [ ] Sử dụng Skia's SkParagraph để xử lý word wrap, căn lề, đo kích thước chữ
-- [ ] Đảm bảo đồng nhất UI trên Android/iOS
+- [x] Nhúng font .ttf vào assets, không dùng font hệ thống
+- [x] Sử dụng Skia's SkParagraph để xử lý word wrap, căn lề, đo kích thước chữ
+- [x] Đảm bảo đồng nhất UI trên Android/iOS
 
 ## Steps
 1. Thêm file font .ttf vào thư mục assets

@@ -50,7 +50,6 @@ import React from 'react';
 import { Path } from '@shopify/react-native-skia';
 import { Box } from './Box';
 import { useWidget } from '../hooks/useWidget';
-import { useHitTest } from '../hooks/useHitTest';
 import { useTheme } from '../hooks/useTheme';
 
 export const Checkbox = React.memo(function Checkbox({
@@ -76,17 +75,13 @@ export const Checkbox = React.memo(function Checkbox({
   };
 
   // === Hook thay thế boilerplate ===
-  const widgetId = useWidget<{ checked: boolean; disabled: boolean }>({
+  useWidget<{ checked: boolean; disabled: boolean }>({
     type: 'Checkbox',
     layout: { x, y, width: size, height: size },
     props: { checked, disabled },
   });
 
-  useHitTest(widgetId, {
-    rect: { left: x, top: y, width: size, height: size },
-    callbacks: { onPress: handlePress },
-    behavior: 'opaque',
-  });
+  // Box handles onPress via hitTestBehavior + onPress prop — no useHitTest needed
 
   return (
     <Box

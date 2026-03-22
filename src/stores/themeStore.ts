@@ -1,9 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { enableMapSet } from 'immer';
+import './setup';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-enableMapSet();
 
 // ===== Types =====
 
