@@ -42,14 +42,14 @@ export const products: Product[] = [
 
 // ===== Quick Actions (Home Screen) =====
 export const quickActions: QuickAction[] = [
-  { id: '1', label: 'Lịch sử\norder', icon: 'history', color: '#1A73E8', bgColor: '#E8F0FE' },
-  { id: '2', label: 'Lịch làm\nviệc', icon: 'calendar', color: '#F97316', bgColor: '#FFF3E0' },
-  { id: '3', label: 'Đăng ký\nlàm việc', icon: 'register', color: '#DC2626', bgColor: '#FEE2E2' },
-  { id: '4', label: 'Tạo thu\nchi', icon: 'money', color: '#16A34A', bgColor: '#DCFCE7' },
-  { id: '5', label: 'Order\nhàng hóa', icon: 'cart', color: '#16A34A', bgColor: '#DCFCE7' },
-  { id: '6', label: 'Kỳ lương', icon: 'salary', color: '#1A73E8', bgColor: '#E8F0FE' },
-  { id: '7', label: 'Đăng ký\nnghỉ', icon: 'leave', color: '#7C3AED', bgColor: '#F3E8FF' },
-  { id: '8', label: 'Tất cả', icon: 'grid', color: '#6B7280', bgColor: '#F3F4F6' },
+  { id: '1', label: 'Lịch sử\norder', icon: 'search', color: '#1A73E8', bgColor: '#E8F0FE' },
+  { id: '2', label: 'Lịch làm\nviệc', icon: 'edit', color: '#F97316', bgColor: '#FFF3E0' },
+  { id: '3', label: 'Đăng ký\nlàm việc', icon: 'check', color: '#DC2626', bgColor: '#FEE2E2' },
+  { id: '4', label: 'Tạo thu\nchi', icon: 'star', color: '#16A34A', bgColor: '#DCFCE7' },
+  { id: '5', label: 'Order\nhàng hóa', icon: 'send', color: '#16A34A', bgColor: '#DCFCE7' },
+  { id: '6', label: 'Kỳ lương', icon: 'lock', color: '#1A73E8', bgColor: '#E8F0FE' },
+  { id: '7', label: 'Đăng ký\nnghỉ', icon: 'plus', color: '#7C3AED', bgColor: '#F3E8FF' },
+  { id: '8', label: 'Tất cả', icon: 'more', color: '#6B7280', bgColor: '#F3F4F6' },
 ];
 
 // ===== Helpers =====

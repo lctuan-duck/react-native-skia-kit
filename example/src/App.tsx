@@ -17,8 +17,8 @@ const TAB_SCREENS = ['home', 'order', 'notifications', 'account'] as const;
 const bottomNavItems = [
   { icon: 'home', label: 'Trang chủ' },
   { icon: 'menu', label: 'Order' },
-  { icon: 'notifications', label: 'Thông báo' },
-  { icon: 'person', label: 'Tài khoản' },
+  { icon: 'bell', label: 'Thông báo' },
+  { icon: 'user', label: 'Tài khoản' },
 ];
 
 /**
@@ -55,16 +55,52 @@ function AppContent() {
         </Screen>
 
         <Screen name="notifications">
-          <Box x={0} y={0} width={width} height={height - bottomNavH} color="#F5F5F5">
-            <Text x={width / 2 - 50} y={height / 2 - 40} text="Thông báo" fontSize={20} fontWeight="bold" />
-            <Text x={width / 2 - 60} y={height / 2 - 10} text="Chưa có thông báo" fontSize={14} color="#9CA3AF" />
+          <Box
+            x={0}
+            y={0}
+            width={width}
+            height={height - bottomNavH}
+            color="#F5F5F5"
+          >
+            <Text
+              x={width / 2 - 50}
+              y={height / 2 - 40}
+              text="Thông báo"
+              fontSize={20}
+              fontWeight="bold"
+            />
+            <Text
+              x={width / 2 - 60}
+              y={height / 2 - 10}
+              text="Chưa có thông báo"
+              fontSize={14}
+              color="#9CA3AF"
+            />
           </Box>
         </Screen>
 
         <Screen name="account">
-          <Box x={0} y={0} width={width} height={height - bottomNavH} color="#F5F5F5">
-            <Text x={width / 2 - 40} y={height / 2 - 40} text="Tài khoản" fontSize={20} fontWeight="bold" />
-            <Text x={width / 2 - 80} y={height / 2 - 10} text="Quản lý tài khoản của bạn" fontSize={14} color="#9CA3AF" />
+          <Box
+            x={0}
+            y={0}
+            width={width}
+            height={height - bottomNavH}
+            color="#F5F5F5"
+          >
+            <Text
+              x={width / 2 - 40}
+              y={height / 2 - 40}
+              text="Tài khoản"
+              fontSize={20}
+              fontWeight="bold"
+            />
+            <Text
+              x={width / 2 - 80}
+              y={height / 2 - 10}
+              text="Quản lý tài khoản của bạn"
+              fontSize={14}
+              color="#9CA3AF"
+            />
           </Box>
         </Screen>
       </Nav>

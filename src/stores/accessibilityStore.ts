@@ -1,7 +1,18 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import './setup';
-import type * as React from 'react';
+import type { AccessibilityRole } from 'react-native';
+
+// Defined locally to avoid circular dependency with ../core/Accessibility
+export interface AccessibilityNode {
+  widgetId: string;
+  label: string;
+  role: AccessibilityRole;
+  hint?: string;
+  value?: { min?: number; max?: number; now?: number; text?: string };
+  rect: { x: number; y: number; width: number; height: number };
+  onPress?: () => void;
+}
 
 // ===== Types =====
 
@@ -24,7 +35,7 @@ export interface AccessibilityInfo {
 interface AccessibilityStoreState {
   focusWidgetId: string | null;
   accessibilityMap: Map<string, AccessibilityInfo>;
-  nodesMap: Map<string, React.ReactNode>;
+  nodesMap: Map<string, AccessibilityNode>;
 
   setFocus: (widgetId: string | null) => void;
   setAccessibility: (widgetId: string, info: AccessibilityInfo) => void;
@@ -32,16 +43,16 @@ interface AccessibilityStoreState {
   getAccessibility: (widgetId: string) => AccessibilityInfo | undefined;
 
   // Phase 13: Native overlay nodes
-  registerNode: (widgetId: string, node: React.ReactNode) => void;
+  registerNode: (widgetId: string, node: AccessibilityNode) => void;
   unregisterNode: (widgetId: string) => void;
-  getNodes: () => React.ReactNode[];
+  getNodes: () => AccessibilityNode[];
 }
 
 export const useAccessibilityStore = create<AccessibilityStoreState>()(
   immer((set, get) => ({
     focusWidgetId: null,
     accessibilityMap: new Map<string, AccessibilityInfo>(),
-    nodesMap: new Map<string, React.ReactNode>(),
+    nodesMap: new Map<string, AccessibilityNode>(),
 
     setFocus: (widgetId) =>
       set((state) => {
@@ -63,7 +74,7 @@ export const useAccessibilityStore = create<AccessibilityStoreState>()(
     },
 
     // Phase 13: Native overlay nodes for screen reader
-    registerNode: (widgetId: string, node: React.ReactNode) =>
+    registerNode: (widgetId: string, node: AccessibilityNode) =>
       set((state) => {
         state.nodesMap.set(widgetId, node);
       }),

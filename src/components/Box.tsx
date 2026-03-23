@@ -68,8 +68,8 @@ export interface BoxProps extends WidgetProps, YogaFlexProps {
 export const Box = React.memo(function Box({
   x = 0,
   y = 0,
-  width = 100,
-  height = 100,
+  width,
+  height,
   color = 'transparent',
   borderRadius = 0,
   borderColor = 'transparent',
@@ -116,14 +116,19 @@ export const Box = React.memo(function Box({
   const theme = useTheme();
   const bgColor = color;
 
+  // Resolve width/height: undefined means "auto-sized by parent flex layout"
+  // Fallback to 0 for standalone usage (renders nothing until parent injects size)
+  const w = width ?? 0;
+  const h = height ?? 0;
+
   const widgetId = useWidget({
     type: 'Box',
-    layout: { x, y, width, height },
+    layout: { x, y, width: w, height: h },
   });
 
   // Register hit test for events
   useHitTest(widgetId, {
-    rect: { left: x, top: y, width, height },
+    rect: { left: x, top: y, width: w, height: h },
     callbacks: { onPress, onLongPress, onPanStart, onPanUpdate, onPanEnd },
     behavior: hitTestBehavior,
     zIndex,
@@ -149,7 +154,7 @@ export const Box = React.memo(function Box({
   );
   const result = useYogaLayout(
     widgetId,
-    { x, y, width, height },
+    { x, y, width: w, height: h },
     hasFlex ? flexProps : {},
     hasFlex ? children : null
   );
@@ -158,7 +163,7 @@ export const Box = React.memo(function Box({
 
   // Fire onLayout callback
   if (onLayout) {
-    onLayout({ x, y, width, height });
+    onLayout({ x, y, width: w, height: h });
   }
 
   const showBackground = bgColor !== 'transparent';
@@ -167,8 +172,8 @@ export const Box = React.memo(function Box({
   // Clip rect for overflow:'hidden'
   const clipRect = shouldClip
     ? borderRadius > 0
-      ? { x, y, width, height, rx: borderRadius, ry: borderRadius }
-      : { x, y, width, height }
+      ? { x, y, width: w, height: h, rx: borderRadius, ry: borderRadius }
+      : { x, y, width: w, height: h }
     : undefined;
 
   return (
@@ -180,8 +185,8 @@ export const Box = React.memo(function Box({
             <RoundedRect
               x={x}
               y={y}
-              width={width}
-              height={height}
+              width={w}
+              height={h}
               r={borderRadius}
               color={showBackground ? bgColor : theme.colors.surface}
             >
@@ -196,8 +201,8 @@ export const Box = React.memo(function Box({
             <Rect
               x={x}
               y={y}
-              width={width}
-              height={height}
+              width={w}
+              height={h}
               color={showBackground ? bgColor : theme.colors.surface}
             >
               <Shadow
@@ -218,13 +223,13 @@ export const Box = React.memo(function Box({
           <RoundedRect
             x={x}
             y={y}
-            width={width}
-            height={height}
+            width={w}
+            height={h}
             r={borderRadius}
             color={bgColor}
           />
         ) : (
-          <Rect x={x} y={y} width={width} height={height} color={bgColor} />
+          <Rect x={x} y={y} width={w} height={h} color={bgColor} />
         ))}
 
       {/* Border */}
@@ -234,8 +239,8 @@ export const Box = React.memo(function Box({
             <RoundedRect
               x={x}
               y={y}
-              width={width}
-              height={height}
+              width={w}
+              height={h}
               r={borderRadius}
               color={borderColor}
               style="stroke"
@@ -245,8 +250,8 @@ export const Box = React.memo(function Box({
             <Rect
               x={x}
               y={y}
-              width={width}
-              height={height}
+              width={w}
+              height={h}
               color={borderColor}
               style="stroke"
               strokeWidth={borderWidth}
@@ -260,3 +265,4 @@ export const Box = React.memo(function Box({
     </Group>
   );
 });
+

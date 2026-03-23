@@ -22,8 +22,8 @@ export interface CardProps extends WidgetProps {
 export const Card = React.memo(function Card({
   x = 0,
   y = 0,
-  width = 280,
-  height = 160,
+  width,
+  height,
   variant = 'elevated',
   borderRadius = 12,
   backgroundColor,
@@ -34,7 +34,10 @@ export const Card = React.memo(function Card({
   const theme = useTheme();
   const styles = resolveCardStyles(variant, backgroundColor, theme);
 
-  useWidget({ type: 'Card', layout: { x, y, width, height } });
+  const w = width ?? 0;
+  const h = height ?? 0;
+
+  useWidget({ type: 'Card', layout: { x, y, width: w, height: h } });
 
   return (
     <Box

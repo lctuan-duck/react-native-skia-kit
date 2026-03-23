@@ -41,7 +41,7 @@ export interface ListTileProps extends WidgetProps {
 export const ListTile = React.memo(function ListTile({
   x = 0,
   y = 0,
-  width = 360,
+  width,
   height,
   title,
   subtitle,
@@ -63,9 +63,11 @@ export const ListTile = React.memo(function ListTile({
   // Auto height: dense=48, subtitle=72, default=56
   const tileHeight = height ?? (dense ? 48 : subtitle ? 72 : 56);
 
+  const w = width ?? 0;
+
   useWidget({
     type: 'ListTile',
-    layout: { x, y, width, height: tileHeight },
+    layout: { x, y, width: w, height: tileHeight },
   });
 
   return (

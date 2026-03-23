@@ -1,296 +1,172 @@
 # Box Component
 
 ## Mục đích
-- Container hoặc khối UI cơ bản (tương đương `Container`/`DecoratedBox` của Flutter).
-- Hỗ trợ layout, style, flex, padding, margin, background, border, opacity, zIndex.
-- Có thể chứa children (cũng là Skia nodes).
+- Container cơ bản (tương đương `Container`/`DecoratedBox` của Flutter).
 - **Là base component cốt lõi** — hầu hết component khác đều compose từ Box.
+- Hỗ trợ flex layout, style, padding, background, border, shadow, events.
 
 ## Flutter tương đương
 - `Container`, `DecoratedBox`, `SizedBox`, `Padding`
 
-## Kiến trúc: Skia Group Node
+## ⚡ Layout Model (Flutter Constraint-Based)
 
-> **Box KHÔNG có Canvas riêng.** Box là một `<Group>` chứa `<RoundedRect>` + children, tất cả vẽ vào Canvas chung của `CanvasRoot`.
+> **Box sử dụng mô hình layout theo Flutter:**
+> 1. **Constraints Go Down**: Parent truyền giới hạn (min/max width/height) xuống Box
+> 2. **Sizes Go Up**: Box tự tính kích thước dựa trên constraints và nội dung
+> 3. **Parent Sets Position**: Parent đặt Box vào vị trí `(x, y)` — **bạn KHÔNG cần set `x`, `y`**
 
-```
-CanvasRoot (<Canvas>)
-└── Box → <Group>
-    ├── <RoundedRect>  ← background
-    └── children       ← các Skia node con
-```
+### Greedy vs Humble
+- **Box = Greedy** (mặc định): tự dãn ra chiếm cross-axis của parent (giống CSS `display: block`)
+- Trong `Column` parent: Box auto width = parent width, height cần set hoặc dùng `flex`
+- Trong `Row` parent: Box auto height = parent height, width cần set hoặc dùng `flex`
 
-## HitTestBehavior
-- Mặc định: **`deferToChild`** — Box chỉ nhận event nếu child nhận event.
-- Xem chi tiết: [event-store.md](../store-design/event-store.md), [integration.md](../store-design/integration.md)
+### Default width/height = `undefined`
+- Box **không có** width/height mặc định cố định
+- Khi là child của flex container: parent inject width/height qua `cloneElement`
+- Khi là root: **phải set** width/height rõ ràng
 
 ## TypeScript Interface
 
 ```ts
 interface BoxProps extends WidgetProps {
-  // Layout (tính bởi Yoga, inject từ layoutStore)
-  x?: number;              // default: 0
-  y?: number;              // default: 0
-  width?: number;          // default: 100
-  height?: number;         // default: 100
+  // ===== Layout (tự động bởi parent flex — thường KHÔNG cần set) =====
+  x?: number;              // Vị trí X — parent inject tự động
+  y?: number;              // Vị trí Y — parent inject tự động
+  width?: number;          // Chiều rộng — auto stretch trong Column, hoặc set cố định
+  height?: number;         // Chiều cao — auto stretch trong Row, hoặc set cố định
 
-  // Style
-  color?: string;          // default: 'transparent'
-  borderRadius?: number;   // default: 0
-  borderWidth?: number;    // default: 0
-  borderColor?: string;    // default: 'transparent'
-  opacity?: number;        // default: 1
-  elevation?: number;      // default: 0
+  // ===== Style =====
+  color?: string;          // Màu nền (default: 'transparent')
+  borderRadius?: number;   // Bo góc (px)
+  borderWidth?: number;    // Độ dày viền
+  borderColor?: string;    // Màu viền
+  opacity?: number;        // Độ mờ (0–1)
+  elevation?: number;      // Đổ bóng (shadow depth)
+  overflow?: 'visible' | 'hidden';  // Ẩn/hiện phần tràn
 
-  // Flex (truyền vào Yoga.Node → useYogaLayout xử lý)
-  flex?: number;
+  // ===== Flex Container Props (khi Box là parent) =====
   flexDirection?: 'row' | 'column';
-  flexWrap?: 'nowrap' | 'wrap';
-  alignItems?: 'start' | 'center' | 'end' | 'stretch';
-  alignSelf?: 'auto' | 'start' | 'center' | 'end' | 'stretch';
+    // 'row'    → children xếp NGANG (→), main axis = ngang, cross axis = dọc
+    // 'column' → children xếp DỌC (↓), main axis = dọc, cross axis = ngang
+
   justifyContent?: 'start' | 'center' | 'end' | 'spaceBetween' | 'spaceAround' | 'spaceEvenly';
-  gap?: number;
-  rowGap?: number;           // gap dọc (khi flexWrap)
-  flexGrow?: number;
-  flexShrink?: number;
-  flexBasis?: number | 'auto';
+    // Căn chỉnh children trên MAIN AXIS (chiều chính)
+    // 'start'        → dồn về đầu
+    // 'center'       → căn giữa
+    // 'end'          → dồn về cuối
+    // 'spaceBetween' → khoảng cách đều, không padding hai đầu
+    // 'spaceAround'  → khoảng cách đều, có padding hai đầu
+    // 'spaceEvenly'  → khoảng cách hoàn toàn đều
+
+  alignItems?: 'start' | 'center' | 'end' | 'stretch';
+    // Căn chỉnh children trên CROSS AXIS (chiều vuông góc)
+    // DEFAULT: 'stretch' — children tự dãn full cross axis
+    // 'start'   → dồn về đầu cross axis
+    // 'center'  → căn giữa cross axis
+    // 'end'     → dồn về cuối cross axis
+    // 'stretch' → dãn full cross axis (⚠️ ĐÂY LÀ DEFAULT)
+
+  gap?: number;            // Khoảng cách giữa children (px)
+  rowGap?: number;         // Khoảng cách giữa hàng khi flexWrap
+  flexWrap?: 'nowrap' | 'wrap';  // Xuống dòng khi tràn
   padding?: number | [number, number, number, number]; // [top, right, bottom, left]
-  margin?: number | [number, number, number, number];
-  position?: 'relative' | 'absolute';  // cho Stack/Positioned
-  top?: number;
+
+  // ===== Flex Child Props (khi Box là child) =====
+  flex?: number;           // Chiếm tỉ lệ main axis còn lại (giống Flutter Expanded)
+  flexGrow?: number;       // Alias cho flex
+  alignSelf?: 'auto' | 'start' | 'center' | 'end' | 'stretch';
+    // Override alignItems của parent cho riêng Box này
+
+  position?: 'relative' | 'absolute';  // 'absolute' = thoát khỏi flow
+  top?: number;            // Offset (chỉ khi position='absolute')
   left?: number;
   right?: number;
   bottom?: number;
 
-  // Children
-  children?: React.ReactNode;
-
-  // Events
+  // ===== Events =====
   onPress?: () => void;
   onLongPress?: () => void;
-  onPanStart?: (e: GestureEvent) => void;
-  onPanUpdate?: (e: GestureEvent) => void;
-  onPanEnd?: (e: GestureEvent) => void;
+  onPanStart?: (e: PanEvent) => void;
+  onPanUpdate?: (e: PanEvent) => void;
+  onPanEnd?: (e: PanEvent) => void;
   onLayout?: (layout: LayoutRect) => void;
 
-  // Hit Test
-  hitTestBehavior?: HitTestBehavior; // default: 'deferToChild'
-  zIndex?: number;                   // default: 0
-
-  // Accessibility
-  accessibilityLabel?: string;
-  accessibilityRole?: string;
+  hitTestBehavior?: HitTestBehavior;  // default: 'deferToChild'
+  zIndex?: number;
+  children?: React.ReactNode;
 }
 ```
 
-## Props Table
-
-| Prop | Type | Default | Required | Mô tả |
-|------|------|---------|----------|-------|
-| `x` | `number` | `0` | ❌ | Top-left X position |
-| `y` | `number` | `0` | ❌ | Top-left Y position |
-| `width` | `number` | `100` | ❌ | Chiều rộng |
-| `height` | `number` | `100` | ❌ | Chiều cao |
-| `color` | `string` | `'transparent'` | ❌ | Màu nền |
-| `borderRadius` | `number` | `0` | ❌ | Bo góc |
-| `borderWidth` | `number` | `0` | ❌ | Độ dày viền |
-| `borderColor` | `string` | `'transparent'` | ❌ | Màu viền |
-| `opacity` | `number` | `1` | ❌ | Độ mờ (0–1) |
-| `elevation` | `number` | `0` | ❌ | Đổ bóng (shadow) |
-| `hitTestBehavior` | `HitTestBehavior` | `'deferToChild'` | ❌ | Chế độ hit test |
-| `children` | `ReactNode` | — | ❌ | Skia nodes con |
-| `onPress` | `() => void` | — | ❌ | Tap callback |
-| `onLongPress` | `() => void` | — | ❌ | Long press callback |
-| `onPanStart` | `(e) => void` | — | ❌ | Pan start callback |
-| `onPanUpdate` | `(e) => void` | — | ❌ | Pan update callback |
-| `onPanEnd` | `(e) => void` | — | ❌ | Pan end callback |
-| `accessibilityLabel` | `string` | — | ❌ | Screen reader label |
-
-## Core Implementation (với Store + Yoga Integration)
-
-```tsx
-import { Group, RoundedRect, Paint, Shadow } from '@shopify/react-native-skia';
-import React from 'react';
-import { useWidget } from '../hooks/useWidget';
-import { useHitTest } from '../hooks/useHitTest';
-import { useYogaLayout } from '../hooks/useYogaLayout';
-
-export const Box = React.memo(function Box({
-  x = 0, y = 0,
-  width = 100, height = 100,
-  color = 'transparent',
-  borderRadius = 0,
-  borderWidth = 0,
-  borderColor = 'transparent',
-  opacity = 1,
-  elevation = 0,
-  hitTestBehavior = 'deferToChild',
-  zIndex = 0,
-  children,
-  onPress,
-  onLongPress,
-  onPanStart,
-  onPanUpdate,
-  onPanEnd,
-  accessibilityLabel,
-  accessibilityRole,
-  // === Yoga Flex Props ===
-  flexDirection,
-  justifyContent,
-  alignItems,
-  alignSelf,
-  gap,
-  flex: flexValue,
-  flexGrow,
-  flexShrink,
-  padding,
-  margin,
-  position,
-  top, left, right, bottom,
-}: BoxProps) {
-  // === Widget + Hit Test registration ===
-  const widgetId = useWidget<{ color: string; borderRadius: number }>({
-    type: 'Box',
-    layout: { x, y, width, height },
-    props: { color, borderRadius },
-  });
-
-  useHitTest(widgetId, {
-    rect: { left: x, top: y, width, height },
-    callbacks: { onPress, onLongPress, onPanStart, onPanUpdate, onPanEnd },
-    behavior: hitTestBehavior,
-    zIndex,
-  });
-
-  // === Yoga Layout: chỉ chạy khi Box có flex props ===
-  const hasFlexProps = !!(flexDirection || justifyContent || alignItems || gap != null);
-
-  const computedChildLayouts = hasFlexProps
-    ? useYogaLayout(widgetId, { x, y, width, height }, {
-        flexDirection, justifyContent, alignItems, gap, padding,
-      }, children)
-    : null;
-
-  // === Inject computed layout vào children ===
-  const renderedChildren = hasFlexProps && computedChildLayouts
-    ? React.Children.map(children, (child, i) => {
-        if (!React.isValidElement(child) || !computedChildLayouts[i]) return child;
-        const cl = computedChildLayouts[i];
-        // Clone child với x, y, width, height từ Yoga
-        return React.cloneElement(child as React.ReactElement<any>, {
-          x: cl.x,
-          y: cl.y,
-          width: child.props.width ?? cl.width,   // child width override nếu có
-          height: child.props.height ?? cl.height, // child height override nếu có
-        });
-      })
-    : children; // Không có flex → render children nguyên bản (x, y thủ công)
-
-  // === Skia Rendering ===
-  return (
-    <Group opacity={opacity}>
-      {/* Shadow layer nếu có elevation */}
-      {elevation > 0 && (
-        <RoundedRect x={x} y={y} width={width} height={height} r={borderRadius} color="transparent">
-          <Paint>
-            <Shadow dx={0} dy={elevation} blur={elevation * 2} color="rgba(0,0,0,0.2)" />
-          </Paint>
-        </RoundedRect>
-      )}
-
-      {/* Background */}
-      <RoundedRect x={x} y={y} width={width} height={height} r={borderRadius} color={color} />
-
-      {/* Border (nếu có) */}
-      {borderWidth > 0 && (
-        <RoundedRect
-          x={x} y={y} width={width} height={height}
-          r={borderRadius} color={borderColor}
-          style="stroke" strokeWidth={borderWidth}
-        />
-      )}
-
-      {/* Children — inject computed layout hoặc render nguyên bản */}
-      {renderedChildren}
-    </Group>
-  );
-});
-```
-
-### Yoga Integration Flow
-
-```
-Box nhận props
-│
-├── CÓ flex props? (flexDirection, gap, justifyContent, alignItems)
-│   │
-│   ├── YES → useYogaLayout() tạo Yoga tree → tính x,y cho từng child
-│   │         → React.cloneElement inject x,y,width,height
-│   │         → children render với vị trí tuyệt đối từ Yoga
-│   │
-│   └── NO  → render children nguyên bản (x,y thủ công)
-│
-└── Skia render: Group → RoundedRect (bg) → children
-```
-
-## Smart Re-render
-- `React.memo`: chặn re-render khi props không thay đổi.
-- Zustand selector: chỉ re-render khi layout của Box này thay đổi.
-- `useDerivedValue`: Skia canvas chỉ re-render khi animated value thay đổi.
-
 ## Cách dùng
 
-### Absolute positioning (không flex — backward compatible)
+### ✅ Auto layout (recommended — không cần x, y)
 ```tsx
-<Box x={16} y={100} width={328} height={160} color="white" borderRadius={12} elevation={4}>
-  <Text x={32} y={116} text="Hello" fontSize={18} color="black" />
-  <Image x={32} y={148} width={120} height={80} src="..." />
-</Box>
-```
-
-### Flex layout — Yoga tính x/y tự động
-```tsx
-{/* Column layout — children tự xếp dọc, gap 12px */}
-<Box x={16} y={100} width={328} color="white" borderRadius={12}
-  flexDirection="column" gap={12} padding={16}
->
-  <Text text="Card Title" fontSize={18} fontWeight="bold" />
-  <Text text="Description here" fontSize={14} color={theme.colors.textSecondary} />
-  <Button text="Action" height={40} />
-</Box>
-{/* Yoga tính: Text1 → (16,16), Text2 → (16,48), Button → (16,74) */}
+{/* Column: children tự xếp dọc, auto stretch width */}
+<Column width={360} height={800} gap={12} padding={16}>
+  <Box height={50} color="red" />      {/* width auto = 360 - 32 (padding) */}
+  <Box height={80} color="blue" />     {/* width auto = 328 */}
+  <Box flex={1} color="green" />       {/* fill hết height còn lại */}
+</Column>
 ```
 
 ### Row layout — spaceBetween
 ```tsx
-<Box x={0} y={0} width={360} height={60} color="white"
-  flexDirection="row" justifyContent="spaceBetween" alignItems="center" padding={16}
->
-  <Text text="MyApp" fontSize={20} fontWeight="bold" />
-  <Avatar size={36} src={user.avatar} />
+<Box flexDirection="row" justifyContent="spaceBetween" alignItems="center" padding={16}>
+  <Text text="Title" fontSize={20} fontWeight="bold" flex={1} />
+  <Icon name="menu" size={24} />
 </Box>
 ```
 
-### Event handling (có hoặc không flex đều hoạt động)
+### Card với flex
 ```tsx
-<Box x={16} y={300} width={200} height={60}
-  color={theme.colors.primaryVariant} borderRadius={8}
+<Box
+  height={72}
+  borderRadius={12}
+  color="white"
+  elevation={2}
+  flexDirection="row"
+  alignItems="center"
+  padding={12}
+  gap={10}
+>
+  <Box width={36} height={36} borderRadius={10} color="#E8F0FE"
+    flexDirection="column" justifyContent="center" alignItems="center">
+    <Icon name="menu" size={20} color="#1A73E8" />
+  </Box>
+  <Column flex={1} mainAxisAlignment="center">
+    <Text text="Danh sách hóa đơn" fontSize={13} fontWeight="600" />
+  </Column>
+</Box>
+```
+
+### Event handling
+```tsx
+<Box height={48} color="#1A73E8" borderRadius={8}
   hitTestBehavior="opaque"
   onPress={() => console.log('Pressed!')}
+  flexDirection="row" justifyContent="center" alignItems="center"
 >
-  <Text x={32} y={320} text="Bấm vào đây" />
+  <Text text="Bấm vào đây" color="white" fontWeight="bold" />
 </Box>
 ```
 
-## User Event Logic
-- Hit test xảy ra ở `CanvasRoot` → dispatch vào `eventStore` → Gesture Arena
-- `onPress`: TapRecognizer win → callback
-- `hitTestBehavior=deferToChild`: Box chỉ nhận event nếu một child nhận event.
+## Layout Engine Flow
+
+```
+Box nhận props
+│
+├── CÓ flex props? (flexDirection || justifyContent || alignItems || gap)
+│   │
+│   ├── YES → useYogaLayout() chạy:
+│   │         1. Constraints Go Down (parent size → child constraints)
+│   │         2. Sizes Go Up (children resolve sizes: greedy/humble)
+│   │         3. Parent Sets Position → cloneElement inject x,y,w,h
+│   │
+│   └── NO  → render children nguyên bản
+│
+└── Skia render: Group → Shadow → Background → Border → Children
+```
 
 ## Links
-- Store: [widget-store.md](../store-design/widget-store.md), [layout-store.md](../store-design/layout-store.md), [event-store.md](../store-design/event-store.md)
-- Hooks: [useWidget.md](../hooks/useWidget.md), [useHitTest.md](../hooks/useHitTest.md), [useYogaLayout.md](../hooks/useYogaLayout.md)
-- Integration: [integration.md](../store-design/integration.md)
-- Layout: [Row.md](./Row.md), [Column.md](./Column.md), [Stack.md](./Stack.md)
-- Phase: [phase4_layout_engine.md](../plans/phase4_layout_engine.md)
-
+- Layout: [Column.md](./Column.md), [Row.md](./Row.md), [Expanded.md](./Expanded.md), [ScrollView.md](./ScrollView.md)
+- Engine: [useYogaLayout.md](../hooks/useYogaLayout.md)

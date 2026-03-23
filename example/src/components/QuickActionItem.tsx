@@ -1,10 +1,11 @@
-import { Box, Text, useTheme } from 'react-native-skia-kit';
+import { Box, Text, Icon, useTheme } from 'react-native-skia-kit';
 
 interface QuickActionItemProps {
   size: number;
   label: string;
   color: string;
   bgColor: string;
+  icon?: string;
   onPress?: () => void;
 }
 
@@ -12,7 +13,7 @@ interface QuickActionItemProps {
  * QuickActionItem — icon tile for dashboard quick actions grid.
  * Uses flex layout — no manual x/y.
  */
-export function QuickActionItem({ size, label, color, bgColor, onPress }: QuickActionItemProps) {
+export function QuickActionItem({ size, label, color, bgColor, icon, onPress }: QuickActionItemProps) {
   const theme = useTheme();
   const iconBoxSize = size * 0.55;
 
@@ -30,7 +31,7 @@ export function QuickActionItem({ size, label, color, bgColor, onPress }: QuickA
         color={bgColor}
         flexDirection="column" justifyContent="center" alignItems="center"
       >
-        <Box width={20} height={20} borderRadius={10} color={color} />
+        <Icon name={icon ?? 'star'} size={22} color={color} />
       </Box>
 
       {/* Label */}

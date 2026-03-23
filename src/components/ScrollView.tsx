@@ -44,8 +44,17 @@ export const ScrollView = React.memo(function ScrollView({
   scrollEnabled = true,
   padding = 0,
 }: ScrollViewProps) {
-  const estimatedContentSize =
-    contentSize ?? (horizontal ? width * 2 : height * 2);
+  // Auto-calculate contentSize from children if not specified
+  let estimatedContentSize: number;
+  if (contentSize != null) {
+    estimatedContentSize = contentSize;
+  } else {
+    // Estimate from children's sizes
+    const { estimateContentSize: estimate } = require('../hooks/useYogaLayout');
+    const autoSize = estimate(children, width);
+    // Ensure contentSize >= viewport so physics work correctly
+    estimatedContentSize = Math.max(autoSize, horizontal ? width : height);
+  }
 
   const { scrollOffset, handlePanUpdate, handlePanEnd } = useScrollPhysics(
     physics === 'clamped' ? 'clamping' : 'bouncing',

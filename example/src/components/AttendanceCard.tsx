@@ -1,5 +1,4 @@
-import * as React from 'react';
-import { Box, Text, useTheme } from 'react-native-skia-kit';
+import { Box, Text, Icon } from 'react-native-skia-kit';
 
 interface AttendanceCardProps {
   width: number;
@@ -25,7 +24,7 @@ export function AttendanceCard({ width }: AttendanceCardProps) {
         color="rgba(255,255,255,0.25)"
         flexDirection="column" justifyContent="center" alignItems="center"
       >
-        <Box width={24} height={24} borderRadius={12} color="#ffffff" />
+        <Icon name="check" size={22} color="#ffffff" />
       </Box>
 
       {/* Text content */}
@@ -52,7 +51,7 @@ export function AttendanceCard({ width }: AttendanceCardProps) {
         color="rgba(255,255,255,0.2)"
         flexDirection="column" justifyContent="center" alignItems="center"
       >
-        <Text text="›" fontSize={18} fontWeight="bold" color="#ffffff" width={10} height={20} />
+        <Icon name="arrow-right" size={16} color="#ffffff" />
       </Box>
     </Box>
   );

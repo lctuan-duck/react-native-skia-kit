@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { Canvas, Group } from '@shopify/react-native-skia';
 import { useWindowDimensions } from 'react-native';
 import type { ViewStyle } from 'react-native';
@@ -44,14 +44,15 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   children,
 }: CanvasRootProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const overlays = useOverlayStore((s) => Array.from(s.overlays.values()));
+  const overlaysMap = useOverlayStore((s) => s.overlays);
+  const overlays = Array.from(overlaysMap.values());
 
   // Sort overlays by zIndex (lower zIndex drawn first, higher drawn on top)
   const sortedOverlays = [...overlays].sort((a, b) => a.zIndex - b.zIndex);
 
   // === Touch Event Dispatch ===
-  // Pan tracking for delta calculation
-  const lastPanRef = useRef({ x: 0, y: 0 });
+  // All gesture callbacks run on JS thread via .runOnJS(true)
+  // because they access zustand stores which are JS-thread only
 
   const dispatchPress = useCallback(
     (x: number, y: number) => {
@@ -74,12 +75,15 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   );
 
   // Tap gesture → onPress
-  const tapGesture = Gesture.Tap().onEnd((e) => {
-    dispatchPress(e.absoluteX, e.absoluteY);
-  });
+  const tapGesture = Gesture.Tap()
+    .runOnJS(true)
+    .onEnd((e) => {
+      dispatchPress(e.absoluteX, e.absoluteY);
+    });
 
   // Long press gesture → onLongPress
   const longPressGesture = Gesture.LongPress()
+    .runOnJS(true)
     .minDuration(500)
     .onEnd((e) => {
       dispatchLongPress(e.absoluteX, e.absoluteY);
@@ -87,8 +91,8 @@ export const CanvasRoot = React.memo(function CanvasRoot({
 
   // Pan gesture → onPanStart/onPanUpdate/onPanEnd
   const panGesture = Gesture.Pan()
+    .runOnJS(true)
     .onStart((e) => {
-      lastPanRef.current = { x: e.translationX, y: e.translationY };
       const receivers = useEventStore
         .getState()
         .hitTest(canvasId, e.absoluteX, e.absoluteY);
@@ -117,7 +121,6 @@ export const CanvasRoot = React.memo(function CanvasRoot({
           absoluteY: e.absoluteY,
         });
       }
-      lastPanRef.current = { x: e.translationX, y: e.translationY };
     })
     .onEnd((e) => {
       const receivers = useEventStore
@@ -133,7 +136,6 @@ export const CanvasRoot = React.memo(function CanvasRoot({
           absoluteY: e.absoluteY,
         });
       }
-      lastPanRef.current = { x: 0, y: 0 };
     });
 
   // Combine gestures: tap and long press are exclusive, pan is simultaneous

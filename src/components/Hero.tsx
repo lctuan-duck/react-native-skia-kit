@@ -41,20 +41,23 @@ export const Hero = React.memo(function Hero({
   tag,
   x = 0,
   y = 0,
-  width = 100,
-  height = 100,
+  width,
+  height,
   children,
 }: HeroProps) {
+  const w = width ?? 0;
+  const h = height ?? 0;
+
   useWidget({
     type: 'Hero',
-    layout: { x, y, width, height },
+    layout: { x, y, width: w, height: h },
   });
 
   // Register hero data in store
   useEffect(() => {
     useHeroStore.getState().registerHero(tag, {
       tag,
-      rect: { x, y, width, height },
+      rect: { x, y, width: w, height: h },
     });
 
     return () => {

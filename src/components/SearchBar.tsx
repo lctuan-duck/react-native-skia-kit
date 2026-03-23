@@ -27,7 +27,7 @@ export interface SearchBarProps extends WidgetProps {
 export const SearchBar = React.memo(function SearchBar({
   x = 0,
   y = 0,
-  width = 360,
+  width,
   height = 48,
   value: controlledValue,
   placeholder = 'Tìm kiếm...',
@@ -46,7 +46,8 @@ export const SearchBar = React.memo(function SearchBar({
   const [internalValue, setInternalValue] = useState('');
   const text = controlledValue ?? internalValue;
 
-  useWidget({ type: 'SearchBar', layout: { x, y, width, height } });
+  const w = width ?? 0;
+  useWidget({ type: 'SearchBar', layout: { x, y, width: w, height } });
 
   const handleClear = () => {
     setInternalValue('');

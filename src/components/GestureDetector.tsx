@@ -27,8 +27,8 @@ export interface GestureDetectorProps extends WidgetProps {
 export const GestureDetector = React.memo(function GestureDetector({
   x = 0,
   y = 0,
-  width = 100,
-  height = 100,
+  width,
+  height,
   children,
   onTap,
   onDoubleTap: _onDoubleTap,
@@ -38,13 +38,16 @@ export const GestureDetector = React.memo(function GestureDetector({
   onPanEnd,
   hitTestBehavior = 'deferToChild',
 }: GestureDetectorProps) {
+  const w = width ?? 0;
+  const h = height ?? 0;
+
   const widgetId = useWidget({
     type: 'GestureDetector',
-    layout: { x, y, width, height },
+    layout: { x, y, width: w, height: h },
   });
 
   useHitTest(widgetId, {
-    rect: { left: x, top: y, width, height },
+    rect: { left: x, top: y, width: w, height: h },
     callbacks: {
       onPress: onTap,
       onLongPress,

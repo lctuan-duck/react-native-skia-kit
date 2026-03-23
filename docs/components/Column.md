@@ -1,117 +1,88 @@
 # Column Component
 
 ## Mục đích
-- Sắp xếp children theo chiều **dọc** (vertical).
-- Hỗ trợ mainAxisAlignment, crossAxisAlignment, spacing.
+- Sắp xếp children theo chiều **dọc** (↓ vertical).
+- Wrapper mỏng trên `Box` với `flexDirection="column"`.
 
 ## Flutter tương đương
 - `Column`
 
-## Kiến trúc: Box wrapper → Yoga Layout
+## ⚡ Layout Behavior
 
-> **Column = `<Box>` với `flexDirection="column"`.** Yoga engine tính toán x/y cho từng child tự động.
-> Children bên trong Column **KHÔNG CẦN** truyền `x, y`.
+> **Children bên trong Column KHÔNG CẦN `x`, `y`, `width`.** Layout engine inject tự động.
 
-## TypeScript Interface
+| Trục | Hướng | Thuộc tính |
+|------|-------|-----------|
+| **Main axis** | ↓ Dọc (vertical) | `mainAxisAlignment` điều khiển |
+| **Cross axis** | → Ngang (horizontal) | `crossAxisAlignment` điều khiển |
+
+### Mặc định:
+- Children **auto stretch width** = parent width (cross axis stretch)
+- Children cần **explicit height** hoặc dùng `flex={1}` để fill
+
+## Props
 
 ```ts
 interface ColumnProps extends WidgetProps {
-  x?: number;              // default: 0 — vị trí Column container
-  y?: number;              // default: 0
-  width?: number;          // default: auto
-  height?: number;         // default: auto
+  // ===== Vị trí container (thường do parent inject) =====
+  x?: number;
+  y?: number;
+  width?: number;          // Chiều rộng container
+  height?: number;         // Chiều cao container
+
+  // ===== Main Axis (↓ DỌC) =====
   mainAxisAlignment?: 'start' | 'center' | 'end' | 'spaceBetween' | 'spaceAround' | 'spaceEvenly';
+    // Căn chỉnh children theo chiều DỌC
+    // default: 'start' — dồn lên trên
+
+  // ===== Cross Axis (→ NGANG) =====
   crossAxisAlignment?: 'start' | 'center' | 'end' | 'stretch';
-  gap?: number;
-  padding?: number | [number, number, number, number];
-  color?: string;
+    // Căn chỉnh children theo chiều NGANG
+    // default: 'stretch' — children tự dãn full width
+
+  gap?: number;            // Khoảng cách dọc giữa children (px)
+  padding?: number | [top, right, bottom, left];
+  color?: string;          // Màu nền (default: 'transparent')
   borderRadius?: number;
+
   children?: React.ReactNode;
 }
 ```
 
-## Core Implementation
-
-```tsx
-import React from 'react';
-import { Box } from './Box';
-
-export const Column = React.memo(function Column({
-  x = 0, y = 0,
-  width, height,
-  mainAxisAlignment = 'start',
-  crossAxisAlignment = 'start',
-  gap = 0,
-  padding = 0,
-  color = 'transparent',
-  borderRadius = 0,
-  children,
-  ...rest
-}: ColumnProps) {
-  return (
-    <Box
-      x={x} y={y}
-      width={width} height={height}
-      color={color}
-      borderRadius={borderRadius}
-      flexDirection="column"
-      justifyContent={mainAxisAlignment}
-      alignItems={crossAxisAlignment}
-      gap={gap}
-      padding={padding}
-      {...rest}
-    >
-      {children}
-    </Box>
-  );
-});
-```
-
-> Children bên trong Column **KHÔNG CẦN** `x, y`. Yoga inject tự động.
-
 ## Cách dùng
 
-### Form layout
+### Basic — children auto stretch width
 ```tsx
-<Column x={16} y={100} width={328} gap={16}>
-  <Input placeholder="Email" />
-  <Input placeholder="Password" secureTextEntry />
-  <Button text="Đăng nhập" />
+<Column width={360} height={400} gap={8} padding={16}>
+  <Text text="Title" fontSize={18} fontWeight="bold" />     {/* width = 328 auto */}
+  <Box height={50} color="red" />                            {/* width = 328 auto */}
+  <Box flex={1} color="blue" />                              {/* fill remaining height */}
 </Column>
-{/* Yoga: Input1→(0,0), Input2→(0,56), Button→(0,112) */}
 ```
 
-### Card content
+### Center content
 ```tsx
-<Card x={16} y={100} width={328}>
-  <Column padding={16} gap={8}>
-    <Text text="Đơn hàng #1234" fontSize={18} fontWeight="bold" />
-    <Divider />
-    <Row mainAxisAlignment="spaceBetween">
-      <Text text="Sản phẩm:" />
-      <Text text="3 items" color={theme.colors.textSecondary} />
-    </Row>
-    <Row mainAxisAlignment="spaceBetween">
-      <Text text="Tổng:" fontWeight="bold" />
-      <Text text="450.000đ" fontWeight="bold" color={theme.colors.success} />
-    </Row>
-  </Column>
-</Card>
-```
-
-### Centered content
-```tsx
-<Column x={0} y={0} width={360} height={800}
-  mainAxisAlignment="center" crossAxisAlignment="center" gap={16}
+<Column width={360} height={800}
+  mainAxisAlignment="center"    {/* ↓ căn giữa dọc */}
+  crossAxisAlignment="center"   {/* → căn giữa ngang */}
+  gap={16}
 >
-  <Icon name="check" size={64} color={theme.colors.success} />
+  <Icon name="check" size={64} color="green" />
   <Text text="Thành công!" fontSize={24} fontWeight="bold" />
-  <Text text="Đơn hàng đã được xác nhận" fontSize={14} color={theme.colors.textSecondary} />
-  <Button text="Về trang chủ" onPress={goHome} />
 </Column>
+```
+
+### Card với text căn giữa dọc
+```tsx
+<Box height={72} flexDirection="row" alignItems="center" padding={12} gap={10}>
+  <Icon name="star" size={24} />
+  <Column flex={1} mainAxisAlignment="center">
+    <Text text="Title" fontSize={14} fontWeight="bold" />
+    <Text text="Subtitle" fontSize={12} color="gray" />
+  </Column>
+</Box>
 ```
 
 ## Links
 - Base: [Box.md](./Box.md)
 - Related: [Row.md](./Row.md), [Expanded.md](./Expanded.md)
-- Engine: [useYogaLayout.md](../hooks/useYogaLayout.md)

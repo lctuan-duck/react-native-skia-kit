@@ -1,215 +1,96 @@
 # Text Component
 
 ## Mục đích
-- Hiển thị văn bản, hỗ trợ font, màu, kích thước, alignment, multiline, ellipsis.
-- Component base cho mọi text UI trong kit.
+- Hiển thị văn bản trên Skia canvas.
+- Hỗ trợ font, màu, kích thước, alignment, multiline, ellipsis.
 
 ## Flutter tương đương
-- `Text`, `RichText`, `DefaultTextStyle`
+- `Text`, `RichText`
 
-## Kiến trúc: Skia Paragraph Node
+## ⚡ Layout Behavior
 
-> **Text KHÔNG có Canvas riêng.** Text là một `<Paragraph>` (SkParagraph) vẽ trực tiếp vào Canvas chung của `CanvasRoot`.
+> **Text = "Humble" widget** — chỉ chiếm vừa đủ kích thước nội dung.
 
-```
-CanvasRoot (<Canvas>)
-└── Text → <Paragraph paragraph={...} x={x} y={y} width={width} />
-```
+| Ngữ cảnh | Width | Height |
+|-----------|-------|--------|
+| Trong **Column** | auto stretch = parent width | auto = `fontSize × 1.4` |
+| Trong **Row** | auto estimate = `text.length × fontSize × 0.55` | auto stretch = parent height |
+| Có **`flex={1}`** | fill remaining space | (giữ nguyên) |
+| Set **explicit** | giá trị bạn set | giá trị bạn set |
 
-## TypeScript Interface
+### Quan trọng:
+- ⚠️ Text trong **Row** nên dùng `flex={1}` nếu muốn chiếm hết chiều ngang còn lại
+- Text **auto-height** từ `fontSize` khi không set `height` explicit
+- Không render string trực tiếp trong Skia — phải dùng `<Text>` component
+
+## Props
 
 ```ts
 interface TextProps extends WidgetProps {
-  // Layout
-  x?: number;               // default: 0
-  y?: number;               // default: 0
-  width?: number;           // default: 300
+  // ===== Content =====
+  text?: string;           // Nội dung text
+  children?: string;       // Alternative: <Text>Hello</Text>
 
-  // Content (một trong hai)
-  text?: string;
-  children?: string;
+  // ===== Typography =====
+  fontSize?: number;       // Cỡ chữ (default: 14)
+  fontFamily?: string;     // Font (default: theme font)
+  fontWeight?: 'normal' | 'bold' | '100' | ... | '900';  // Độ đậm
+  fontStyle?: 'normal' | 'italic';
+  color?: string;          // Màu chữ (default: theme.colors.textBody)
+  opacity?: number;        // Độ mờ (0–1)
 
-  // Typography
-  fontSize?: number;        // default: 14
-  fontFamily?: string;      // default: 'System'
-  fontWeight?: 'normal' | 'bold' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900'; // default: 'normal'
-  fontStyle?: 'normal' | 'italic'; // default: 'normal'
-  color?: string;           // default: theme.colors.textBody
-  opacity?: number;         // default: 1
+  // ===== Text Layout =====
+  textAlign?: 'left' | 'center' | 'right';  // Căn chỉnh trong box (default: 'left')
+  numberOfLines?: number;  // Giới hạn số dòng
+  ellipsis?: boolean;      // Hiện "..." khi tràn
+  lineHeight?: number;     // Chiều cao dòng (px)
+  letterSpacing?: number;  // Khoảng cách giữa ký tự
 
-  // Text layout
-  textAlign?: 'left' | 'center' | 'right'; // default: 'left'
-  numberOfLines?: number;
-  ellipsis?: boolean;       // default: false
-  lineHeight?: number;
-  letterSpacing?: number;
+  // ===== Flex Child Props =====
+  flex?: number;           // Chiếm tỉ lệ main axis (dùng trong Row)
+  alignSelf?: 'auto' | 'start' | 'center' | 'end' | 'stretch';
 
-  // Events
+  // ===== Layout (thường KHÔNG cần set — parent inject) =====
+  x?: number;              // Parent inject tự động
+  y?: number;              // Parent inject tự động
+  width?: number;          // Auto hoặc parent inject (default: 300 standalone)
+  height?: number;         // Auto = paragraph.getHeight()
+
+  // ===== Events =====
   onPress?: () => void;
   onLongPress?: () => void;
-  onLayout?: (layout: LayoutRect) => void;
-
-  // Accessibility
-  accessibilityLabel?: string;
-  accessibilityRole?: string;
 }
-```
-
-## Props Table
-
-| Prop | Type | Default | Required | Mô tả |
-|------|------|---------|----------|-------|
-| `x` | `number` | `0` | ❌ | Top-left X |
-| `y` | `number` | `0` | ❌ | Top-left Y |
-| `width` | `number` | `300` | ❌ | Max width cho text wrap |
-| `text` | `string` | — | ⚠️ | Nội dung text (hoặc dùng `children`) |
-| `children` | `string` | — | ⚠️ | Nội dung text (thay thế `text`) |
-| `fontSize` | `number` | `14` | ❌ | Cỡ chữ |
-| `fontFamily` | `string` | `'System'` | ❌ | Font family |
-| `fontWeight` | `string` | `'normal'` | ❌ | Độ đậm |
-| `color` | `string` | `theme.textBody` | ❌ | Màu chữ |
-| `opacity` | `number` | `1` | ❌ | Độ mờ |
-| `textAlign` | `'left' \| 'center' \| 'right'` | `'left'` | ❌ | Căn chỉnh |
-| `numberOfLines` | `number` | — | ❌ | Giới hạn số dòng |
-| `ellipsis` | `boolean` | `false` | ❌ | Hiện "..." khi tràn |
-| `lineHeight` | `number` | — | ❌ | Chiều cao dòng |
-| `letterSpacing` | `number` | — | ❌ | Khoảng cách giữa chữ |
-| `onPress` | `() => void` | — | ❌ | Tap callback |
-
-## Core Implementation (với Store Integration)
-
-```tsx
-import { Paragraph, Skia, TextAlign, Group } from '@shopify/react-native-skia';
-import type { SkParagraphStyle } from '@shopify/react-native-skia';
-import React, { useMemo } from 'react';
-import { useWidget } from '../hooks/useWidget';
-import { useHitTest } from '../hooks/useHitTest';
-import { useTheme } from '../hooks/useTheme';
-
-// IMPORTANT: Skia ParagraphBuilder bug fix
-// paragraphStyle/textStyle MUST NOT contain undefined values for numeric fields.
-// Skia native crashes with "Value is undefined, expected a number".
-// Only include optional numeric fields when they are defined.
-
-export const Text = React.memo(function SkiaText({
-  x = 0, y = 0,
-  width = 300,
-  height,
-  text,
-  children,
-  fontSize = 14,
-  fontFamily,
-  fontWeight = 'normal',
-  fontStyle = 'normal',
-  color,
-  textAlign = 'left',
-  numberOfLines,
-  ellipsis = false,
-  opacity = 1,
-  lineHeight,
-  letterSpacing,
-  onPress,
-  onLongPress,
-  hitTestBehavior = 'deferToChild',
-}: TextProps) {
-  const theme = useTheme();
-  const textColor = color ?? theme.colors.textBody;
-  const content = text ?? (typeof children === 'string' ? children : '') ?? '';
-  const family = fontFamily ?? theme.typography.fontFamily;
-
-  const widgetId = useWidget({
-    type: 'Text',
-    layout: { x, y, width, height: height ?? fontSize * 1.5 },
-  });
-
-  // Text renders raw <Paragraph>, NOT <Box>, so it needs its own useHitTest
-  useHitTest(widgetId, {
-    rect: { left: x, top: y, width, height: height ?? fontSize * 1.5 },
-    callbacks: { onPress, onLongPress },
-    behavior: hitTestBehavior,
-  });
-
-  const paragraph = useMemo(() => {
-    const alignMap: Record<string, TextAlign> = {
-      center: TextAlign.Center,
-      right: TextAlign.Right,
-      left: TextAlign.Left,
-    };
-
-    // BUG FIX: Only include maxLines when it's a valid positive number
-    const paragraphStyle: SkParagraphStyle = {
-      textAlign: alignMap[textAlign] ?? TextAlign.Left,
-      ...(numberOfLines != null && numberOfLines > 0
-        ? { maxLines: numberOfLines }
-        : {}),
-      ...(ellipsis ? { ellipsis: '...' } : {}),
-    };
-
-    const textStyle: Record<string, any> = {
-      color: Skia.Color(textColor),
-      fontSize,
-      fontFamilies: [family],
-      fontStyle: {
-        weight: fontWeight === 'bold' ? 700 : 400,
-        ...(fontStyle === 'italic' ? { slant: 1 } : {}),
-      },
-    };
-
-    // BUG FIX: Only add optional values when they are defined
-    if (letterSpacing != null) {
-      textStyle.letterSpacing = letterSpacing;
-    }
-    if (lineHeight != null) {
-      textStyle.heightMultiplier = lineHeight / fontSize;
-    }
-
-    const builder = Skia.ParagraphBuilder.Make(paragraphStyle);
-    builder.pushStyle(textStyle);
-    builder.addText(content);
-    builder.pop();
-
-    const para = builder.build();
-    para.layout(width);
-    return para;
-  }, [content, textColor, fontSize, family, fontWeight, fontStyle,
-      textAlign, numberOfLines, ellipsis, width, lineHeight, letterSpacing]);
-
-  return (
-    <Group opacity={opacity}>
-      <Paragraph paragraph={paragraph} x={x} y={y} width={width} />
-    </Group>
-  );
-});
 ```
 
 ## Cách dùng
 
-### Cơ bản
+### Trong Column (auto width, auto height)
 ```tsx
-<CanvasRoot>
-  <Box x={16} y={100} width={328} height={80} color="white">
-    <Text x={32} y={116} width={296} text="Tiêu đề" fontSize={20} fontWeight="bold" color="black" />
-    <Text x={32} y={148} width={296} text="Mô tả chi tiết..." fontSize={14} color="gray" numberOfLines={2} ellipsis />
-  </Box>
-</CanvasRoot>
+<Column width={360} gap={8} padding={16}>
+  <Text text="Tiêu đề" fontSize={20} fontWeight="bold" />
+  <Text text="Mô tả chi tiết ở đây..." fontSize={14} color="gray" />
+</Column>
+{/* Text1: width=328(auto), height=28(fontSize*1.4) */}
+{/* Text2: width=328(auto), height=20(fontSize*1.4) */}
 ```
 
-### Với children string
+### Trong Row (cần flex={1})
 ```tsx
-<Text x={16} y={100} fontSize={16} color={theme.colors.textBody}>
-  Hello World
-</Text>
-```
-
-### Trong Button (composition)
-```tsx
-<Box x={16} y={100} width={200} height={48} color={theme.colors.primary} borderRadius={8} hitTestBehavior="opaque" onPress={login}>
-  <Text x={32} y={116} width={168} text="Đăng nhập" color="white" fontWeight="bold" textAlign="center" />
+<Box flexDirection="row" justifyContent="spaceBetween" alignItems="center">
+  <Text text="Title" fontSize={16} fontWeight="bold" flex={1} />
+  <Text text="Action" fontSize={13} color="#1A73E8" />
 </Box>
 ```
 
+### Multiline + ellipsis
+```tsx
+<Text
+  text="Đây là đoạn text dài sẽ bị cắt nếu vượt quá 2 dòng..."
+  fontSize={14}
+  numberOfLines={2}
+  ellipsis
+/>
+```
+
 ## Links
-- Function: [measureText](../functions/measureText.md)
-- Store: [widget-store.md](../store-design/widget-store.md), [layout-store.md](../store-design/layout-store.md)
-- Integration: [integration.md](../store-design/integration.md)
-- Phase: [phase3_base_widget.md](../plans/phase3_base_widget.md), [phase7_typography.md](../plans/phase7_typography.md)
+- Layout: [Box.md](./Box.md), [Column.md](./Column.md), [Row.md](./Row.md)
