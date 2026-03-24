@@ -7,6 +7,11 @@ import { Expanded } from './Expanded';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type {
+  ColorStyle,
+  BorderStyle,
+  FlexChildStyle,
+} from '../core/style.types';
 
 export type TabBarVariant = 'tab' | 'segment';
 
@@ -16,43 +21,47 @@ export interface TabItem {
   disabled?: boolean;
 }
 
+export type TabBarStyle = ColorStyle &
+  BorderStyle &
+  FlexChildStyle & {
+    activeColor?: string;
+    inactiveColor?: string;
+    indicatorColor?: string;
+    width?: number;
+    height?: number;
+  };
+
 export interface TabBarProps extends WidgetProps {
   items: TabItem[];
   activeIndex?: number;
   onChanged?: (index: number) => void;
   variant?: TabBarVariant;
-  activeColor?: string;
-  inactiveColor?: string;
-  backgroundColor?: string;
-  indicatorColor?: string;
-  borderRadius?: number;
   scrollable?: boolean;
+  /** Style override */
+  style?: TabBarStyle;
 }
 
 export const TabBar = React.memo(function TabBar({
   x = 0,
   y = 0,
-  width = 360,
-  height = 48,
   items,
   activeIndex = 0,
   onChanged,
   variant = 'tab',
-  activeColor,
-  inactiveColor,
-  backgroundColor,
-  indicatorColor,
-  borderRadius = 24,
+  style,
 }: TabBarProps) {
   const theme = useTheme();
-  const active = activeColor ?? theme.colors.primary;
-  const inactive = inactiveColor ?? theme.colors.textSecondary;
+  const active = style?.activeColor ?? theme.colors.primary;
+  const inactive = style?.inactiveColor ?? theme.colors.textSecondary;
   const bgColor =
-    backgroundColor ??
+    style?.backgroundColor ??
     (variant === 'segment'
       ? theme.colors.surfaceVariant
       : theme.colors.surface);
-  const indicator = indicatorColor ?? active;
+  const indicator = style?.indicatorColor ?? active;
+  const borderRadius = style?.borderRadius ?? 24;
+  const width = style?.width ?? 360;
+  const height = style?.height ?? 48;
   const tabWidth = width / items.length;
 
   useWidget({ type: 'TabBar', layout: { x, y, width, height } });
@@ -62,29 +71,33 @@ export const TabBar = React.memo(function TabBar({
       <Box
         x={x}
         y={y}
-        width={width}
-        height={height}
-        borderRadius={borderRadius}
-        color={bgColor}
-        flexDirection="row"
-        padding={2}
+        style={{
+          width,
+          height,
+          borderRadius,
+          backgroundColor: bgColor,
+          flexDirection: 'row',
+          padding: 2,
+        }}
       >
         {items.map((item, i) => {
           const isActive = i === activeIndex;
           return (
             <Expanded key={i}>
               <Box
-                height={height - 4}
-                borderRadius={borderRadius - 2}
-                color={isActive ? '#ffffff' : 'transparent'}
-                elevation={isActive ? 2 : 0}
+                style={{
+                  height: height - 4,
+                  borderRadius: borderRadius - 2,
+                  backgroundColor: isActive ? '#ffffff' : 'transparent',
+                  elevation: isActive ? 2 : 0,
+                  opacity: item.disabled ? 0.4 : 1,
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: item.icon ? 6 : 0,
+                }}
                 hitTestBehavior="opaque"
                 onPress={() => !item.disabled && onChanged?.(i)}
-                opacity={item.disabled ? 0.4 : 1}
-                flexDirection="row"
-                justifyContent="center"
-                alignItems="center"
-                gap={item.icon ? 6 : 0}
               >
                 {item.icon && (
                   <Icon
@@ -95,9 +108,11 @@ export const TabBar = React.memo(function TabBar({
                 )}
                 <Text
                   text={item.label}
-                  fontSize={13}
-                  fontWeight={isActive ? 'bold' : 'normal'}
-                  color={isActive ? active : inactive}
+                  style={{
+                    fontSize: 13,
+                    fontWeight: isActive ? 'bold' : 'normal',
+                    color: isActive ? active : inactive,
+                  }}
                 />
               </Box>
             </Expanded>
@@ -111,25 +126,29 @@ export const TabBar = React.memo(function TabBar({
     <Box
       x={x}
       y={y}
-      width={width}
-      height={height}
-      color={bgColor}
-      flexDirection="row"
+      style={{
+        width,
+        height,
+        backgroundColor: bgColor,
+        flexDirection: 'row',
+      }}
     >
       {items.map((item, i) => {
         const isActive = i === activeIndex;
         return (
           <Expanded key={i}>
             <Box
-              height={height}
+              style={{
+                height,
+                opacity: item.disabled ? 0.4 : 1,
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
               hitTestBehavior="opaque"
               onPress={() => !item.disabled && onChanged?.(i)}
-              opacity={item.disabled ? 0.4 : 1}
-              flexDirection="column"
-              justifyContent="center"
-              alignItems="center"
             >
-              <Row gap={item.icon ? 6 : 0}>
+              <Row style={{ gap: item.icon ? 6 : 0 }}>
                 {item.icon && (
                   <Icon
                     name={item.icon}
@@ -139,17 +158,21 @@ export const TabBar = React.memo(function TabBar({
                 )}
                 <Text
                   text={item.label}
-                  fontSize={14}
-                  fontWeight={isActive ? 'bold' : 'normal'}
-                  color={isActive ? active : inactive}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: isActive ? 'bold' : 'normal',
+                    color: isActive ? active : inactive,
+                  }}
                 />
               </Row>
               {isActive && (
                 <Box
-                  width={tabWidth * 0.6}
-                  height={3}
-                  borderRadius={1.5}
-                  color={indicator}
+                  style={{
+                    width: tabWidth * 0.6,
+                    height: 3,
+                    borderRadius: 1.5,
+                    backgroundColor: indicator,
+                  }}
                 />
               )}
             </Box>

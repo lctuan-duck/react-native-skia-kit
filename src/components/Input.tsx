@@ -12,8 +12,24 @@ import { Text } from './Text';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type {
+  ColorStyle,
+  BorderStyle,
+  FlexChildStyle,
+  SemanticColor,
+} from '../core/style.types';
+import { resolveSemanticColor } from '../core/colorUtils';
 
-export type InputVariant = 'outlined' | 'filled' | 'underlined';
+// === Input Types ===
+
+export type InputVariant = 'outline' | 'solid' | 'underlined';
+
+export type InputStyle = ColorStyle &
+  BorderStyle &
+  FlexChildStyle & {
+    width?: number;
+    height?: number;
+  };
 
 export interface InputProps extends WidgetProps {
   /** Current text value */
@@ -26,14 +42,12 @@ export interface InputProps extends WidgetProps {
   keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
   /** Auto focus on mount */
   autoFocus?: boolean;
-  /** Variant: shape of the input */
+  /** Variant */
   variant?: InputVariant;
-  /** Focus border color */
-  color?: string;
-  /** Background color */
-  backgroundColor?: string;
-  /** Border radius */
-  borderRadius?: number;
+  /** Semantic color (focus border) */
+  color?: SemanticColor;
+  /** Style override */
+  style?: InputStyle;
   /** Text change callback */
   onChange?: (text: string) => void;
   /** Focus callback */
@@ -44,29 +58,30 @@ export interface InputProps extends WidgetProps {
 
 /**
  * Input — text input field.
- * Hybrid: Native TextInput (invisible) + Skia rendering (Box + Text + cursor).
- *
+ * Hybrid: Native TextInput (invisible) + Skia rendering.
  * Tương đương Flutter TextField / TextFormField.
  */
 export const Input = React.memo(function Input({
   x = 0,
   y = 0,
-  width = 280,
-  height = 48,
   value = '',
   placeholder = '',
   secureTextEntry = false,
   keyboardType = 'default',
-  variant = 'outlined',
-  color,
-  backgroundColor,
-  borderRadius = 8,
+  variant = 'outline',
+  color = 'primary',
+  style,
   onChange,
   onFocus,
   onBlur,
 }: InputProps) {
   const theme = useTheme();
-  const focusColor = color ?? theme.colors.primary;
+  const focusColor =
+    style?.borderColor ?? resolveSemanticColor(color, theme.colors);
+
+  const width = style?.width ?? 280;
+  const height = style?.height ?? 48;
+  const borderR = style?.borderRadius ?? 8;
 
   useWidget({ type: 'Input', layout: { x, y, width, height } });
 
@@ -86,7 +101,6 @@ export const Input = React.memo(function Input({
   const displayText = secureTextEntry ? '•'.repeat(value.length) : value;
   const showPlaceholder = !displayText && placeholder;
 
-  // Calculate cursor X using Skia paragraph measurement for accurate positioning
   const cursorX = React.useMemo(() => {
     if (!displayText) return x + 14;
     const {
@@ -99,7 +113,6 @@ export const Input = React.memo(function Input({
     builder.pop();
     const para = builder.build();
     para.layout(width - 28);
-    // Get the width of the full text from the paragraph
     const rects = para.getRectsForRange(0, displayText.length);
     if (rects && rects.length > 0) {
       const lastRect = rects[rects.length - 1]!;
@@ -143,39 +156,47 @@ export const Input = React.memo(function Input({
             <Box
               x={x}
               y={y}
-              width={width}
-              height={height}
-              color={backgroundColor ?? 'transparent'}
+              style={{
+                width,
+                height,
+                backgroundColor:
+                  style?.backgroundColor ?? 'transparent',
+              }}
             />
             <Box
               x={x}
               y={y + height - 2}
-              width={width}
-              height={isFocused ? 2 : 1}
-              color={isFocused ? focusColor : theme.colors.border}
+              style={{
+                width,
+                height: isFocused ? 2 : 1,
+                backgroundColor: isFocused
+                  ? focusColor
+                  : theme.colors.border,
+              }}
             />
           </>
         ) : (
           <Box
             x={x}
             y={y}
-            width={width}
-            height={height}
-            borderRadius={borderRadius}
-            color={
-              backgroundColor ??
-              (variant === 'filled'
-                ? theme.colors.surfaceVariant
-                : 'transparent')
-            }
-            borderWidth={variant === 'outlined' ? (isFocused ? 2 : 1) : 0}
-            borderColor={
-              variant === 'outlined'
-                ? isFocused
-                  ? focusColor
-                  : theme.colors.border
-                : 'transparent'
-            }
+            style={{
+              width,
+              height,
+              borderRadius: borderR,
+              backgroundColor:
+                style?.backgroundColor ??
+                (variant === 'solid'
+                  ? theme.colors.surfaceVariant
+                  : 'transparent'),
+              borderWidth:
+                variant === 'outline' ? (isFocused ? 2 : 1) : 0,
+              borderColor:
+                variant === 'outline'
+                  ? isFocused
+                    ? focusColor
+                    : theme.colors.border
+                  : 'transparent',
+            }}
           />
         )}
 
@@ -183,10 +204,12 @@ export const Input = React.memo(function Input({
         <Text
           x={x + 14}
           y={y + height / 2 - 8}
-          width={width - 28}
           text={showPlaceholder ? placeholder : displayText}
-          fontSize={16}
-          color={showPlaceholder ? placeholderColor : textColor}
+          style={{
+            width: width - 28,
+            fontSize: 16,
+            color: showPlaceholder ? placeholderColor : textColor,
+          }}
         />
 
         {/* Blinking cursor */}

@@ -3,46 +3,31 @@ import { useMemo } from 'react';
 import { Skia, Paragraph, TextAlign, Group } from '@shopify/react-native-skia';
 import type { SkParagraphStyle } from '@shopify/react-native-skia';
 import type { WidgetProps, HitTestBehavior } from '../core/types';
+import type { SkiaTextStyle, FlexChildStyle } from '../core/style.types';
 import { useTheme } from '../hooks/useTheme';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
 
+// === Ellipsis mode ===
+
+export type EllipsisMode = 'none' | 'tail' | 'head' | 'middle' | 'clip';
+
+// === Text Style (component-specific, extends base groups) ===
+
+export type TextComponentStyle = SkiaTextStyle &
+  FlexChildStyle & {
+    opacity?: number;
+    numberOfLines?: number;
+    ellipsis?: EllipsisMode;
+    width?: number;
+    height?: number;
+  };
+
 export interface TextProps extends WidgetProps {
   /** Text content */
   text?: string;
-  /** Font size */
-  fontSize?: number;
-  /** Font family */
-  fontFamily?: string;
-  /** Font weight */
-  fontWeight?:
-    | 'normal'
-    | 'bold'
-    | '100'
-    | '200'
-    | '300'
-    | '400'
-    | '500'
-    | '600'
-    | '700'
-    | '800'
-    | '900';
-  /** Font style (normal or italic) */
-  fontStyle?: 'normal' | 'italic';
-  /** Text color */
-  color?: string;
-  /** Opacity */
-  opacity?: number;
-  /** Text alignment */
-  textAlign?: 'left' | 'center' | 'right';
-  /** Max number of lines */
-  numberOfLines?: number;
-  /** Show ellipsis when text overflows */
-  ellipsis?: boolean;
-  /** Line height */
-  lineHeight?: number;
-  /** Letter spacing */
-  letterSpacing?: number;
+  /** Consolidated style prop */
+  style?: TextComponentStyle;
   /** Hit test behavior */
   hitTestBehavior?: HitTestBehavior;
   /** Press callback */
@@ -56,8 +41,8 @@ export interface TextProps extends WidgetProps {
 // Map fontWeight string to Skia numeric weight
 function toSkiaFontWeight(weight: string): number {
   const map: Record<string, number> = {
-    'normal': 400,
-    'bold': 700,
+    normal: 400,
+    bold: 700,
     '100': 100,
     '200': 200,
     '300': 300,
@@ -71,6 +56,23 @@ function toSkiaFontWeight(weight: string): number {
   return map[weight] ?? 400;
 }
 
+// Resolve ellipsis mode to Skia paragraph ellipsis string
+function resolveEllipsis(mode: EllipsisMode | undefined): string | undefined {
+  switch (mode) {
+    case 'tail':
+      return '…';
+    case 'head':
+      return '…'; // Skia only supports tail natively; head/middle approximated
+    case 'middle':
+      return '…';
+    case 'clip':
+      return ''; // empty string clips without ellipsis char
+    case 'none':
+    default:
+      return undefined;
+  }
+}
+
 /**
  * Text — renders text on Skia canvas using Paragraph API.
  * Equivalent to Flutter Text widget.
@@ -82,26 +84,43 @@ function toSkiaFontWeight(weight: string): number {
 export const Text = React.memo(function SkiaText({
   x = 0,
   y = 0,
-  width = 300,
-  height,
-  text,
-  fontSize = 14,
-  fontFamily,
-  fontWeight = 'normal',
-  fontStyle = 'normal',
-  color,
-  opacity = 1,
-  textAlign = 'left',
-  numberOfLines,
-  ellipsis = false,
-  lineHeight,
-  letterSpacing,
+  style,
   hitTestBehavior = 'deferToChild',
   onPress,
   onLongPress,
+  text,
   children,
 }: TextProps) {
   const theme = useTheme();
+
+  // Destructure style with defaults
+  const {
+    fontSize = 14,
+    fontFamily,
+    fontWeight = 'normal',
+    fontStyle = 'normal',
+    color,
+    opacity = 1,
+    textAlign = 'left',
+    numberOfLines,
+    ellipsis = 'none',
+    lineHeight,
+    letterSpacing,
+    width = 300,
+    height,
+    // Flex child props (consumed by parent, not used here)
+    flex: _flex,
+    flexGrow: _flexGrow,
+    flexShrink: _flexShrink,
+    flexBasis: _flexBasis,
+    alignSelf: _alignSelf,
+    position: _position,
+    top: _top,
+    left: _left,
+    right: _right,
+    bottom: _bottom,
+  } = style ?? {};
+
   const textColor = color ?? theme.colors.textBody;
   const content = text ?? (typeof children === 'string' ? children : '') ?? '';
   const family = fontFamily ?? theme.typography.fontFamily;
@@ -113,15 +132,17 @@ export const Text = React.memo(function SkiaText({
       left: TextAlign.Left,
     };
 
+    const ellipsisStr = resolveEllipsis(ellipsis);
+
     const paragraphStyle: SkParagraphStyle = {
       textAlign: alignMap[textAlign] ?? TextAlign.Left,
       ...(numberOfLines != null && numberOfLines > 0
         ? { maxLines: numberOfLines }
         : {}),
-      ...(ellipsis ? { ellipsis: '...' } : {}),
+      ...(ellipsisStr != null ? { ellipsis: ellipsisStr } : {}),
     };
 
-    const textStyle: Record<string, unknown> = {
+    const skTextStyle: Record<string, unknown> = {
       color: Skia.Color(textColor),
       fontSize,
       fontFamilies: [family],
@@ -132,14 +153,14 @@ export const Text = React.memo(function SkiaText({
     };
 
     if (letterSpacing != null) {
-      textStyle.letterSpacing = letterSpacing;
+      skTextStyle.letterSpacing = letterSpacing;
     }
     if (lineHeight != null) {
-      textStyle.heightMultiplier = lineHeight / fontSize;
+      skTextStyle.heightMultiplier = lineHeight / fontSize;
     }
 
     const builder = Skia.ParagraphBuilder.Make(paragraphStyle);
-    builder.pushStyle(textStyle);
+    builder.pushStyle(skTextStyle);
     builder.addText(content);
     builder.pop();
 

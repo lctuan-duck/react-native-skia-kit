@@ -13,6 +13,27 @@ export type {
   PanEvent,
 } from './core/types';
 
+// ===== Style Types =====
+export type {
+  LayoutStyle,
+  SpacingStyle,
+  ColorStyle,
+  BorderStyle,
+  ShadowStyle,
+  FlexChildStyle,
+  FlexContainerStyle,
+  SkiaTextStyle,
+  SemanticColor,
+} from './core/style.types';
+
+// ===== Color Utilities =====
+export {
+  resolveSemanticColor,
+  resolveOnColor,
+  withOpacity,
+  contrastColor,
+} from './core/colorUtils';
+
 // ===== Layout Components =====
 export { Box } from './components/Box';
 export { Row } from './components/Row';
@@ -90,7 +111,7 @@ export {
 } from './core/DialogService';
 
 // ===== Component Types =====
-export type { BoxProps } from './components/Box';
+export type { BoxProps, BoxStyle } from './components/Box';
 export type { RowProps } from './components/Row';
 export type { ColumnProps } from './components/Column';
 export type { StackProps, PositionedProps } from './components/Stack';
@@ -102,22 +123,22 @@ export type {
 } from './components/Center';
 export type { WrapProps } from './components/Wrap';
 export type { SpacerProps } from './components/Spacer';
-export type { TextProps } from './components/Text';
+export type { TextProps, TextComponentStyle, EllipsisMode } from './components/Text';
 export type { IconProps } from './components/Icon';
 export type { ImageProps } from './components/Image';
-export type { DividerProps } from './components/Divider';
-export type { CardProps } from './components/Card';
-export type { AvatarProps } from './components/Avatar';
-export type { BadgeProps } from './components/Badge';
-export type { ChipProps, ChipVariant } from './components/Chip';
-export type { TooltipProps } from './components/Tooltip';
-export type { ListTileProps } from './components/ListTile';
-export type { ExpansionTileProps } from './components/ExpansionTile';
-export type { ButtonProps, ButtonVariant } from './components/Button';
-export type { CheckboxProps } from './components/Checkbox';
-export type { RadioProps } from './components/Radio';
-export type { SwitchProps } from './components/Switch';
-export type { SliderProps } from './components/Slider';
+export type { DividerProps, DividerStyle } from './components/Divider';
+export type { CardProps, CardVariant, CardStyle } from './components/Card';
+export type { AvatarProps, AvatarVariant, AvatarStyle } from './components/Avatar';
+export type { BadgeProps, BadgeVariant, BadgeStyle } from './components/Badge';
+export type { ChipProps, ChipVariant, ChipStyle } from './components/Chip';
+export type { TooltipProps, TooltipStyle } from './components/Tooltip';
+export type { ListTileProps, ListTileStyle } from './components/ListTile';
+export type { ExpansionTileProps, ExpansionTileStyle } from './components/ExpansionTile';
+export type { ButtonProps, ButtonVariant, ButtonStyle } from './components/Button';
+export type { CheckboxProps, CheckboxStyle } from './components/Checkbox';
+export type { RadioProps, RadioStyle } from './components/Radio';
+export type { SwitchProps, SwitchStyle } from './components/Switch';
+export type { SliderProps, SliderStyle } from './components/Slider';
 export type {
   DropdownButtonProps,
   DropdownItem,
@@ -126,23 +147,26 @@ export type {
   PopupMenuButtonProps,
   PopupMenuItem,
 } from './components/PopupMenuButton';
-export type { InputProps, InputVariant } from './components/Input';
-export type { SearchBarProps } from './components/SearchBar';
-export type { ProgressProps } from './components/Progress';
-export type { SnackBarProps } from './components/SnackBar';
-export type { RefreshIndicatorProps } from './components/RefreshIndicator';
+export type { InputProps, InputVariant, InputStyle } from './components/Input';
+export type { SearchBarProps, SearchBarStyle } from './components/SearchBar';
+export type { ProgressProps, ProgressVariant, ProgressStyle } from './components/Progress';
+export type { SnackBarProps, SnackBarStyle } from './components/SnackBar';
+export type { RefreshIndicatorProps, RefreshIndicatorStyle } from './components/RefreshIndicator';
 export type { NavProps, ScreenProps } from './components/Nav';
-export type { AppBarProps } from './components/AppBar';
+export type { AppBarProps, AppBarStyle } from './components/AppBar';
 export type {
   BottomNavigationBarProps,
   BottomNavItem,
 } from './components/BottomNavigationBar';
 export type { TabBarProps, TabBarVariant, TabItem } from './components/TabBar';
-export type { ScaffoldProps } from './components/Scaffold';
+export type { ScaffoldProps, ScaffoldStyle } from './components/Scaffold';
 export type {
   ModalProps,
+  ModalStyle,
   BottomSheetProps,
+  BottomSheetStyle,
   DrawerProps,
+  DrawerStyle,
   OverlayProps,
 } from './components/Overlay';
 export type {

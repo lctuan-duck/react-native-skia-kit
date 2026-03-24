@@ -4,24 +4,41 @@ import { Image } from './Image';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type {
+  ColorStyle,
+  BorderStyle,
+  FlexChildStyle,
+  SemanticColor,
+} from '../core/style.types';
+import { resolveSemanticColor } from '../core/colorUtils';
+
+// === Avatar Types ===
 
 export type AvatarVariant = 'circle' | 'rounded' | 'square';
 
+export type AvatarStyle = ColorStyle &
+  BorderStyle &
+  FlexChildStyle;
+
 export interface AvatarProps extends WidgetProps {
+  /** Size of avatar (width = height) */
   size?: number;
+  /** Shape variant */
   variant?: AvatarVariant;
   /** Image source URL or local path */
   src?: string;
   /** Placeholder background color */
-  color?: string;
+  color?: SemanticColor;
   /** Status indicator */
   status?: 'online' | 'offline';
+  /** Style override */
+  style?: AvatarStyle;
+  /** Press callback */
   onPress?: () => void;
 }
 
 /**
  * Avatar — circular/rounded/square profile image.
- * Composition: Image (with borderRadius) + Box (status dot).
  * Equivalent to Flutter CircleAvatar.
  */
 export const Avatar = React.memo(function Avatar({
@@ -30,14 +47,17 @@ export const Avatar = React.memo(function Avatar({
   size = 48,
   variant = 'circle',
   src,
-  color,
+  color = 'neutral',
   status,
+  style,
   onPress,
 }: AvatarProps) {
   const theme = useTheme();
-  const bgColor = color ?? theme.colors.surfaceVariant;
+  const bgColor =
+    style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
   const borderRadius =
-    variant === 'circle' ? size / 2 : variant === 'rounded' ? size / 4 : 0;
+    style?.borderRadius ??
+    (variant === 'circle' ? size / 2 : variant === 'rounded' ? size / 4 : 0);
 
   const dotSize = size * 0.28;
   const dotX = x + size - dotSize;
@@ -52,49 +72,56 @@ export const Avatar = React.memo(function Avatar({
     <Box
       x={x}
       y={y}
-      width={size}
-      height={size}
-      borderRadius={borderRadius}
-      color={bgColor}
+      style={{
+        width: size,
+        height: size,
+        borderRadius,
+        backgroundColor: bgColor,
+        ...style,
+      }}
       hitTestBehavior={onPress ? 'opaque' : 'deferToChild'}
       onPress={onPress}
     >
-      {/* Image — render when src is provided */}
       {src && (
         <Image
           x={x + 2}
           y={y + 2}
-          width={size - 4}
-          height={size - 4}
+          style={{
+            width: size - 4,
+            height: size - 4,
+            borderRadius,
+          }}
           src={src}
-          borderRadius={borderRadius}
           fit="cover"
         />
       )}
 
-      {/* Status indicator */}
       {status === 'online' && (
         <Box
           x={dotX}
           y={dotY}
-          width={dotSize}
-          height={dotSize}
-          borderRadius={dotSize / 2}
-          color={theme.colors.success}
-          borderWidth={2}
-          borderColor={theme.colors.surface}
+          style={{
+            width: dotSize,
+            height: dotSize,
+            borderRadius: dotSize / 2,
+            backgroundColor: theme.colors.success,
+            borderWidth: 2,
+            borderColor: theme.colors.surface,
+          }}
         />
       )}
       {status === 'offline' && (
         <Box
           x={dotX}
           y={dotY}
-          width={dotSize}
-          height={dotSize}
-          borderRadius={dotSize / 2}
-          color={theme.colors.textDisabled}
-          borderWidth={2}
-          borderColor={theme.colors.surface}
+          style={{
+            width: dotSize,
+            height: dotSize,
+            borderRadius: dotSize / 2,
+            backgroundColor: theme.colors.textDisabled,
+            borderWidth: 2,
+            borderColor: theme.colors.surface,
+          }}
         />
       )}
     </Box>

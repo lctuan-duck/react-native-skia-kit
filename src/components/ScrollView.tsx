@@ -9,50 +9,47 @@ import { useHitTest } from '../hooks/useHitTest';
 import { useScrollPhysics } from '../hooks/useScrollPhysics';
 import { useEventStore } from '../stores/eventStore';
 import type { WidgetProps, PanEvent } from '../core/types';
+import type { FlexChildStyle, SpacingStyle } from '../core/style.types';
 
 // ===== ScrollView =====
 
+export type ScrollViewStyle = FlexChildStyle &
+  SpacingStyle & {
+    width?: number;
+    height?: number;
+  };
+
 export interface ScrollViewProps extends WidgetProps {
   children: React.ReactNode;
-  /** Use horizontal scrolling (default: false → vertical) */
   horizontal?: boolean;
-  /** Scroll physics: clamped (Android) or bouncing (iOS) */
   physics?: 'clamped' | 'bouncing';
-  /** Estimated content size for physics calculation */
   contentSize?: number;
-  /** Scroll enabled */
   scrollEnabled?: boolean;
-  /** Callback on scroll offset change */
   onScroll?: (offset: number) => void;
-  padding?: number | [number, number, number, number];
+  /** Style override */
+  style?: ScrollViewStyle;
 }
 
-/**
- * ScrollView — scrollable area with physics.
- * Uses useScrollPhysics + Group clip + Group transform for actual scrolling.
- * Tương đương Flutter SingleChildScrollView / ListView.
- */
 export const ScrollView = React.memo(function ScrollView({
   x = 0,
   y = 0,
-  width = 360,
-  height = 600,
+  style,
   children,
   horizontal = false,
   physics = 'clamped',
   contentSize,
   scrollEnabled = true,
-  padding = 0,
 }: ScrollViewProps) {
-  // Auto-calculate contentSize from children if not specified
+  const width = style?.width ?? 360;
+  const height = style?.height ?? 600;
+  const padding = style?.padding ?? 0;
+
   let estimatedContentSize: number;
   if (contentSize != null) {
     estimatedContentSize = contentSize;
   } else {
-    // Estimate from children's sizes
     const { estimateContentSize: estimate } = require('../hooks/useYogaLayout');
     const autoSize = estimate(children, width);
-    // Ensure contentSize >= viewport so physics work correctly
     estimatedContentSize = Math.max(autoSize, horizontal ? width : height);
   }
 
@@ -69,7 +66,6 @@ export const ScrollView = React.memo(function ScrollView({
     layout: { x, y, width, height },
   });
 
-  // Register scroll area in eventStore for hit test coordinate adjustment
   useEffect(() => {
     useEventStore.getState().registerScrollArea(widgetId, {
       rect: { left: x, top: y, width, height },
@@ -81,10 +77,8 @@ export const ScrollView = React.memo(function ScrollView({
     };
   }, [widgetId, x, y, width, height, horizontal]);
 
-  // Track previous translation for delta calculation
   const lastTranslationRef = useRef(0);
 
-  // Register pan gesture for scrolling
   useHitTest(widgetId, {
     rect: { left: x, top: y, width, height },
     callbacks: {
@@ -101,7 +95,6 @@ export const ScrollView = React.memo(function ScrollView({
             const delta = currentTranslation - lastTranslationRef.current;
             lastTranslationRef.current = currentTranslation;
             handlePanUpdate(delta);
-            // Update scroll offset in eventStore for hit test
             useEventStore
               .getState()
               .updateScrollOffset(widgetId, scrollOffset.value);
@@ -124,7 +117,6 @@ export const ScrollView = React.memo(function ScrollView({
       : [{ translateY: -scrollOffset.value }]
   );
 
-  // Scroll indicator position follows scroll offset
   const indicatorSize = (height * height) / estimatedContentSize;
   const indicatorTransform = useDerivedValue(() => [
     { translateY: scrollOffset.value * (height / estimatedContentSize) },
@@ -137,20 +129,25 @@ export const ScrollView = React.memo(function ScrollView({
           <Box
             x={x}
             y={y}
-            width={estimatedContentSize}
-            height={height}
-            flexDirection="row"
-            padding={padding}
+            style={{
+              width: estimatedContentSize,
+              height,
+              flexDirection: 'row',
+              padding,
+            }}
           >
             {children}
           </Box>
         ) : (
-          <Column x={x} y={y} width={width} padding={padding}>
+          <Column
+            x={x}
+            y={y}
+            style={{ width, padding }}
+          >
             {children}
           </Column>
         )}
       </Group>
-      {/* Scroll indicator — tracks scroll position */}
       {!horizontal && height < estimatedContentSize && (
         <Group transform={indicatorTransform}>
           <Rect
@@ -173,33 +170,34 @@ export interface GridViewProps extends WidgetProps {
   crossAxisCount?: number;
   mainAxisSpacing?: number;
   crossAxisSpacing?: number;
-  padding?: number | [number, number, number, number];
+  /** Style override */
+  style?: FlexChildStyle & SpacingStyle & { width?: number };
 }
 
-/**
- * GridView — grid layout with flexWrap.
- * Tương đương Flutter GridView.
- */
 export const GridView = React.memo(function GridView({
   x = 0,
   y = 0,
-  width = 360,
+  style,
   children,
   crossAxisCount: _crossAxisCount = 2,
   mainAxisSpacing = 8,
   crossAxisSpacing = 8,
-  padding = 0,
 }: GridViewProps) {
+  const width = style?.width ?? 360;
+  const padding = style?.padding ?? 0;
   return (
     <Box
       x={x}
       y={y}
-      width={width}
-      flexDirection="row"
-      flexWrap="wrap"
-      gap={crossAxisSpacing}
-      rowGap={mainAxisSpacing}
-      padding={padding}
+      style={{
+        width,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: crossAxisSpacing,
+        rowGap: mainAxisSpacing,
+        padding,
+        ...style,
+      }}
     >
       {children}
     </Box>
@@ -212,20 +210,15 @@ export interface PageViewProps extends WidgetProps {
   children: React.ReactNode;
   activeIndex?: number;
   onPageChanged?: (index: number) => void;
-  /** Swipe threshold in pixels (default: 50) */
   swipeThreshold?: number;
+  /** Style override */
+  style?: FlexChildStyle & { width?: number; height?: number };
 }
 
-/**
- * PageView — swipeable pages (renders active page only).
- * Detects horizontal swipe to change pages.
- * Tương đương Flutter PageView.
- */
 export const PageView = React.memo(function PageView({
   x = 0,
   y = 0,
-  width,
-  height,
+  style,
   children,
   activeIndex = 0,
   onPageChanged,
@@ -233,15 +226,14 @@ export const PageView = React.memo(function PageView({
 }: PageViewProps) {
   const pages = React.Children.toArray(children);
   const activePage = pages[activeIndex];
-  const pageWidth = width ?? 360;
-  const pageHeight = height ?? 600;
+  const pageWidth = style?.width ?? 360;
+  const pageHeight = style?.height ?? 600;
 
   const widgetId = useWidget({
     type: 'PageView',
     layout: { x, y, width: pageWidth, height: pageHeight },
   });
 
-  // Register swipe gesture for page switching
   useHitTest(widgetId, {
     rect: { left: x, top: y, width: pageWidth, height: pageHeight },
     callbacks: {
@@ -249,10 +241,8 @@ export const PageView = React.memo(function PageView({
         const tx = e?.translationX ?? 0;
         if (Math.abs(tx) >= swipeThreshold && onPageChanged) {
           if (tx < 0 && activeIndex < pages.length - 1) {
-            // Swipe left → next page
             onPageChanged(activeIndex + 1);
           } else if (tx > 0 && activeIndex > 0) {
-            // Swipe right → previous page
             onPageChanged(activeIndex - 1);
           }
         }

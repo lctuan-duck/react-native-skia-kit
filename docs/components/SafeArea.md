@@ -1,56 +1,30 @@
-# SafeArea Component
+# SafeArea
 
-## Mục đích
-- Tránh vùng system UI: notch, status bar, home indicator.
-- Tự động offset nội dung con để không bị đè lên.
+Tránh system UI (notch, status bar, home indicator). Tương đương Flutter `SafeArea`.
 
-## Flutter tương đương
-- `SafeArea` widget
-
-## TypeScript Interface
+## Interface
 
 ```ts
-interface SafeAreaProps extends WidgetProps, YogaFlexProps {
+type SafeAreaStyle = LayoutStyle & SpacingStyle & ColorStyle & FlexChildStyle
+  & Pick<FlexContainerStyle, 'flexDirection' | 'justifyContent' | 'alignItems' | 'gap'>;
+
+interface SafeAreaProps {
   children: React.ReactNode;
-  edges?: ('top' | 'bottom' | 'left' | 'right')[];  // default: all
-  color?: string;           // background color
-  insets?: {                // custom override (auto-detect nếu không set)
-    top?: number;
-    bottom?: number;
-    left?: number;
-    right?: number;
-  };
+  edges?: ('top' | 'bottom' | 'left' | 'right')[];
+  insets?: { top?: number; bottom?: number; left?: number; right?: number; };
+  style?: SafeAreaStyle;
 }
 ```
 
-## Cách sử dụng
+## Cách dùng
 
 ```tsx
-import { SafeArea, Box, Text } from 'react-native-skia-kit';
-
-function App() {
-  return (
-    <SafeArea x={0} y={0} width={360} height={800}>
-      <Text text="Nội dung dưới status bar" />
-    </SafeArea>
-  );
-}
-
-// Chỉ tránh top (notch/status bar)
-<SafeArea edges={['top']} x={0} y={0} width={360} height={800}>
-  ...
+<SafeArea style={{ width: 360, height: 800, flexDirection: 'column' }}>
+  <Text text="Below status bar" style={{ fontSize: 16 }} />
 </SafeArea>
 
 // Custom insets
-<SafeArea insets={{ top: 60, bottom: 40 }} x={0} y={0} width={360} height={800}>
+<SafeArea edges={['top']} insets={{ top: 60 }} style={{ width: 360, height: 800 }}>
   ...
 </SafeArea>
 ```
-
-## Cách hoạt động
-1. Đọc insets từ `Platform` + `StatusBar.currentHeight` (Android) hoặc defaults (iOS: top=44, bottom=34)
-2. Offset children theo edges được chọn
-3. Nếu truyền `insets` prop → dùng giá trị custom, skip auto-detect
-
-## Nguồn tham khảo
-- [Flutter SafeArea](https://api.flutter.dev/flutter/widgets/SafeArea-class.html)

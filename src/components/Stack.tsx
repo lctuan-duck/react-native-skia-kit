@@ -1,12 +1,18 @@
 import * as React from 'react';
 import { Box } from './Box';
 import type { WidgetProps } from '../core/types';
+import type { FlexChildStyle } from '../core/style.types';
+
+// === Stack Style ===
+
+export type StackStyle = FlexChildStyle & {
+  width?: number;
+  height?: number;
+};
 
 export interface StackProps extends WidgetProps {
-  /** Width — REQUIRED */
-  width: number;
-  /** Height — REQUIRED */
-  height: number;
+  /** Consolidated style prop */
+  style?: StackStyle;
   /** Clip children to stack bounds */
   clipToBounds?: boolean;
   /** Children — use <Positioned> for absolute positioning */
@@ -14,10 +20,11 @@ export interface StackProps extends WidgetProps {
 }
 
 /**
- * PositionedProps extends WidgetProps — inherits position, top, left, right, bottom, width, height.
- * No duplicate declarations needed.
+ * PositionedProps — inherits position, top, left, right, bottom via style.
  */
 export interface PositionedProps extends WidgetProps {
+  /** Consolidated style prop */
+  style?: FlexChildStyle & { width?: number; height?: number };
   children: React.ReactNode;
 }
 
@@ -31,13 +38,12 @@ export interface PositionedProps extends WidgetProps {
 export const Stack = React.memo(function Stack({
   x = 0,
   y = 0,
-  width,
-  height,
+  style,
   clipToBounds: _clipToBounds = true,
   children,
 }: StackProps) {
   return (
-    <Box x={x} y={y} width={width} height={height}>
+    <Box x={x} y={y} style={style}>
       {children}
     </Box>
   );
@@ -45,29 +51,20 @@ export const Stack = React.memo(function Stack({
 
 /**
  * Positioned — absolute positioning within a Stack.
- * Uses Box with position="absolute" + top/left/right/bottom.
- * All positioning props inherited from WidgetProps.
+ * Uses Box with position="absolute" + top/left/right/bottom from style.
  *
  * Tương đương Flutter Positioned.
  */
 export const Positioned = React.memo(function Positioned({
-  top,
-  bottom,
-  left,
-  right,
-  width,
-  height,
+  style,
   children,
 }: PositionedProps) {
   return (
     <Box
-      position="absolute"
-      top={top}
-      bottom={bottom}
-      left={left}
-      right={right}
-      width={width}
-      height={height}
+      style={{
+        ...style,
+        position: 'absolute',
+      }}
     >
       {children}
     </Box>

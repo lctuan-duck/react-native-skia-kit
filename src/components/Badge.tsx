@@ -4,15 +4,38 @@ import { Text } from './Text';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type {
+  ColorStyle,
+  BorderStyle,
+  FlexChildStyle,
+  SemanticColor,
+} from '../core/style.types';
+import { resolveSemanticColor, resolveOnColor } from '../core/colorUtils';
+
+// === Badge Types ===
 
 export type BadgeVariant = 'standard' | 'dot';
 
+export type BadgeStyle = ColorStyle &
+  BorderStyle &
+  FlexChildStyle & {
+    textColor?: string;
+    width?: number;
+    height?: number;
+  };
+
 export interface BadgeProps extends WidgetProps {
+  /** Variant */
   variant?: BadgeVariant;
+  /** Count value (standard variant) */
   value?: number;
+  /** Size override */
   size?: number;
-  color?: string;
-  textColor?: string;
+  /** Semantic color */
+  color?: SemanticColor;
+  /** Style override */
+  style?: BadgeStyle;
+  /** Press callback */
   onPress?: () => void;
 }
 
@@ -26,14 +49,17 @@ export const Badge = React.memo(function Badge({
   variant = 'standard',
   value = 1,
   size,
-  color,
-  textColor,
+  color = 'primary',
+  style,
   onPress,
 }: BadgeProps) {
   const theme = useTheme();
-  const bgColor = color ?? theme.colors.error;
-  const fgColor = textColor ?? theme.colors.onError;
-  const badgeSize = variant === 'dot' ? size ?? 10 : size ?? 20;
+  const resolvedColor = resolveSemanticColor(color, theme.colors);
+  const resolvedOnColor = resolveOnColor(color, theme.colors);
+
+  const bgColor = style?.backgroundColor ?? resolvedColor;
+  const fgColor = style?.textColor ?? resolvedOnColor;
+  const badgeSize = variant === 'dot' ? (size ?? 10) : (size ?? 20);
 
   useWidget({
     type: 'Badge',
@@ -47,39 +73,45 @@ export const Badge = React.memo(function Badge({
       <Box
         x={x}
         y={y}
-        width={dotSize}
-        height={dotSize}
-        borderRadius={dotSize / 2}
-        color={bgColor}
-        borderWidth={2}
-        borderColor={theme.colors.surface}
+        style={{
+          width: dotSize,
+          height: dotSize,
+          borderRadius: dotSize / 2,
+          backgroundColor: bgColor,
+          borderWidth: style?.borderWidth ?? 2,
+          borderColor: style?.borderColor ?? theme.colors.surface,
+        }}
       />
     );
   }
 
-  // Standard variant
+  // Standard variant — use flex centering
   const label = String(value > 99 ? '99+' : value);
 
   return (
     <Box
       x={x}
       y={y}
-      width={badgeSize}
-      height={badgeSize}
-      borderRadius={badgeSize / 2}
-      color={bgColor}
+      style={{
+        width: badgeSize,
+        height: badgeSize,
+        borderRadius: badgeSize / 2,
+        backgroundColor: bgColor,
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
       hitTestBehavior={onPress ? 'opaque' : 'deferToChild'}
       onPress={onPress}
     >
       <Text
-        x={x}
-        y={y + badgeSize / 2 - (badgeSize * 0.55) / 2}
-        width={badgeSize}
         text={label}
-        fontSize={badgeSize * 0.55}
-        color={fgColor}
-        textAlign="center"
-        fontWeight="bold"
+        style={{
+          fontSize: badgeSize * 0.55,
+          color: fgColor,
+          textAlign: 'center',
+          fontWeight: 'bold',
+        }}
       />
     </Box>
   );

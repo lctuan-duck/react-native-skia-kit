@@ -1,107 +1,76 @@
-# Components Overview
+# Component Documentation
 
-Tổng hợp **49 component files** (bao gồm nhiều variant trong mỗi file) trong react-native-skia-kit.
+> **API v2** — Unified `style` prop architecture
 
-## 🏗 Layout (8)
+## Quy tắc chung
 
-| Component | Flutter tương đương | Mô tả |
-|-----------|-------------------|------|
-| [Box](./Box.md) | `Container` | Container cơ bản — nền, border, padding, Yoga flex |
-| [Row](./Row.md) | `Row` | Flex horizontal layout |
-| [Column](./Column.md) | `Column` | Flex vertical layout |
-| [Stack](./Stack.md) | `Stack` + `Positioned` | Xếp chồng, absolute positioning |
-| [Expanded](./Expanded.md) | `Expanded` + `Flexible` | Flex children cho Row/Column |
-| [Center](./Center.md) | `Center` + `Align` | Căn giữa / căn vị trí |
-| [Wrap](./Wrap.md) | `Wrap` | Flex wrap — tự xuống hàng |
-| [Spacer](./Spacer.md) | `SizedBox` | Khoảng trống cố định |
+### Style Prop
+Tất cả visual props (width, height, color, padding, borderRadius, ...) được gom vào `style` prop duy nhất:
 
-## 📝 Text & Input (3)
+```tsx
+<Box style={{ width: 200, height: 100, backgroundColor: '#fff', borderRadius: 12 }}>
+  <Text style={{ fontSize: 16, color: '#333', fontWeight: 'bold' }} text="Hello" />
+</Box>
+```
 
-| Component | Flutter tương đương | Mô tả |
-|-----------|-------------------|------|
-| [Text](./Text.md) | `Text` | Text rendering |
-| [Input](./Input.md) | `TextField` | Text input |
-| [SearchBar](./SearchBar.md) | `SearchBar` | Thanh tìm kiếm (pill-shaped input + icon) |
+### Semantic Shorthand Props
+UI components giữ một số shorthand props cho rapid development:
 
-## 🔘 Controls (7)
+| Prop | Type | Mô tả |
+|------|------|--------|
+| `variant` | component-specific | Kiểu hiển thị (solid, outline, ghost, link...) |
+| `color` | `SemanticColor` | Màu semantic — **KHÔNG nhận hex/rgb** |
+| `disabled` | `boolean` | Trạng thái disabled |
 
-| Component | Variants | Flutter tương đương |
-|-----------|----------|-------------------|
-| [Button](./Button.md) | `filled`, `ghost`, `elevated`, `outlined`, `text`, `icon`, `fab` | `ElevatedButton`, `IconButton`, `FAB` |
-| [Checkbox](./Checkbox.md) | — | `Checkbox` |
-| [Radio](./Radio.md) | — | `Radio` |
-| [Switch](./Switch.md) | — | `Switch` |
-| [Slider](./Slider.md) | — | `Slider` |
-| [DropdownButton](./DropdownButton.md) | — | `DropdownButton` |
-| [PopupMenuButton](./PopupMenuButton.md) | — | `PopupMenuButton` |
+**SemanticColor**: `'primary'` \| `'secondary'` \| `'success'` \| `'info'` \| `'warning'` \| `'error'` \| `'neutral'`
 
-## 📊 Display (10)
+Custom hex color → dùng `style.backgroundColor` hoặc `style.color`.
 
-| Component | Flutter tương đương | Mô tả |
-|-----------|-------------------|------|
-| [Image](./Image.md) | `Image` | Hiển thị ảnh |
-| [Icon](./Icon.md) | `Icon` | Hiển thị icon |
-| [Card](./Card.md) | `Card` | Card elevation |
-| [Avatar](./Avatar.md) | `CircleAvatar` | Avatar tròn |
-| [Badge](./Badge.md) | `Badge` | Badge số |
-| [Chip](./Chip.md) | `Chip` | Chip tag |
-| [Divider](./Divider.md) | `Divider` | Đường phân cách |
-| [Tooltip](./Tooltip.md) | `Tooltip` | Tooltip hover |
-| [ListTile](./ListTile.md) | `ListTile` | List item (leading + title + trailing) |
-| [ExpansionTile](./ExpansionTile.md) | `ExpansionTile` | Accordion collapse/expand |
+### Ưu tiên
+```
+style prop > shorthand props > theme defaults
+```
 
-## 📈 Feedback (3)
+## Base Style Types
 
-| Component | Variants | Flutter tương đương |
-|-----------|----------|-------------------|
-| [Progress](./Progress.md) | `linear`, `circular` | `LinearProgressIndicator`, `CircularProgressIndicator` |
-| [SnackBar](./SnackBar.md) | — | `SnackBar` |
-| [RefreshIndicator](./RefreshIndicator.md) | — | `RefreshIndicator` |
+Defined in `src/core/style.types.ts`. Component styles extend từ các type này.
 
-## 🧭 Navigation (4)
+| Type | Props |
+|------|-------|
+| `LayoutStyle` | `width`, `height`, `overflow` |
+| `SpacingStyle` | `padding`, `margin` |
+| `ColorStyle` | `backgroundColor`, `opacity` |
+| `BorderStyle` | `borderRadius`, `borderColor`, `borderWidth` |
+| `ShadowStyle` | `elevation`, `zIndex` |
+| `FlexChildStyle` | `flex`, `flexGrow`, `flexShrink`, `flexBasis`, `alignSelf`, `position`, `top/left/right/bottom` |
+| `FlexContainerStyle` | `flexDirection`, `flexWrap`, `justifyContent`, `alignItems`, `gap`, `rowGap` |
+| `SkiaTextStyle` | `fontSize`, `fontFamily`, `fontWeight`, `fontStyle`, `color`, `textAlign`, `lineHeight`, `letterSpacing` |
 
-| Component | Variants | Flutter tương đương |
-|-----------|----------|-------------------|
-| [Nav](./Nav.md) | — | `Navigator` |
-| [AppBar](./AppBar.md) | — | `AppBar` |
-| [BottomNavigationBar](./BottomNavigationBar.md) | — | `BottomNavigationBar` |
-| [TabBar](./TabBar.md) | `tab`, `segment` | `TabBar`, `SegmentedControl` |
-| [Hero](./Hero.md) | — | `Hero` | Shared element transition |
+## Component Index
 
-## 📦 Overlay (4)
+### Base
+[Box](./Box.md) · [Text](./Text.md) · [Row](./Row.md) · [Column](./Column.md)
 
-| Component | Flutter tương đương | Mô tả |
-|-----------|-------------------|------|
-| [Modal](./Modal.md) | `AlertDialog` | Modal dialog |
-| [BottomSheet](./BottomSheet.md) | `BottomSheet` | Sheet kéo từ dưới |
-| [Overlay](./Overlay.md) | `ModalBarrier` | Overlay backdrop |
-| [Drawer](./Drawer.md) | `Drawer` | Side drawer |
+### Layout
+[Expanded](./Expanded.md) · [Center](./Center.md) · [Stack](./Stack.md) · [Wrap](./Wrap.md) · [Spacer](./Spacer.md)
 
-## 📜 Scroll & Pages (3)
+### UI Components
+[Button](./Button.md) · [Card](./Card.md) · [Badge](./Badge.md) · [Chip](./Chip.md) · [Avatar](./Avatar.md)
 
-| Component | Variants | Flutter tương đương |
-|-----------|----------|-------------------|
-| [ScrollView](./ScrollView.md) | static, `builder` (virtualized) | `SingleChildScrollView`, `ListView.builder` |
-| [GridView](./GridView.md) | static, `builder` | `GridView.builder` |
-| [PageView](./PageView.md) | — | `PageView` |
+### Form
+[Input](./Input.md) · [Checkbox](./Checkbox.md) · [Radio](./Radio.md) · [Switch](./Switch.md) · [Slider](./Slider.md) · [DropdownButton](./DropdownButton.md)
 
-## 🖐 Gesture & Interaction (3)
+### Display
+[Divider](./Divider.md) · [ListTile](./ListTile.md) · [ExpansionTile](./ExpansionTile.md) · [Tooltip](./Tooltip.md) · [SnackBar](./SnackBar.md) · [Progress](./Progress.md) · [Image](./Image.md) · [Icon](./Icon.md)
 
-| Component | Flutter tương đương | Mô tả |
-|-----------|-------------------|------|
-| [GestureDetector](./GestureDetector.md) | `GestureDetector` | Wrapper bắt gesture |
-| [Dismissible](./Dismissible.md) | `Dismissible` | Swipe to dismiss |
-| [Draggable](./Draggable.md) | `Draggable` + `DragTarget` | Drag & drop |
+### Navigation
+[Scaffold](./Scaffold.md) · [AppBar](./AppBar.md) · [BottomNavigationBar](./BottomNavigationBar.md) · [TabBar](./TabBar.md) · [TabBarView](./TabBarView.md) · [Nav](./Nav.md) · [SearchBar](./SearchBar.md)
 
-## 📋 Form (1)
+### Overlay / Gesture
+[Overlay](./Overlay.md) · [Modal](./Modal.md) · [BottomSheet](./BottomSheet.md) · [Drawer](./Drawer.md) · [GestureDetector](./GestureDetector.md) · [Dismissible](./Dismissible.md) · [Draggable](./Draggable.md) · [PopupMenuButton](./PopupMenuButton.md)
 
-| Component | Flutter tương đương | Mô tả |
-|-----------|-------------------|------|
-| [Form](./Form.md) | `Form` + `FormField` | Form validation |
+### Scroll / List
+[ScrollView](./ScrollView.md) · [GridView](./GridView.md) · [PageView](./PageView.md) · [VirtualizedList](./VirtualizedList.md) · [RefreshIndicator](./RefreshIndicator.md)
 
-## 🌐 Root (2)
-
-| Component | Flutter tương đương | Mô tả |
-|-----------|-------------------|------|
-| [CanvasRoot](./CanvasRoot.md) | `MaterialApp` | Root canvas duy nhất |
-| [Scaffold](./Scaffold.md) | `Scaffold` | Layout frame (AppBar + body + FAB + BottomNav + Drawer) |
+### Other
+[SafeArea](./SafeArea.md) · [Hero](./Hero.md) · [Form](./Form.md) · [CanvasRoot](./CanvasRoot.md)

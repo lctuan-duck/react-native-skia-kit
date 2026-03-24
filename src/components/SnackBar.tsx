@@ -12,16 +12,24 @@ import { Expanded } from './Expanded';
 import { useTheme } from '../hooks/useTheme';
 import { useWidget } from '../hooks/useWidget';
 import type { WidgetProps } from '../core/types';
+import type { ColorStyle, FlexChildStyle } from '../core/style.types';
+
+// === SnackBar Types ===
+
+export type SnackBarStyle = ColorStyle &
+  FlexChildStyle & {
+    textColor?: string;
+  };
 
 export interface SnackBarProps extends WidgetProps {
   visible?: boolean;
   message: string;
   action?: { label: string; onPress: () => void };
   duration?: number;
-  backgroundColor?: string;
-  textColor?: string;
   screenWidth?: number;
   screenHeight?: number;
+  /** Style override */
+  style?: SnackBarStyle;
   onDismiss?: () => void;
 }
 
@@ -30,20 +38,24 @@ export const SnackBar = React.memo(function SnackBar({
   message,
   action,
   duration = 3000,
-  backgroundColor,
-  textColor,
+  style,
   screenWidth = 360,
   screenHeight = 800,
   onDismiss,
 }: SnackBarProps) {
   const theme = useTheme();
-  const bgColor = backgroundColor ?? theme.colors.inverseSurface;
-  const fgColor = textColor ?? theme.colors.textInverse;
+  const bgColor = style?.backgroundColor ?? theme.colors.inverseSurface;
+  const fgColor = style?.textColor ?? theme.colors.textInverse;
   const _translateY = useSharedValue(80);
 
   useWidget({
     type: 'SnackBar',
-    layout: { x: 8, y: screenHeight - 72, width: screenWidth - 16, height: 48 },
+    layout: {
+      x: 8,
+      y: screenHeight - 72,
+      width: screenWidth - 16,
+      height: 48,
+    },
   });
 
   const transform = useDerivedValue(() => [{ translateY: _translateY.value }]);
@@ -69,25 +81,29 @@ export const SnackBar = React.memo(function SnackBar({
       <Box
         x={8}
         y={screenHeight - 72}
-        width={screenWidth - 16}
-        height={48}
-        borderRadius={8}
-        color={bgColor}
-        elevation={6}
-        flexDirection="row"
-        alignItems="center"
-        padding={[0, 16, 0, 16]}
+        style={{
+          width: screenWidth - 16,
+          height: 48,
+          borderRadius: 8,
+          backgroundColor: bgColor,
+          elevation: 6,
+          flexDirection: 'row',
+          alignItems: 'center',
+          padding: [0, 16, 0, 16],
+        }}
       >
         <Expanded>
-          <Text text={message} fontSize={14} color={fgColor} />
+          <Text text={message} style={{ fontSize: 14, color: fgColor }} />
         </Expanded>
         {action && (
           <Box hitTestBehavior="opaque" onPress={action.onPress}>
             <Text
               text={action.label}
-              fontSize={14}
-              fontWeight="bold"
-              color={theme.colors.primary}
+              style={{
+                fontSize: 14,
+                fontWeight: 'bold',
+                color: theme.colors.primary,
+              }}
             />
           </Box>
         )}

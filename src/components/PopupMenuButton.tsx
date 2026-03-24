@@ -87,7 +87,7 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
         {/* Backdrop */}
         <Overlay
           visible
-          color="transparent"
+          barrierColor="transparent"
           onPress={() => hideOverlay(menuId)}
           screenWidth={screenWidth}
           screenHeight={screenHeight}
@@ -96,23 +96,27 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
         <Box
           x={menuX}
           y={menuY}
-          width={menuWidth}
-          borderRadius={menuBorderRadius}
-          color={bgColor}
-          elevation={menuElevation}
-          flexDirection="column"
+          style={{
+            width: menuWidth,
+            borderRadius: menuBorderRadius,
+            backgroundColor: bgColor,
+            elevation: menuElevation,
+            flexDirection: 'column',
+          }}
         >
           {items.map((item, index) => (
             <React.Fragment key={index}>
               <Box
-                width={menuWidth}
-                height={44}
-                flexDirection="row"
-                alignItems="center"
-                padding={[0, 16, 0, 16]}
-                gap={12}
+                style={{
+                  width: menuWidth,
+                  height: 44,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  padding: [0, 16, 0, 16],
+                  gap: 12,
+                  opacity: item.enabled === false ? 0.5 : 1,
+                }}
                 hitTestBehavior="opaque"
-                opacity={item.enabled === false ? 0.5 : 1}
                 onPress={() => {
                   if (item.enabled !== false) {
                     hideOverlay(menuId);
@@ -129,11 +133,13 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
                 )}
                 <Text
                   text={item.label}
-                  fontSize={14}
-                  color={theme.colors.textBody}
+                  style={{
+                    fontSize: 14,
+                    color: theme.colors.textBody,
+                  }}
                 />
               </Box>
-              {item.divider && <Divider length={menuWidth - 32} />}
+              {item.divider && <Divider style={{ length: menuWidth - 32 }} />}
             </React.Fragment>
           ))}
         </Box>
@@ -154,19 +160,23 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
     theme,
     showOverlay,
     hideOverlay,
+    screenWidth,
+    screenHeight,
   ]);
 
   return (
     <Box
       x={x}
       y={y}
-      width={40}
-      height={40}
+      style={{
+        width: 40,
+        height: 40,
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
       hitTestBehavior="opaque"
       onPress={openMenu}
-      flexDirection="column"
-      justifyContent="center"
-      alignItems="center"
     >
       {child ?? <Icon name={icon} size={24} color={theme.colors.textBody} />}
     </Box>

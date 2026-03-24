@@ -4,13 +4,34 @@ import { Box } from './Box';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type {
+  ColorStyle,
+  BorderStyle,
+  FlexChildStyle,
+  SemanticColor,
+} from '../core/style.types';
+import { resolveSemanticColor } from '../core/colorUtils';
+
+// === Checkbox Types ===
+
+export type CheckboxStyle = ColorStyle &
+  BorderStyle &
+  FlexChildStyle;
 
 export interface CheckboxProps extends WidgetProps {
+  /** Size */
   size?: number;
+  /** Checked state */
   checked?: boolean;
+  /** Disabled state */
   disabled?: boolean;
-  color?: string;
+  /** Semantic color */
+  color?: SemanticColor;
+  /** Style override */
+  style?: CheckboxStyle;
+  /** Change callback */
   onChange?: (checked: boolean) => void;
+  /** Press callback */
   onPress?: () => void;
 }
 
@@ -24,24 +45,25 @@ export const Checkbox = React.memo(function Checkbox({
   size = 24,
   checked = false,
   disabled = false,
-  color,
+  color = 'primary',
+  style,
   onChange,
   onPress,
 }: CheckboxProps) {
   const theme = useTheme();
-  const activeColor = color ?? theme.colors.primary;
+  const activeColor =
+    style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
   const borderColor = disabled
     ? theme.colors.textDisabled
     : checked
-    ? activeColor
-    : theme.colors.outline;
+      ? activeColor
+      : theme.colors.outline;
   const bgColor = checked
     ? disabled
       ? theme.colors.textDisabled
       : activeColor
     : 'transparent';
 
-  // SVG-style checkmark path
   const checkPath = `M${x + size * 0.2} ${y + size * 0.5} l${size * 0.25} ${
     size * 0.25
   } l${size * 0.35} -${size * 0.35}`;
@@ -61,13 +83,15 @@ export const Checkbox = React.memo(function Checkbox({
     <Box
       x={x}
       y={y}
-      width={size}
-      height={size}
-      borderRadius={4}
-      color={bgColor}
-      borderWidth={2}
-      borderColor={borderColor}
-      opacity={disabled ? 0.5 : 1}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: style?.borderRadius ?? 4,
+        backgroundColor: bgColor,
+        borderWidth: style?.borderWidth ?? 2,
+        borderColor: style?.borderColor ?? borderColor,
+        opacity: disabled ? 0.5 : 1,
+      }}
       hitTestBehavior="opaque"
       onPress={handlePress}
     >

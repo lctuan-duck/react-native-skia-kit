@@ -1,8 +1,28 @@
 import * as React from 'react';
 import { Box } from './Box';
 import type { WidgetProps } from '../core/types';
+import type {
+  LayoutStyle,
+  SpacingStyle,
+  ColorStyle,
+  BorderStyle,
+  FlexChildStyle,
+  FlexContainerStyle,
+} from '../core/style.types';
+
+// === Row Style ===
+
+export type FlexContainerComponentStyle = LayoutStyle &
+  SpacingStyle &
+  ColorStyle &
+  BorderStyle &
+  FlexChildStyle &
+  Pick<FlexContainerStyle, 'gap' | 'rowGap'>;
 
 export interface RowProps extends WidgetProps {
+  /** Consolidated style prop */
+  style?: FlexContainerComponentStyle;
+  /** Convenience: main axis alignment (maps to justifyContent) */
   mainAxisAlignment?:
     | 'start'
     | 'center'
@@ -10,11 +30,8 @@ export interface RowProps extends WidgetProps {
     | 'spaceBetween'
     | 'spaceAround'
     | 'spaceEvenly';
+  /** Convenience: cross axis alignment (maps to alignItems) */
   crossAxisAlignment?: 'start' | 'center' | 'end' | 'stretch';
-  gap?: number;
-  padding?: number | [number, number, number, number];
-  color?: string;
-  borderRadius?: number;
   children?: React.ReactNode;
 }
 
@@ -26,31 +43,22 @@ export interface RowProps extends WidgetProps {
 export const Row = React.memo(function Row({
   x = 0,
   y = 0,
-  width,
-  height,
+  style,
   mainAxisAlignment = 'start',
   crossAxisAlignment = 'center',
-  gap = 0,
-  padding = 0,
-  color = 'transparent',
-  borderRadius = 0,
   children,
-  ...rest
 }: RowProps) {
   return (
     <Box
       x={x}
       y={y}
-      width={width}
-      height={height}
-      color={color}
-      borderRadius={borderRadius}
-      flexDirection="row"
-      justifyContent={mainAxisAlignment}
-      alignItems={crossAxisAlignment}
-      gap={gap}
-      padding={padding}
-      {...rest}
+      style={{
+        ...style,
+        backgroundColor: style?.backgroundColor ?? 'transparent',
+        flexDirection: 'row',
+        justifyContent: mainAxisAlignment,
+        alignItems: crossAxisAlignment,
+      }}
     >
       {children}
     </Box>

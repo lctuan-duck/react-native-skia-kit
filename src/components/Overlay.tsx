@@ -4,13 +4,20 @@ import { Box } from './Box';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type {
+  ColorStyle,
+  BorderStyle,
+  ShadowStyle,
+  FlexChildStyle,
+} from '../core/style.types';
 
 // ===== Overlay =====
 
 export interface OverlayProps extends WidgetProps {
   visible?: boolean;
   onPress?: () => void;
-  color?: string;
+  /** Barrier color (accepts rgba string for semi-transparent backdrops) */
+  barrierColor?: string;
   screenWidth?: number;
   screenHeight?: number;
 }
@@ -23,11 +30,10 @@ export interface OverlayProps extends WidgetProps {
 export const Overlay = React.memo(function Overlay({
   visible = false,
   onPress,
-  color = 'rgba(0,0,0,0.5)',
+  barrierColor = 'rgba(0,0,0,0.5)',
   screenWidth = 360,
   screenHeight = 800,
 }: OverlayProps) {
-  // Only register widget when visible to avoid polluting widget tree
   useWidget({
     type: 'Overlay',
     layout: {
@@ -43,9 +49,11 @@ export const Overlay = React.memo(function Overlay({
     <Box
       x={0}
       y={0}
-      width={screenWidth}
-      height={screenHeight}
-      color={color}
+      style={{
+        width: screenWidth,
+        height: screenHeight,
+        backgroundColor: barrierColor,
+      }}
       hitTestBehavior="translucent"
       onPress={onPress}
     />
@@ -54,14 +62,22 @@ export const Overlay = React.memo(function Overlay({
 
 // ===== Modal =====
 
+export type ModalStyle = ColorStyle &
+  BorderStyle &
+  ShadowStyle &
+  FlexChildStyle & {
+    width?: number;
+    height?: number;
+  };
+
 export interface ModalProps extends WidgetProps {
   visible?: boolean;
   onClose?: () => void;
   children: React.ReactNode;
   barrierDismissible?: boolean;
   barrierColor?: string;
-  borderRadius?: number;
-  backgroundColor?: string;
+  /** Style override (width, height, borderRadius, backgroundColor, elevation) */
+  style?: ModalStyle;
   screenWidth?: number;
   screenHeight?: number;
 }
@@ -77,24 +93,26 @@ export const Modal = React.memo(function Modal({
   children,
   barrierDismissible = true,
   barrierColor = 'rgba(0,0,0,0.5)',
-  borderRadius = 16,
-  backgroundColor,
-  width = 280,
-  height = 200,
+  style,
   screenWidth = 360,
   screenHeight = 800,
 }: ModalProps) {
   const theme = useTheme();
   if (!visible) return null;
-  const bgColor = backgroundColor ?? theme.colors.surface;
-  const modalX = (screenWidth - (width ?? 280)) / 2;
-  const modalY = (screenHeight - (height ?? 200)) / 2;
+
+  const w = style?.width ?? 280;
+  const h = style?.height ?? 200;
+  const bgColor = style?.backgroundColor ?? theme.colors.surface;
+  const borderR = style?.borderRadius ?? 16;
+  const elev = style?.elevation ?? 24;
+  const modalX = (screenWidth - w) / 2;
+  const modalY = (screenHeight - h) / 2;
 
   return (
     <Group>
       <Overlay
         visible
-        color={barrierColor}
+        barrierColor={barrierColor}
         onPress={barrierDismissible ? onClose : undefined}
         screenWidth={screenWidth}
         screenHeight={screenHeight}
@@ -102,11 +120,13 @@ export const Modal = React.memo(function Modal({
       <Box
         x={modalX}
         y={modalY}
-        width={width}
-        height={height}
-        borderRadius={borderRadius}
-        color={bgColor}
-        elevation={24}
+        style={{
+          width: w,
+          height: h,
+          borderRadius: borderR,
+          backgroundColor: bgColor,
+          elevation: elev,
+        }}
         hitTestBehavior="opaque"
       >
         {children}
@@ -117,15 +137,22 @@ export const Modal = React.memo(function Modal({
 
 // ===== BottomSheet =====
 
+export type BottomSheetStyle = ColorStyle &
+  BorderStyle &
+  ShadowStyle &
+  FlexChildStyle & {
+    /** Sheet height */
+    height?: number;
+  };
+
 export interface BottomSheetProps extends WidgetProps {
   visible?: boolean;
   onClose?: () => void;
   children: React.ReactNode;
-  sheetHeight?: number;
-  borderRadius?: number;
-  backgroundColor?: string;
   barrierColor?: string;
   showHandle?: boolean;
+  /** Style override (height, borderRadius, backgroundColor, elevation) */
+  style?: BottomSheetStyle;
   screenWidth?: number;
   screenHeight?: number;
 }
@@ -139,23 +166,25 @@ export const BottomSheet = React.memo(function BottomSheet({
   visible = false,
   onClose,
   children,
-  sheetHeight = 400,
-  borderRadius = 24,
-  backgroundColor,
   barrierColor = 'rgba(0,0,0,0.5)',
   showHandle = true,
+  style,
   screenWidth = 360,
   screenHeight = 800,
 }: BottomSheetProps) {
   const theme = useTheme();
   if (!visible) return null;
-  const bgColor = backgroundColor ?? theme.colors.surface;
+
+  const sheetHeight = style?.height ?? 400;
+  const bgColor = style?.backgroundColor ?? theme.colors.surface;
+  const borderR = style?.borderRadius ?? 24;
+  const elev = style?.elevation ?? 16;
 
   return (
     <Group>
       <Overlay
         visible
-        color={barrierColor}
+        barrierColor={barrierColor}
         onPress={onClose}
         screenWidth={screenWidth}
         screenHeight={screenHeight}
@@ -163,20 +192,24 @@ export const BottomSheet = React.memo(function BottomSheet({
       <Box
         x={0}
         y={screenHeight - sheetHeight}
-        width={screenWidth}
-        height={sheetHeight}
-        borderRadius={borderRadius}
-        color={bgColor}
-        elevation={16}
-        flexDirection="column"
-        alignItems="center"
+        style={{
+          width: screenWidth,
+          height: sheetHeight,
+          borderRadius: borderR,
+          backgroundColor: bgColor,
+          elevation: elev,
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
       >
         {showHandle && (
           <Box
-            width={40}
-            height={4}
-            borderRadius={2}
-            color={theme.colors.textDisabled}
+            style={{
+              width: 40,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: theme.colors.textDisabled,
+            }}
           />
         )}
         {children}
@@ -187,14 +220,21 @@ export const BottomSheet = React.memo(function BottomSheet({
 
 // ===== Drawer =====
 
+export type DrawerStyle = ColorStyle &
+  ShadowStyle &
+  FlexChildStyle & {
+    /** Drawer width */
+    width?: number;
+  };
+
 export interface DrawerProps extends WidgetProps {
   visible?: boolean;
   onClose?: () => void;
   children: React.ReactNode;
-  drawerWidth?: number;
   side?: 'left' | 'right';
-  backgroundColor?: string;
   barrierColor?: string;
+  /** Style override (width, backgroundColor, elevation) */
+  style?: DrawerStyle;
   screenWidth?: number;
   screenHeight?: number;
 }
@@ -207,23 +247,25 @@ export const Drawer = React.memo(function Drawer({
   visible = false,
   onClose,
   children,
-  drawerWidth = 280,
   side = 'left',
-  backgroundColor,
   barrierColor = 'rgba(0,0,0,0.5)',
+  style,
   screenWidth = 360,
   screenHeight = 800,
 }: DrawerProps) {
   const theme = useTheme();
   if (!visible) return null;
-  const bgColor = backgroundColor ?? theme.colors.surface;
+
+  const drawerWidth = style?.width ?? 280;
+  const bgColor = style?.backgroundColor ?? theme.colors.surface;
+  const elev = style?.elevation ?? 16;
   const drawerX = side === 'left' ? 0 : screenWidth - drawerWidth;
 
   return (
     <Group>
       <Overlay
         visible
-        color={barrierColor}
+        barrierColor={barrierColor}
         onPress={onClose}
         screenWidth={screenWidth}
         screenHeight={screenHeight}
@@ -231,10 +273,12 @@ export const Drawer = React.memo(function Drawer({
       <Box
         x={drawerX}
         y={0}
-        width={drawerWidth}
-        height={screenHeight}
-        color={bgColor}
-        elevation={16}
+        style={{
+          width: drawerWidth,
+          height: screenHeight,
+          backgroundColor: bgColor,
+          elevation: elev,
+        }}
         hitTestBehavior="opaque"
       >
         {children}

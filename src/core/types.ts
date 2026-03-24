@@ -1,37 +1,14 @@
 /**
  * Base props cho tất cả widgets trong react-native-skia-kit.
+ * Flex child / layout props đã chuyển sang style.types.ts (FlexChildStyle, LayoutStyle).
  */
 export interface WidgetProps {
-  /** Top-left X position */
+  /** Top-left X position (injected by parent flex layout) */
   x?: number;
-  /** Top-left Y position */
+  /** Top-left Y position (injected by parent flex layout) */
   y?: number;
-  /** Widget width */
-  width?: number;
-  /** Widget height */
-  height?: number;
   /** Accessibility label */
   accessibilityLabel?: string;
-
-  // ===== Flex layout participation props =====
-  // These are read by useYogaLayout when this widget is a child of a flex container.
-
-  /** Flex grow factor (like CSS flex: N) */
-  flex?: number;
-  /** Flex grow factor (alias) */
-  flexGrow?: number;
-  /** Override parent's alignItems for this child */
-  alignSelf?: 'auto' | 'start' | 'center' | 'end' | 'stretch';
-  /** Positioning mode: 'absolute' removes from flow, 'relative' is default */
-  position?: 'relative' | 'absolute';
-  /** Offset from top (only with position='absolute') */
-  top?: number;
-  /** Offset from left (only with position='absolute') */
-  left?: number;
-  /** Offset from right (only with position='absolute') */
-  right?: number;
-  /** Offset from bottom (only with position='absolute') */
-  bottom?: number;
 }
 
 /**

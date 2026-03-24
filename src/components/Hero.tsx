@@ -15,6 +15,10 @@ import type { WidgetProps } from '../core/types';
 export interface HeroProps extends WidgetProps {
   /** Unique tag to match hero widgets across screens */
   tag: string;
+  /** Width of hero bounding box */
+  width?: number;
+  /** Height of hero bounding box */
+  height?: number;
   children: React.ReactNode;
 }
 
@@ -63,7 +67,7 @@ export const Hero = React.memo(function Hero({
     return () => {
       useHeroStore.getState().unregisterHero(tag);
     };
-  }, [tag, x, y, width, height]);
+  }, [tag, x, y, w, h]);
 
   const isTransitioning = useHeroStore((s) => s.isTransitioning);
 

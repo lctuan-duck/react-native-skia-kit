@@ -5,76 +5,110 @@ import { Icon } from './Icon';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type {
+  LayoutStyle,
+  ColorStyle,
+  BorderStyle,
+  ShadowStyle,
+  SpacingStyle,
+  FlexChildStyle,
+  SemanticColor,
+} from '../core/style.types';
+import {
+  resolveSemanticColor,
+  resolveOnColor,
+  withOpacity,
+} from '../core/colorUtils';
+
+// === Button Types ===
 
 export type ButtonVariant =
-  | 'filled'
+  | 'solid'
+  | 'outline'
   | 'ghost'
-  | 'elevated'
-  | 'outlined'
-  | 'text'
+  | 'link'
   | 'icon'
   | 'fab';
+
+export type ButtonStyle = LayoutStyle &
+  ColorStyle &
+  BorderStyle &
+  ShadowStyle &
+  SpacingStyle &
+  FlexChildStyle & {
+    textColor?: string;
+    iconSize?: number;
+    tapSize?: number;
+  };
 
 export interface ButtonProps extends WidgetProps {
   /** Label text */
   text?: string;
-  /** Icon name (future: when Icon component is implemented) */
+  /** Icon name */
   icon?: string;
-  /** Icon size */
-  iconSize?: number;
-  /** Variant = SHAPE (independent from color) */
+  /** Variant = SHAPE */
   variant?: ButtonVariant;
-  /** Color = SEMANTIC (independent from variant) */
-  color?: string;
-  /** Custom text color (otherwise auto from variant) */
-  textColor?: string;
-  /** Border radius */
-  borderRadius?: number;
+  /** Semantic color (resolves via theme) */
+  color?: SemanticColor;
   /** Disabled state */
   disabled?: boolean;
   /** FAB extended mode (icon + label) */
   extended?: boolean;
-  /** Icon button tap area size */
-  tapSize?: number;
   /** Press callback */
   onPress?: () => void;
   /** Long press callback */
   onLongPress?: () => void;
+  /** Style override (highest priority) */
+  style?: ButtonStyle;
 }
 
 /**
  * Button — multi-variant button.
  * Tương đương Flutter ElevatedButton / FilledButton / TextButton / IconButton / FAB.
  *
- * Variant = SHAPE (filled/ghost/elevated/outlined/text/icon/fab)
- * Color = SEMANTIC (primary/error/success — independent of variant)
+ * Variant = SHAPE (solid/outline/ghost/link/icon/fab)
+ * Color = SEMANTIC (primary/secondary/success/info/warning/error/neutral)
  * → 2 trục độc lập, kết hợp tự do.
  */
 export const Button = React.memo(function Button({
   x = 0,
   y = 0,
-  width,
-  height = 48,
   text,
   icon,
-  iconSize = 20,
-  variant = 'filled',
-  color,
-  textColor,
-  borderRadius = 8,
+  variant = 'solid',
+  color = 'primary',
   disabled = false,
   extended = false,
-  tapSize = 48,
   onPress,
   onLongPress,
+  style,
 }: ButtonProps) {
   const theme = useTheme();
-  const resolvedColor = color ?? theme.colors.primary;
-  const styles = resolveStyles(variant, resolvedColor, textColor, theme);
+  const resolvedColor = resolveSemanticColor(color, theme.colors);
+  const resolvedOnColor = resolveOnColor(color, theme.colors);
+  const variantStyles = resolveVariantStyles(
+    variant,
+    resolvedColor,
+    resolvedOnColor,
+    theme
+  );
+
+  // Style overrides take highest priority
+  const bgColor = style?.backgroundColor ?? variantStyles.background;
+  const fgColor = style?.textColor ?? variantStyles.foreground;
+  const borderW = style?.borderWidth ?? variantStyles.borderWidth;
+  const borderC = style?.borderColor ?? variantStyles.borderColor;
+  const elev = style?.elevation ?? variantStyles.elevation;
+  const borderR = style?.borderRadius ?? 8;
+  const iconSz = style?.iconSize ?? 20;
+  const tapSz = style?.tapSize ?? 48;
+
+  const w = style?.width;
+  const h = style?.height ?? 48;
 
   useWidget<{ variant: string }>({
     type: 'Button',
-    layout: { x, y, width: width ?? 100, height },
+    layout: { x, y, width: w ?? 100, height: h },
     props: { variant },
   });
 
@@ -84,106 +118,107 @@ export const Button = React.memo(function Button({
       <Box
         x={x}
         y={y}
-        width={tapSize}
-        height={tapSize}
-        borderRadius={tapSize / 2}
-        color="transparent"
+        style={{
+          width: tapSz,
+          height: tapSz,
+          borderRadius: tapSz / 2,
+          backgroundColor: style?.backgroundColor ?? 'transparent',
+          opacity: disabled ? 0.4 : 1,
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
         hitTestBehavior="opaque"
         onPress={() => !disabled && onPress?.()}
-        opacity={disabled ? 0.4 : 1}
-        flexDirection="column"
-        justifyContent="center"
-        alignItems="center"
       >
-        <Icon name={icon!} size={iconSize} color={styles.foreground} />
+        <Icon name={icon!} size={iconSz} color={fgColor} />
       </Box>
     );
   }
 
   // ===== FAB variant =====
   if (variant === 'fab') {
-    const fabSize = extended ? undefined : 56;
+    const fabWidth = extended ? (w ?? 140) : 56;
     return (
       <Box
         x={x}
         y={y}
-        width={fabSize ?? width ?? 56}
-        height={56}
-        borderRadius={28}
-        color={styles.background}
-        elevation={6}
+        style={{
+          width: fabWidth,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: bgColor,
+          elevation: elev,
+          opacity: disabled ? 0.4 : 1,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: extended ? [0, 20, 0, 16] : 0,
+          gap: extended ? 8 : 0,
+        }}
         hitTestBehavior="opaque"
         onPress={() => !disabled && onPress?.()}
-        opacity={disabled ? 0.4 : 1}
-        flexDirection="row"
-        alignItems="center"
-        justifyContent="center"
-        padding={extended ? [0, 20, 0, 16] : 0}
-        gap={extended ? 8 : 0}
       >
-        <Icon name={icon!} size={24} color={styles.foreground} />
+        <Icon name={icon!} size={24} color={fgColor} />
         {extended && text && (
           <Text
             text={text}
-            fontSize={14}
-            fontWeight="bold"
-            color={styles.foreground}
+            style={{ fontSize: 14, fontWeight: 'bold', color: fgColor }}
           />
         )}
       </Box>
     );
   }
 
-  // ===== Standard variants: filled / ghost / elevated / outlined / text =====
-  const btnWidth = width ?? Math.max(80, (text?.length ?? 0) * 9 + 32);
+  // ===== Standard variants: solid / outline / ghost / link =====
+  const btnWidth = w ?? Math.max(80, (text?.length ?? 0) * 9 + 32);
   return (
     <Box
       x={x}
       y={y}
-      width={btnWidth}
-      height={height}
-      borderRadius={borderRadius}
-      color={styles.background}
-      borderWidth={styles.borderWidth}
-      borderColor={styles.borderColor}
-      elevation={styles.elevation}
+      style={{
+        width: btnWidth,
+        height: h,
+        borderRadius: borderR,
+        backgroundColor: bgColor,
+        borderWidth: borderW,
+        borderColor: borderC,
+        elevation: elev,
+        opacity: disabled ? 0.4 : 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: style?.padding ?? [0, 16, 0, 16],
+        gap: icon && text ? 8 : 0,
+      }}
       hitTestBehavior="opaque"
       onPress={() => !disabled && onPress?.()}
       onLongPress={onLongPress}
-      opacity={disabled ? 0.4 : 1}
-      flexDirection="row"
-      alignItems="center"
-      justifyContent="center"
-      padding={[0, 16, 0, 16]}
-      gap={icon && text ? 8 : 0}
     >
-      {icon && <Icon name={icon} size={iconSize} color={styles.foreground} />}
+      {icon && <Icon name={icon} size={iconSz} color={fgColor} />}
       {text && (
         <Text
           text={text}
-          fontSize={14}
-          fontWeight="bold"
-          color={styles.foreground}
+          style={{ fontSize: 14, fontWeight: 'bold', color: fgColor }}
         />
       )}
     </Box>
   );
 });
 
-// Variant = SHAPE, color = MÀU → 2 trục độc lập
-function resolveStyles(
+// Variant → style resolution
+function resolveVariantStyles(
   variant: ButtonVariant,
   color: string,
-  customTextColor: string | undefined,
-  theme: ReturnType<typeof useTheme>
+  onColor: string,
+  _theme: ReturnType<typeof useTheme>
 ) {
-  const c = theme.colors;
 
   switch (variant) {
-    case 'filled':
+    case 'solid':
       return {
         background: color,
-        foreground: customTextColor ?? contrastColor(color),
+        foreground: onColor,
         elevation: 2,
         borderWidth: 0,
         borderColor: 'transparent',
@@ -191,31 +226,23 @@ function resolveStyles(
     case 'ghost':
       return {
         background: withOpacity(color, 0.15),
-        foreground: customTextColor ?? color,
+        foreground: color,
         elevation: 0,
         borderWidth: 0,
         borderColor: 'transparent',
       };
-    case 'elevated':
-      return {
-        background: c.surface,
-        foreground: customTextColor ?? color,
-        elevation: 4,
-        borderWidth: 0,
-        borderColor: 'transparent',
-      };
-    case 'outlined':
+    case 'outline':
       return {
         background: 'transparent',
-        foreground: customTextColor ?? color,
+        foreground: color,
         elevation: 0,
         borderWidth: 1,
         borderColor: color,
       };
-    case 'text':
+    case 'link':
       return {
         background: 'transparent',
-        foreground: customTextColor ?? color,
+        foreground: color,
         elevation: 0,
         borderWidth: 0,
         borderColor: 'transparent',
@@ -223,7 +250,7 @@ function resolveStyles(
     case 'icon':
       return {
         background: 'transparent',
-        foreground: customTextColor ?? color,
+        foreground: color,
         elevation: 0,
         borderWidth: 0,
         borderColor: 'transparent',
@@ -231,7 +258,7 @@ function resolveStyles(
     case 'fab':
       return {
         background: color,
-        foreground: customTextColor ?? contrastColor(color),
+        foreground: onColor,
         elevation: 6,
         borderWidth: 0,
         borderColor: 'transparent',
@@ -239,29 +266,10 @@ function resolveStyles(
     default:
       return {
         background: color,
-        foreground: customTextColor ?? contrastColor(color),
+        foreground: onColor,
         elevation: 2,
         borderWidth: 0,
         borderColor: 'transparent',
       };
   }
-}
-
-function contrastColor(hex: string): string {
-  if (!hex || hex.length < 7) return '#ffffff';
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? '#000000' : '#ffffff';
-}
-
-function withOpacity(hex: string, opacity: number): string {
-  if (!hex || hex.length < 7) return hex;
-  return (
-    hex +
-    Math.round(opacity * 255)
-      .toString(16)
-      .padStart(2, '0')
-  );
 }

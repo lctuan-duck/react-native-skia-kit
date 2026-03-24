@@ -1,13 +1,29 @@
 import * as React from 'react';
 import { Line } from '@shopify/react-native-skia';
 import type { WidgetProps } from '../core/types';
+import type {
+  ColorStyle,
+  FlexChildStyle,
+  SemanticColor,
+} from '../core/style.types';
 import { useTheme } from '../hooks/useTheme';
+import { resolveSemanticColor } from '../core/colorUtils';
+
+// === Divider Types ===
+
+export type DividerStyle = ColorStyle &
+  FlexChildStyle & {
+    length?: number;
+    thickness?: number;
+  };
 
 export interface DividerProps extends WidgetProps {
-  length?: number;
+  /** Orientation */
   orientation?: 'horizontal' | 'vertical';
-  thickness?: number;
-  color?: string;
+  /** Semantic color */
+  color?: SemanticColor;
+  /** Style override */
+  style?: DividerStyle;
 }
 
 /**
@@ -17,13 +33,18 @@ export interface DividerProps extends WidgetProps {
 export const Divider = React.memo(function Divider({
   x = 0,
   y = 0,
-  length = 300,
   orientation = 'horizontal',
-  thickness = 1,
   color,
+  style,
 }: DividerProps) {
   const theme = useTheme();
-  const lineColor = color ?? theme.colors.divider;
+  const lineColor = style?.backgroundColor
+    ?? (color
+      ? resolveSemanticColor(color, theme.colors)
+      : theme.colors.divider);
+
+  const length = style?.length ?? 300;
+  const thickness = style?.thickness ?? 1;
 
   if (orientation === 'horizontal') {
     return (

@@ -7,17 +7,32 @@ import { Expanded } from './Expanded';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type {
+  ColorStyle,
+  BorderStyle,
+  ShadowStyle,
+  FlexChildStyle,
+} from '../core/style.types';
+
+// === SearchBar Types ===
+
+export type SearchBarStyle = ColorStyle &
+  BorderStyle &
+  ShadowStyle &
+  FlexChildStyle & {
+    textColor?: string;
+    placeholderColor?: string;
+    width?: number;
+    height?: number;
+  };
 
 export interface SearchBarProps extends WidgetProps {
   value?: string;
   placeholder?: string;
   leading?: React.ReactNode;
   trailing?: React.ReactNode;
-  backgroundColor?: string;
-  textColor?: string;
-  placeholderColor?: string;
-  borderRadius?: number;
-  elevation?: number;
+  /** Style override */
+  style?: SearchBarStyle;
   onChanged?: (text: string) => void;
   onSubmitted?: (text: string) => void;
   onFocus?: () => void;
@@ -27,22 +42,21 @@ export interface SearchBarProps extends WidgetProps {
 export const SearchBar = React.memo(function SearchBar({
   x = 0,
   y = 0,
-  width,
-  height = 48,
+  style,
   value: controlledValue,
   placeholder = 'Tìm kiếm...',
   leading,
   trailing,
-  backgroundColor,
-  textColor: _textColor,
-  placeholderColor,
-  borderRadius = 24,
-  elevation = 0,
   onChanged,
 }: SearchBarProps) {
   const theme = useTheme();
-  const bgColor = backgroundColor ?? theme.colors.surfaceVariant;
-  const phColor = placeholderColor ?? theme.colors.textSecondary;
+  const bgColor = style?.backgroundColor ?? theme.colors.surfaceVariant;
+  const phColor = style?.placeholderColor ?? theme.colors.textSecondary;
+  const borderR = style?.borderRadius ?? 24;
+  const elev = style?.elevation ?? 0;
+  const width = style?.width;
+  const height = style?.height ?? 48;
+
   const [internalValue, setInternalValue] = useState('');
   const text = controlledValue ?? internalValue;
 
@@ -58,22 +72,26 @@ export const SearchBar = React.memo(function SearchBar({
     <Box
       x={x}
       y={y}
-      width={width}
-      height={height}
-      color={bgColor}
-      borderRadius={borderRadius}
-      elevation={elevation}
-      flexDirection="row"
-      alignItems="center"
-      padding={[0, 16, 0, 16]}
-      gap={12}
+      style={{
+        width,
+        height,
+        backgroundColor: bgColor,
+        borderRadius: borderR,
+        elevation: elev,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: [0, 16, 0, 16],
+        gap: 12,
+      }}
     >
       {leading ?? <Icon name="search" size={20} color={phColor} />}
       <Expanded>
         <Text
           text={text || placeholder}
-          fontSize={14}
-          color={text ? theme.colors.textBody : phColor}
+          style={{
+            fontSize: 14,
+            color: text ? theme.colors.textBody : phColor,
+          }}
         />
       </Expanded>
       {text.length > 0 &&
@@ -81,8 +99,7 @@ export const SearchBar = React.memo(function SearchBar({
           <Box
             hitTestBehavior="opaque"
             onPress={handleClear}
-            width={24}
-            height={24}
+            style={{ width: 24, height: 24 }}
           >
             <Icon name="close" size={20} color={phColor} />
           </Box>

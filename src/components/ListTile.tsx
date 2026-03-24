@@ -6,6 +6,22 @@ import { Expanded } from './Expanded';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type {
+  ColorStyle,
+  SpacingStyle,
+  FlexChildStyle,
+} from '../core/style.types';
+
+// === ListTile Types ===
+
+export type ListTileStyle = ColorStyle &
+  SpacingStyle &
+  FlexChildStyle & {
+    titleColor?: string;
+    subtitleColor?: string;
+    width?: number;
+    height?: number;
+  };
 
 export interface ListTileProps extends WidgetProps {
   /** Title text — REQUIRED */
@@ -16,16 +32,10 @@ export interface ListTileProps extends WidgetProps {
   leading?: React.ReactNode;
   /** Trailing widget (Switch/Checkbox/Icon at right) */
   trailing?: React.ReactNode;
-  /** Title text color */
-  titleColor?: string;
-  /** Subtitle text color */
-  subtitleColor?: string;
-  /** Background color */
-  backgroundColor?: string;
-  /** Content padding */
-  contentPadding?: number;
   /** Dense/compact mode (height: 48) */
   dense?: boolean;
+  /** Style override */
+  style?: ListTileStyle;
   /** Press callback */
   onPress?: () => void;
   /** Long press callback */
@@ -35,33 +45,28 @@ export interface ListTileProps extends WidgetProps {
 /**
  * ListTile — leading + title/subtitle + trailing list item.
  * Tương đương Flutter ListTile.
- *
- * Composition: Box (row flex) + leading + Column (title/subtitle) + Expanded + trailing.
  */
 export const ListTile = React.memo(function ListTile({
   x = 0,
   y = 0,
-  width,
-  height,
   title,
   subtitle,
   leading,
   trailing,
-  titleColor,
-  subtitleColor,
-  backgroundColor,
-  contentPadding = 16,
   dense = false,
+  style,
   onPress,
   onLongPress,
 }: ListTileProps) {
   const theme = useTheme();
-  const fgTitle = titleColor ?? theme.colors.textBody;
-  const fgSubtitle = subtitleColor ?? theme.colors.textSecondary;
-  const bgColor = backgroundColor ?? 'transparent';
+  const fgTitle = style?.titleColor ?? theme.colors.textBody;
+  const fgSubtitle = style?.subtitleColor ?? theme.colors.textSecondary;
+  const bgColor = style?.backgroundColor ?? 'transparent';
+  const contentPadding = 16;
 
-  // Auto height: dense=48, subtitle=72, default=56
-  const tileHeight = height ?? (dense ? 48 : subtitle ? 72 : 56);
+  const width = style?.width;
+  const tileHeight =
+    style?.height ?? (dense ? 48 : subtitle ? 72 : 56);
 
   const w = width ?? 0;
 
@@ -74,35 +79,43 @@ export const ListTile = React.memo(function ListTile({
     <Box
       x={x}
       y={y}
-      width={width}
-      height={tileHeight}
-      color={bgColor}
-      flexDirection="row"
-      alignItems="center"
-      padding={[0, contentPadding, 0, contentPadding]}
-      gap={16}
+      style={{
+        width,
+        height: tileHeight,
+        backgroundColor: bgColor,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: [0, contentPadding, 0, contentPadding],
+        gap: 16,
+        ...style,
+      }}
       hitTestBehavior="opaque"
       onPress={onPress}
       onLongPress={onLongPress}
     >
-      {/* Leading — Icon/Avatar */}
       {leading}
 
-      {/* Content — Title + Subtitle */}
       <Expanded>
-        <Column gap={2} mainAxisAlignment="center">
-          <Text text={title} fontSize={dense ? 14 : 16} color={fgTitle} />
+        <Column mainAxisAlignment="center" style={{ gap: 2 }}>
+          <Text
+            text={title}
+            style={{
+              fontSize: dense ? 14 : 16,
+              color: fgTitle,
+            }}
+          />
           {subtitle && (
             <Text
               text={subtitle}
-              fontSize={dense ? 12 : 14}
-              color={fgSubtitle}
+              style={{
+                fontSize: dense ? 12 : 14,
+                color: fgSubtitle,
+              }}
             />
           )}
         </Column>
       </Expanded>
 
-      {/* Trailing — Switch/Checkbox/Icon */}
       {trailing}
     </Box>
   );

@@ -1,40 +1,37 @@
 import * as React from 'react';
 import { Group, RoundedRect, Rect, Shadow } from '@shopify/react-native-skia';
 import type { WidgetProps, HitTestBehavior, PanEvent } from '../core/types';
+import type {
+  LayoutStyle,
+  SpacingStyle,
+  ColorStyle,
+  BorderStyle,
+  ShadowStyle,
+  FlexChildStyle,
+  FlexContainerStyle,
+} from '../core/style.types';
 import { useTheme } from '../hooks/useTheme';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
 import { useYogaLayout } from '../hooks/useYogaLayout';
 import type { YogaFlexProps } from '../hooks/useYogaLayout';
 
-export interface BoxProps extends WidgetProps, YogaFlexProps {
-  /** Background color (default: 'transparent') */
-  color?: string;
-  /** Border radius */
-  borderRadius?: number;
-  /** Border color */
-  borderColor?: string;
-  /** Border width */
-  borderWidth?: number;
-  /** Elevation (shadow depth) */
-  elevation?: number;
-  /** Opacity 0-1 */
-  opacity?: number;
+// === Box Style (component-specific, extends base groups) ===
 
-  // === Box-specific flex child props (not in WidgetProps) ===
-  /** Flex shrink */
-  flexShrink?: number;
-  /** Flex basis */
-  flexBasis?: number | 'auto';
-  /** Margin */
-  margin?: number | [number, number, number, number];
+export type BoxStyle = LayoutStyle &
+  SpacingStyle &
+  ColorStyle &
+  BorderStyle &
+  ShadowStyle &
+  FlexChildStyle &
+  FlexContainerStyle;
+
+export interface BoxProps extends WidgetProps {
+  /** Consolidated style prop */
+  style?: BoxStyle;
 
   /** Hit test behavior */
   hitTestBehavior?: HitTestBehavior;
-  /** z-index for hit test ordering */
-  zIndex?: number;
-  /** Overflow behavior: 'visible' (default) or 'hidden' (clips children) */
-  overflow?: 'visible' | 'hidden';
 
   // === Events ===
   onPress?: () => void;
@@ -50,7 +47,6 @@ export interface BoxProps extends WidgetProps, YogaFlexProps {
   }) => void;
 
   // === Accessibility ===
-  accessibilityLabel?: string;
   accessibilityRole?: string;
 
   /** Children */
@@ -68,16 +64,8 @@ export interface BoxProps extends WidgetProps, YogaFlexProps {
 export const Box = React.memo(function Box({
   x = 0,
   y = 0,
-  width,
-  height,
-  color = 'transparent',
-  borderRadius = 0,
-  borderColor = 'transparent',
-  borderWidth = 0,
-  elevation = 0,
-  opacity = 1,
+  style,
   hitTestBehavior = 'deferToChild',
-  zIndex = 0,
   // Events
   onPress,
   onLongPress,
@@ -85,28 +73,6 @@ export const Box = React.memo(function Box({
   onPanUpdate,
   onPanEnd,
   onLayout,
-  // Overflow
-  overflow = 'visible',
-  // Flex container props
-  flexDirection,
-  flexWrap,
-  justifyContent,
-  alignItems,
-  gap,
-  rowGap,
-  padding,
-  // Flex child props (consumed by parent layout, not used here)
-  flex: _flex,
-  flexGrow: _flexGrow,
-  flexShrink: _flexShrink,
-  flexBasis: _flexBasis,
-  alignSelf: _alignSelf,
-  margin: _margin,
-  position: _position,
-  top: _top,
-  left: _left,
-  right: _right,
-  bottom: _bottom,
   // Accessibility
   accessibilityLabel: _accessibilityLabel,
   accessibilityRole: _accessibilityRole,
@@ -114,7 +80,47 @@ export const Box = React.memo(function Box({
   children,
 }: BoxProps) {
   const theme = useTheme();
-  const bgColor = color;
+
+  // Destructure style with defaults
+  const {
+    // Layout
+    width,
+    height,
+    overflow = 'visible',
+    // Spacing
+    padding,
+    margin: _margin,
+    // Color
+    backgroundColor = 'transparent',
+    opacity = 1,
+    // Border
+    borderRadius = 0,
+    borderColor = 'transparent',
+    borderWidth = 0,
+    // Shadow
+    elevation = 0,
+    zIndex = 0,
+    // Flex child (consumed by parent, not used here)
+    flex: _flex,
+    flexGrow: _flexGrow,
+    flexShrink: _flexShrink,
+    flexBasis: _flexBasis,
+    alignSelf: _alignSelf,
+    position: _position,
+    top: _top,
+    left: _left,
+    right: _right,
+    bottom: _bottom,
+    // Flex container
+    flexDirection,
+    flexWrap,
+    justifyContent,
+    alignItems,
+    gap,
+    rowGap,
+  } = style ?? {};
+
+  const bgColor = backgroundColor;
 
   // Resolve width/height: undefined means "auto-sized by parent flex layout"
   // Fallback to 0 for standalone usage (renders nothing until parent injects size)
@@ -265,4 +271,3 @@ export const Box = React.memo(function Box({
     </Group>
   );
 });
-

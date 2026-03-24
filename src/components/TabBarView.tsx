@@ -7,6 +7,10 @@ import type { WidgetProps, PanEvent } from '../core/types';
 
 export interface TabBarViewProps extends WidgetProps {
   children: React.ReactNode;
+  /** Viewport width */
+  width?: number;
+  /** Viewport height */
+  height?: number;
   /** Active tab index (controlled) */
   activeIndex?: number;
   /** Callback when tab changes via swipe */

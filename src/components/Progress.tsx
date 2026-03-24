@@ -1,30 +1,48 @@
 import * as React from 'react';
 import { useEffect } from 'react';
-import { RoundedRect, Circle, Path } from '@shopify/react-native-skia';
+import { RoundedRect, Circle, Path, LinearGradient, Group, vec } from '@shopify/react-native-skia';
 import {
   useSharedValue,
+  useDerivedValue,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type {
+  ColorStyle,
+  FlexChildStyle,
+  SemanticColor,
+} from '../core/style.types';
+import { resolveSemanticColor } from '../core/colorUtils';
+
+// === Progress Types ===
 
 export type ProgressVariant = 'linear' | 'circular';
 
+export type ProgressStyle = ColorStyle &
+  FlexChildStyle & {
+    trackColor?: string;
+    strokeWidth?: number;
+    size?: number;
+    width?: number;
+    height?: number;
+  };
+
 export interface ProgressProps extends WidgetProps {
+  /** Variant (default: linear) */
   variant?: ProgressVariant;
   /** 0..1, undefined = indeterminate */
   value?: number;
-  color?: string;
-  trackColor?: string;
-  /** Linear: track height (default: 4) */
-  height?: number;
-  borderRadius?: number;
-  /** Circular: diameter (default: 48) */
-  size?: number;
-  /** Circular: stroke width (default: 4) */
-  strokeWidth?: number;
+  /**
+   * Colors: accepts SemanticColor | hex string.
+   * 1 color → solid fill, >=2 colors → Skia LinearGradient.
+   * Default: ['primary']
+   */
+  colors?: (SemanticColor | string)[];
+  /** Style override */
+  style?: ProgressStyle;
 }
 
 /**
@@ -36,18 +54,36 @@ export const Progress = React.memo(function Progress({
   y = 0,
   variant = 'linear',
   value,
-  color,
-  trackColor,
-  width = 200,
-  height = 4,
-  borderRadius,
-  size = 48,
-  strokeWidth = 4,
+  colors = ['primary'],
+  style,
 }: ProgressProps) {
   const theme = useTheme();
-  const activeColor = color ?? theme.colors.primary;
-  const trackBg = trackColor ?? theme.colors.surfaceVariant;
+
+  // Resolve colors array
+  const resolvedColors = colors.map((c) => {
+    // Check if it's a semantic color name
+    const semanticNames = [
+      'primary',
+      'secondary',
+      'success',
+      'info',
+      'warning',
+      'error',
+      'neutral',
+    ];
+    if (semanticNames.includes(c)) {
+      return resolveSemanticColor(c as SemanticColor, theme.colors);
+    }
+    return c;
+  });
+
+  const trackBg = style?.trackColor ?? theme.colors.surfaceVariant;
   const isDeterminate = value != null;
+
+  const width = style?.width ?? 200;
+  const height = style?.height ?? 4;
+  const size = style?.size ?? 48;
+  const strokeW = style?.strokeWidth ?? 4;
 
   const compW = variant === 'circular' ? size : width;
   const compH = variant === 'circular' ? size : height;
@@ -57,8 +93,8 @@ export const Progress = React.memo(function Progress({
     layout: { x, y, width: compW, height: compH },
   });
 
-  // All hooks MUST be called unconditionally (React rules of hooks)
-  const linearR = borderRadius ?? height / 2;
+  // All hooks MUST be called unconditionally
+  const linearR = height / 2;
   const linearFillWidth = isDeterminate
     ? width * Math.min(1, Math.max(0, value!))
     : width * 0.4;
@@ -91,6 +127,9 @@ export const Progress = React.memo(function Progress({
 
   // === LINEAR ===
   if (variant === 'linear') {
+    const useGradient = resolvedColors.length >= 2;
+    const fillColor = resolvedColors[0] ?? theme.colors.primary;
+
     return (
       <>
         <RoundedRect
@@ -107,8 +146,19 @@ export const Progress = React.memo(function Progress({
           width={linearFillWidth}
           height={height}
           r={linearR}
-          color={activeColor}
-        />
+          color={useGradient ? 'transparent' : fillColor}
+        >
+          {useGradient && (
+            <LinearGradient
+              start={vec(isDeterminate ? x : x + animX.value, y)}
+              end={vec(
+                (isDeterminate ? x : x + animX.value) + linearFillWidth,
+                y
+              )}
+              colors={resolvedColors}
+            />
+          )}
+        </RoundedRect>
       </>
     );
   }
@@ -116,7 +166,7 @@ export const Progress = React.memo(function Progress({
   // === CIRCULAR ===
   const cx = x + size / 2;
   const cy = y + size / 2;
-  const radius = (size - strokeWidth) / 2;
+  const radius = (size - strokeW) / 2;
 
   const sweepAngle = isDeterminate
     ? 360 * Math.min(1, Math.max(0, value!))
@@ -124,6 +174,19 @@ export const Progress = React.memo(function Progress({
 
   const startAngle = -90;
   const arcPath = makeArcPath(cx, cy, radius, startAngle, sweepAngle);
+  const circularColor = resolvedColors[0] ?? theme.colors.primary;
+
+  const circularTransform = useDerivedValue(() =>
+    isDeterminate
+      ? []
+      : [
+          { translateX: cx },
+          { translateY: cy },
+          { rotate: (rotation.value * Math.PI) / 180 },
+          { translateX: -cx },
+          { translateY: -cy },
+        ]
+  );
 
   return (
     <>
@@ -133,15 +196,17 @@ export const Progress = React.memo(function Progress({
         r={radius}
         color={trackBg}
         style="stroke"
-        strokeWidth={strokeWidth}
+        strokeWidth={strokeW}
       />
-      <Path
-        path={arcPath}
-        color={activeColor}
-        style="stroke"
-        strokeWidth={strokeWidth}
-        strokeCap="round"
-      />
+      <Group transform={circularTransform}>
+        <Path
+          path={arcPath}
+          color={circularColor}
+          style="stroke"
+          strokeWidth={strokeW}
+          strokeCap="round"
+        />
+      </Group>
     </>
   );
 });

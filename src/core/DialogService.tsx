@@ -11,6 +11,7 @@ import { Modal, BottomSheet } from '../components/Overlay';
 import { Box } from '../components/Box';
 import { Text } from '../components/Text';
 import { Button } from '../components/Button';
+import type { ButtonVariant } from '../components/Button';
 
 // ===== showDialog =====
 
@@ -31,7 +32,7 @@ export interface DialogOptions {
   actions?: {
     label: string;
     onPress?: () => void;
-    variant?: 'filled' | 'text';
+    variant?: ButtonVariant;
   }[];
   /** Screen dimensions */
   screenWidth?: number;
@@ -51,7 +52,7 @@ let dialogCounter = 0;
  *   title: 'Delete item?',
  *   content: 'This action cannot be undone.',
  *   actions: [
- *     { label: 'Cancel', variant: 'text', onPress: () => dismiss() },
+ *     { label: 'Cancel', variant: 'ghost', onPress: () => dismiss() },
  *     { label: 'Delete', onPress: () => { deleteItem(); dismiss(); } },
  *   ],
  * });
@@ -78,8 +79,7 @@ export function showDialog(options: DialogOptions): () => void {
       visible
       onClose={barrierDismissible ? dismiss : undefined}
       barrierDismissible={barrierDismissible}
-      width={width}
-      height={height}
+      style={{ width, height }}
       screenWidth={screenWidth}
       screenHeight={screenHeight}
     >
@@ -89,9 +89,7 @@ export function showDialog(options: DialogOptions): () => void {
           x={20}
           y={16}
           text={title}
-          fontSize={18}
-          fontWeight="600"
-          width={width - 40}
+          style={{ fontSize: 18, fontWeight: '600', width: width - 40 }}
         />
       )}
       {/* Content */}
@@ -100,9 +98,7 @@ export function showDialog(options: DialogOptions): () => void {
           x={20}
           y={title ? 48 : 16}
           text={content}
-          fontSize={14}
-          width={width - 40}
-          color="rgba(0,0,0,0.6)"
+          style={{ fontSize: 14, width: width - 40, color: 'rgba(0,0,0,0.6)' }}
         />
       ) : (
         content
@@ -112,20 +108,22 @@ export function showDialog(options: DialogOptions): () => void {
         <Box
           x={0}
           y={height - 52}
-          width={width}
-          height={52}
-          flexDirection="row"
-          justifyContent="end"
-          padding={8}
-          gap={8}
+          style={{
+            width,
+            height: 52,
+            flexDirection: 'row',
+            justifyContent: 'end',
+            padding: 8,
+            gap: 8,
+          }}
         >
           {actions.map((action, i) => (
             <Button
               key={i}
               text={action.label}
-              variant={action.variant ?? 'text'}
+              variant={action.variant ?? 'ghost'}
               onPress={action.onPress}
-              height={36}
+              style={{ height: 36 }}
             />
           ))}
         </Box>
@@ -178,7 +176,7 @@ export function showBottomSheet(options: BottomSheetOptions): () => void {
     <BottomSheet
       visible
       onClose={dismiss}
-      sheetHeight={sheetHeight}
+      style={{ height: sheetHeight }}
       showHandle={showHandle}
       screenWidth={screenWidth}
       screenHeight={screenHeight}
@@ -228,31 +226,31 @@ export function showSnackBar(options: SnackBarOptions): () => void {
     <Box
       x={16}
       y={screenHeight - 80}
-      width={screenWidth - 32}
-      height={48}
-      borderRadius={8}
-      color="rgba(50,50,50,0.95)"
-      elevation={6}
-      flexDirection="row"
-      alignItems="center"
-      justifyContent="spaceBetween"
-      padding={16}
+      style={{
+        width: screenWidth - 32,
+        height: 48,
+        borderRadius: 8,
+        backgroundColor: 'rgba(50,50,50,0.95)',
+        elevation: 6,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'spaceBetween',
+        padding: 16,
+      }}
     >
       <Text
         text={message}
-        fontSize={14}
-        color="#ffffff"
-        width={screenWidth - 120}
+        style={{ fontSize: 14, color: '#ffffff', width: screenWidth - 120 }}
       />
       {actionLabel && (
         <Button
           text={actionLabel}
-          variant="text"
+          variant="ghost"
           onPress={() => {
             onAction?.();
             dismiss();
           }}
-          height={32}
+          style={{ height: 32 }}
         />
       )}
     </Box>

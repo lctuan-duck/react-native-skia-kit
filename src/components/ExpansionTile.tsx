@@ -8,56 +8,47 @@ import { Expanded } from './Expanded';
 import { useTheme } from '../hooks/useTheme';
 import { useWidget } from '../hooks/useWidget';
 import type { WidgetProps } from '../core/types';
+import type { ColorStyle, FlexChildStyle } from '../core/style.types';
+
+// === ExpansionTile Types ===
+
+export type ExpansionTileStyle = ColorStyle &
+  FlexChildStyle & {
+    collapsedBackgroundColor?: string;
+    iconColor?: string;
+    tilePadding?: number;
+    childrenPadding?: number;
+    width?: number;
+  };
 
 export interface ExpansionTileProps extends WidgetProps {
-  /** Header title — REQUIRED */
   title: string;
-  /** Subtitle */
   subtitle?: string;
-  /** Leading widget (icon/avatar) */
   leading?: React.ReactNode;
-  /** Expandable content — REQUIRED */
   children: React.ReactNode;
-  /** Initially expanded */
   initiallyExpanded?: boolean;
-  /** Expansion state callback */
   onExpansionChanged?: (expanded: boolean) => void;
-  /** Background when expanded */
-  backgroundColor?: string;
-  /** Background when collapsed */
-  collapsedBackgroundColor?: string;
-  /** Chevron icon color */
-  iconColor?: string;
-  /** Header padding */
-  tilePadding?: number;
-  /** Content padding */
-  childrenPadding?: number;
+  /** Style override */
+  style?: ExpansionTileStyle;
 }
 
-/**
- * ExpansionTile — accordion collapse/expand.
- * Tương đương Flutter ExpansionTile / ExpansionPanel.
- */
 export const ExpansionTile = React.memo(function ExpansionTile({
   x = 0,
   y = 0,
-  width,
   title,
   subtitle,
   leading,
   children,
   initiallyExpanded = false,
   onExpansionChanged,
-  backgroundColor,
-  collapsedBackgroundColor,
-  iconColor,
-  tilePadding = 16,
-  childrenPadding = 16,
+  style,
 }: ExpansionTileProps) {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(initiallyExpanded);
-  const chevronColor = iconColor ?? theme.colors.textSecondary;
-
+  const chevronColor = style?.iconColor ?? theme.colors.textSecondary;
+  const tilePadding = style?.tilePadding ?? 16;
+  const childrenPadding = style?.childrenPadding ?? 16;
+  const width = style?.width;
   const w = width ?? 0;
 
   useWidget({
@@ -72,32 +63,35 @@ export const ExpansionTile = React.memo(function ExpansionTile({
   };
 
   const bgColor = expanded
-    ? backgroundColor ?? 'transparent'
-    : collapsedBackgroundColor ?? 'transparent';
+    ? (style?.backgroundColor ?? 'transparent')
+    : (style?.collapsedBackgroundColor ?? 'transparent');
 
   return (
     <Column x={x} y={y}>
-      {/* Header — always visible */}
       <Box
-        width={width}
-        height={subtitle ? 72 : 56}
-        color={bgColor}
-        flexDirection="row"
-        alignItems="center"
-        padding={[0, tilePadding, 0, tilePadding]}
-        gap={16}
+        style={{
+          width,
+          height: subtitle ? 72 : 56,
+          backgroundColor: bgColor,
+          flexDirection: 'row',
+          alignItems: 'center',
+          padding: [0, tilePadding, 0, tilePadding],
+          gap: 16,
+        }}
         hitTestBehavior="opaque"
         onPress={toggle}
       >
         {leading}
         <Expanded>
-          <Column gap={2}>
-            <Text text={title} fontSize={16} color={theme.colors.textBody} />
+          <Column style={{ gap: 2 }}>
+            <Text
+              text={title}
+              style={{ fontSize: 16, color: theme.colors.textBody }}
+            />
             {subtitle && (
               <Text
                 text={subtitle}
-                fontSize={14}
-                color={theme.colors.textSecondary}
+                style={{ fontSize: 14, color: theme.colors.textSecondary }}
               />
             )}
           </Column>
@@ -109,9 +103,14 @@ export const ExpansionTile = React.memo(function ExpansionTile({
         />
       </Box>
 
-      {/* Content — shown when expanded */}
       {expanded && (
-        <Box width={width} padding={childrenPadding} color={bgColor}>
+        <Box
+          style={{
+            width,
+            padding: childrenPadding,
+            backgroundColor: bgColor,
+          }}
+        >
           {children}
         </Box>
       )}

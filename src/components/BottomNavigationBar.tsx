@@ -6,6 +6,13 @@ import { Expanded } from './Expanded';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type {
+  ColorStyle,
+  ShadowStyle,
+  FlexChildStyle,
+} from '../core/style.types';
+
+// === BottomNavigationBar Types ===
 
 export interface BottomNavItem {
   icon: string;
@@ -13,33 +20,38 @@ export interface BottomNavItem {
   activeIcon?: string;
 }
 
+export type BottomNavigationBarStyle = ColorStyle &
+  ShadowStyle &
+  FlexChildStyle & {
+    activeColor?: string;
+    inactiveColor?: string;
+    width?: number;
+    height?: number;
+  };
+
 export interface BottomNavigationBarProps extends WidgetProps {
   items: BottomNavItem[];
   activeIndex?: number;
-  backgroundColor?: string;
-  activeColor?: string;
-  inactiveColor?: string;
-  elevation?: number;
+  /** Style override */
+  style?: BottomNavigationBarStyle;
   onChange?: (index: number) => void;
 }
 
 export const BottomNavigationBar = React.memo(function BottomNavigationBar({
   x = 0,
   y,
-  width = 360,
-  height = 64,
   items,
   activeIndex = 0,
-  backgroundColor,
-  activeColor,
-  inactiveColor,
-  elevation = 8,
+  style,
   onChange,
 }: BottomNavigationBarProps) {
   const theme = useTheme();
-  const bgColor = backgroundColor ?? theme.colors.surface;
-  const active = activeColor ?? theme.colors.primary;
-  const inactive = inactiveColor ?? theme.colors.textSecondary;
+  const bgColor = style?.backgroundColor ?? theme.colors.surface;
+  const active = style?.activeColor ?? theme.colors.primary;
+  const inactive = style?.inactiveColor ?? theme.colors.textSecondary;
+  const elev = style?.elevation ?? 8;
+  const width = style?.width ?? 360;
+  const height = style?.height ?? 64;
   const barY = y ?? 800 - height;
 
   useWidget({
@@ -51,11 +63,13 @@ export const BottomNavigationBar = React.memo(function BottomNavigationBar({
     <Box
       x={x}
       y={barY}
-      width={width}
-      height={height}
-      color={bgColor}
-      elevation={elevation}
-      flexDirection="row"
+      style={{
+        width,
+        height,
+        backgroundColor: bgColor,
+        elevation: elev,
+        flexDirection: 'row',
+      }}
     >
       {items.map((item, index) => {
         const isActive = index === activeIndex;
@@ -65,20 +79,24 @@ export const BottomNavigationBar = React.memo(function BottomNavigationBar({
         return (
           <Expanded key={index}>
             <Box
-              height={height}
+              style={{
+                height,
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: 2,
+              }}
               hitTestBehavior="opaque"
               onPress={() => onChange?.(index)}
-              flexDirection="column"
-              justifyContent="center"
-              alignItems="center"
-              gap={2}
             >
               <Icon name={iconName} size={24} color={color} />
               <Text
                 text={item.label}
-                fontSize={11}
-                color={color}
-                fontWeight={isActive ? 'bold' : 'normal'}
+                style={{
+                  fontSize: 11,
+                  color,
+                  fontWeight: isActive ? 'bold' : 'normal',
+                }}
               />
             </Box>
           </Expanded>

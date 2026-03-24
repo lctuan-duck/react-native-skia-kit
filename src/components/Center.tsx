@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Box } from './Box';
 import type { WidgetProps } from '../core/types';
+import type { FlexChildStyle } from '../core/style.types';
 
 export type AlignmentValue =
   | 'topLeft'
@@ -13,7 +14,16 @@ export type AlignmentValue =
   | 'bottomCenter'
   | 'bottomRight';
 
+// === Center/Align Style ===
+
+export type CenterStyle = FlexChildStyle & {
+  width?: number;
+  height?: number;
+};
+
 export interface CenterProps extends WidgetProps {
+  /** Consolidated style prop */
+  style?: CenterStyle;
   children: React.ReactNode;
 }
 
@@ -46,19 +56,19 @@ const ALIGN_MAP: Record<
 export const Center = React.memo(function Center({
   x = 0,
   y = 0,
-  width,
-  height,
+  style,
   children,
 }: CenterProps) {
   return (
     <Box
       x={x}
       y={y}
-      width={width}
-      height={height}
-      flexDirection="column"
-      justifyContent="center"
-      alignItems="center"
+      style={{
+        ...style,
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
     >
       {children}
     </Box>
@@ -72,8 +82,7 @@ export const Center = React.memo(function Center({
 export const Align = React.memo(function Align({
   x = 0,
   y = 0,
-  width,
-  height,
+  style,
   alignment = 'center',
   children,
 }: AlignProps) {
@@ -82,11 +91,12 @@ export const Align = React.memo(function Align({
     <Box
       x={x}
       y={y}
-      width={width}
-      height={height}
-      flexDirection="column"
-      justifyContent={justifyContent}
-      alignItems={alignItems}
+      style={{
+        ...style,
+        flexDirection: 'column',
+        justifyContent,
+        alignItems,
+      }}
     >
       {children}
     </Box>

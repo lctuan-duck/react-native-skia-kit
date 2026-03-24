@@ -4,6 +4,15 @@ import { Box } from './Box';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type { ColorStyle, FlexChildStyle } from '../core/style.types';
+
+// === Scaffold Types ===
+
+export type ScaffoldStyle = ColorStyle &
+  FlexChildStyle & {
+    width?: number;
+    height?: number;
+  };
 
 export interface ScaffoldProps extends WidgetProps {
   appBar?: React.ReactNode;
@@ -12,22 +21,23 @@ export interface ScaffoldProps extends WidgetProps {
   floatingActionButton?: React.ReactNode;
   drawer?: React.ReactNode;
   fabPosition?: 'bottomRight' | 'bottomCenter' | 'bottomLeft';
-  backgroundColor?: string;
+  /** Style override */
+  style?: ScaffoldStyle;
 }
 
 export const Scaffold = React.memo(function Scaffold({
-  width = 360,
-  height = 800,
+  style,
   appBar,
   body,
   bottomNavigationBar,
   floatingActionButton,
   drawer,
   fabPosition = 'bottomRight',
-  backgroundColor,
 }: ScaffoldProps) {
   const theme = useTheme();
-  const bgColor = backgroundColor ?? theme.colors.background;
+  const bgColor = style?.backgroundColor ?? theme.colors.background;
+  const width = style?.width ?? 360;
+  const height = style?.height ?? 800;
 
   useWidget({ type: 'Scaffold', layout: { x: 0, y: 0, width, height } });
 
@@ -45,22 +55,27 @@ export const Scaffold = React.memo(function Scaffold({
 
   return (
     <Group>
-      <Box x={0} y={0} width={width} height={height} color={bgColor} />
+      <Box
+        x={0}
+        y={0}
+        style={{ width, height, backgroundColor: bgColor }}
+      />
       {appBar && (
         <Group>
           {React.cloneElement(appBar as React.ReactElement<WidgetProps>, {
             x: 0,
             y: 0,
-            width,
           })}
         </Group>
       )}
-      <Group clip={{ x: 0, y: bodyY, width, height: bodyHeight }}>{body}</Group>
+      <Group clip={{ x: 0, y: bodyY, width, height: bodyHeight }}>
+        {body}
+      </Group>
       {bottomNavigationBar && (
         <Group>
           {React.cloneElement(
             bottomNavigationBar as React.ReactElement<WidgetProps>,
-            { x: 0, y: height - bottomNavHeight, width }
+            { x: 0, y: height - bottomNavHeight }
           )}
         </Group>
       )}

@@ -1,17 +1,35 @@
 import { Skia } from '@shopify/react-native-skia';
+import type { SkParagraphStyle } from '@shopify/react-native-skia';
+import type { SkiaTextStyle } from '../core/style.types';
 
 // ===== Types =====
 
-export interface MeasureTextOptions {
-  fontSize?: number;
-  fontWeight?: 'normal' | 'bold';
-  fontFamily?: string;
+export interface MeasureTextOptions
+  extends Pick<SkiaTextStyle, 'fontSize' | 'fontWeight' | 'fontFamily'> {
   maxWidth?: number;
 }
 
 export interface MeasureTextResult {
   width: number;
   height: number;
+}
+
+// Map fontWeight string to Skia numeric weight (shared with Text component)
+function toSkiaFontWeight(weight: SkiaTextStyle['fontWeight']): number {
+  const map: Record<string, number> = {
+    normal: 400,
+    bold: 700,
+    '100': 100,
+    '200': 200,
+    '300': 300,
+    '400': 400,
+    '500': 500,
+    '600': 600,
+    '700': 700,
+    '800': 800,
+    '900': 900,
+  };
+  return map[weight ?? 'normal'] ?? 400;
 }
 
 /**
@@ -32,16 +50,14 @@ export function measureText(
     maxWidth = 10000,
   } = options;
 
-  const paragraphStyle: Record<string, unknown> = {};
-  // Only set maxLines if needed — avoid passing undefined to Skia
-  // (Skia crashes on: "Value is undefined, expected a number")
+  const paragraphStyle: SkParagraphStyle = {};
 
   const builder = Skia.ParagraphBuilder.Make(paragraphStyle);
   builder.pushStyle({
     color: Skia.Color('black'),
     fontSize,
     fontFamilies: [fontFamily],
-    fontStyle: { weight: fontWeight === 'bold' ? 700 : 400 },
+    fontStyle: { weight: toSkiaFontWeight(fontWeight) },
   });
   builder.addText(text);
   builder.pop();

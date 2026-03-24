@@ -21,6 +21,10 @@ import type { WidgetProps } from '../core/types';
 export interface VirtualizedListProps<T> extends WidgetProps {
   /** Data array */
   data: T[];
+  /** Width of viewport */
+  width?: number;
+  /** Height of viewport */
+  height?: number;
   /** Fixed item height (required for virtualization) */
   itemHeight: number;
   /** Render function for each item */

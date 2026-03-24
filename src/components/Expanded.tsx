@@ -1,15 +1,24 @@
 import * as React from 'react';
 import { Box } from './Box';
 import type { WidgetProps } from '../core/types';
+import type { FlexChildStyle } from '../core/style.types';
+
+// === Expanded Style ===
+
+export type ExpandedStyle = FlexChildStyle;
 
 export interface ExpandedProps extends WidgetProps {
-  /** Flex factor (default: 1) — inherited from WidgetProps but with default */
+  /** Consolidated style prop */
+  style?: ExpandedStyle;
+  /** Children */
   children?: React.ReactNode;
 }
 
 export interface FlexibleProps extends WidgetProps {
   /** Fit mode: 'tight' fills all space, 'loose' fits content */
   fit?: 'tight' | 'loose';
+  /** Consolidated style prop */
+  style?: ExpandedStyle;
   /** Children */
   children?: React.ReactNode;
 }
@@ -21,21 +30,21 @@ export interface FlexibleProps extends WidgetProps {
  * Tương đương Flutter Expanded.
  */
 export const Expanded = React.memo(function Expanded({
-  flex = 1,
+  style,
   children,
   x,
   y,
-  width,
-  height,
 }: ExpandedProps) {
   return (
     <Box
-      flex={flex}
-      alignSelf="stretch"
       x={x}
       y={y}
-      width={width}
-      height={height}
+      style={{
+        ...style,
+        flex: style?.flex ?? 1,
+        alignSelf: 'stretch',
+        width: style?.flexBasis as number | undefined,
+      }}
     >
       {children}
     </Box>
@@ -49,22 +58,21 @@ export const Expanded = React.memo(function Expanded({
  * Tương đương Flutter Flexible.
  */
 export const Flexible = React.memo(function Flexible({
-  flex = 1,
   fit = 'loose',
+  style,
   children,
   x,
   y,
-  width,
-  height,
 }: FlexibleProps) {
   return (
     <Box
-      flex={flex}
-      alignSelf={fit === 'tight' ? 'stretch' : 'auto'}
       x={x}
       y={y}
-      width={width}
-      height={height}
+      style={{
+        ...style,
+        flex: style?.flex ?? 1,
+        alignSelf: fit === 'tight' ? 'stretch' : 'auto',
+      }}
     >
       {children}
     </Box>

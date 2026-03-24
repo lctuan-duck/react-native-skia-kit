@@ -1,116 +1,32 @@
-# Image Component
+# Image
 
-## Mục đích
-- Hiển thị hình ảnh, hỗ trợ resizeMode, borderRadius, opacity, placeholder, lazy loading.
+Hiển thị ảnh từ URL hoặc local path. Tương đương Flutter `Image.network` / `Image.asset`.
 
-## Flutter tương đương
-- `Image`, `Image.network`, `Image.asset`, `CachedNetworkImage`
-
-## TypeScript Interface
+## Interface
 
 ```ts
-interface ImageProps extends WidgetProps {
-  x?: number;              // default: 0
-  y?: number;              // default: 0
-  width?: number;          // default: 120
-  height?: number;         // default: 80
-  src: string;             // REQUIRED — URL hoặc local path
-  borderRadius?: number;   // default: 0
-  opacity?: number;        // default: 1
-  fit?: 'cover' | 'contain' | 'fill' | 'fitWidth' | 'fitHeight'; // default: 'cover'
+type ImageStyle = ColorStyle & BorderStyle & FlexChildStyle & {
+  width?: number;
+  height?: number;
+};
+
+interface ImageProps {
+  src: string;                   // URL hoặc local path — BẮT BUỘC
+  fit?: 'cover' | 'contain' | 'fill' | 'fitWidth' | 'fitHeight';
   placeholder?: React.ReactNode;
+  style?: ImageStyle;            // width, height, borderRadius, opacity
   onPress?: () => void;
   onError?: (e: Error) => void;
   onLoad?: () => void;
-  accessibilityLabel?: string;
 }
 ```
 
-## Props Table
-
-| Prop | Type | Default | Required | Mô tả |
-|------|------|---------|----------|-------|
-| `x` | `number` | `0` | ❌ | Top-left X |
-| `y` | `number` | `0` | ❌ | Top-left Y |
-| `width` | `number` | `120` | ❌ | Chiều rộng |
-| `height` | `number` | `80` | ❌ | Chiều cao |
-| `src` | `string` | — | ✅ | URL hoặc path |
-| `borderRadius` | `number` | `0` | ❌ | Bo góc |
-| `opacity` | `number` | `1` | ❌ | Độ mờ |
-| `fit` | `string` | `'cover'` | ❌ | Resize mode |
-| `onPress` | `() => void` | — | ❌ | Tap callback |
-| `onLoad` | `() => void` | — | ❌ | Load complete callback |
-| `onError` | `(e) => void` | — | ❌ | Load error callback |
-
-## Kiến trúc: Skia Image Node
-
-> **Image KHÔNG có Canvas riêng.** Image là một Skia `<Image>` (hoặc `<Group>` khi có clip/border) vẽ vào Canvas chung.
-
-```
-CanvasRoot (<Canvas>)
-└── Image → <Group><Image .../></Group>  hoặc chỉ <Image .../> nếu không có border
-```
-
-## Core Skia Implementation
+## Cách dùng
 
 ```tsx
-import { Group, Image as SkiaImage, RoundedRect, useImage } from '@shopify/react-native-skia';
-
-export function Image({
-  x = 0, y = 0,
-  width = 120, height = 80,
-  src,
-  borderRadius = 0,
-  opacity = 1,
-  fit = 'cover',       // 'cover' | 'contain' | 'fill' | 'fitWidth' | 'fitHeight'
-  placeholder,
-}) {
-  const image = useImage(src); // Lazy load — null khi chưa load xong
-
-  if (!image) {
-    // Placeholder: gray rect khi đang load
-    return (
-      <RoundedRect
-        x={x} y={y} width={width} height={height}
-        r={borderRadius} color="rgba(200,200,200,0.5)"
-      />
-    );
-  }
-
-  if (borderRadius > 0) {
-    // Cần clip theo radius → dùng Group với clipRect
-    return (
-      <Group
-        opacity={opacity}
-        clip={{ x, y, width, height, rx: borderRadius, ry: borderRadius }}
-      >
-        <SkiaImage image={image} x={x} y={y} width={width} height={height} fit={fit} />
-      </Group>
-    );
-  }
-
-  // Không cần clip → vẽ trực tiếp
-  return (
-    <SkiaImage
-      image={image}
-      x={x} y={y}
-      width={width} height={height}
-      fit={fit}
-      opacity={opacity}
-    />
-  );
-}
+<Image src="https://example.com/photo.jpg" style={{ width: 200, height: 150 }} />
+<Image src={url} style={{ width: 100, height: 100, borderRadius: 50 }} />
+<Image src={url} fit="contain" style={{ width: 300, height: 200, opacity: 0.8 }} />
 ```
 
-## Cách dùng (trong CanvasRoot)
-```tsx
-<CanvasRoot>
-  <Image x={16} y={100} width={120} height={80} src="https://..." borderRadius={8} />
-  <Image x={148} y={100} width={60} height={60} src={userAvatar} borderRadius={30} />
-</CanvasRoot>
-```
-
-## Links
-- Used by: [Avatar.md](./Avatar.md)
-- Store: [widget-store.md](../store-design/widget-store.md)
-- Phase: [phase3_base_widget.md](../plans/phase3_base_widget.md)
+> **Lưu ý**: Không có flat `width`/`height`/`borderRadius` props — tất cả qua `style`.

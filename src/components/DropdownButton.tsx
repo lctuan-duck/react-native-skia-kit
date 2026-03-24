@@ -9,6 +9,9 @@ import { Overlay } from './Overlay';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type { ColorStyle, BorderStyle, FlexChildStyle } from '../core/style.types';
+
+// === DropdownButton Types ===
 
 export interface DropdownItem<T = string> {
   value: T;
@@ -17,53 +20,47 @@ export interface DropdownItem<T = string> {
   disabled?: boolean;
 }
 
+export type DropdownButtonStyle = ColorStyle &
+  BorderStyle &
+  FlexChildStyle & {
+    width?: number;
+    height?: number;
+    dropdownMaxHeight?: number;
+  };
+
 export interface DropdownButtonProps<T = string> extends WidgetProps {
-  /** Items to display — REQUIRED */
   items: DropdownItem<T>[];
-  /** Current selected value */
   value?: T;
-  /** Placeholder text */
   placeholder?: string;
-  /** Change callback */
   onChanged?: (value: T) => void;
-  /** Disabled state */
   disabled?: boolean;
-  /** Border color */
-  borderColor?: string;
-  /** Border radius */
-  borderRadius?: number;
-  /** Max dropdown height */
-  dropdownMaxHeight?: number;
-  /** Screen width for backdrop */
   screenWidth?: number;
-  /** Screen height for backdrop */
   screenHeight?: number;
+  /** Style override */
+  style?: DropdownButtonStyle;
 }
 
-/**
- * DropdownButton — select one value from a list.
- * Tương đương Flutter DropdownButton.
- */
 export const DropdownButton = React.memo(function DropdownButton<
   T extends string
 >({
   x = 0,
   y = 0,
-  width = 200,
-  height = 48,
   items,
   value,
   placeholder = 'Chọn...',
   onChanged,
   disabled = false,
-  borderColor,
-  borderRadius = 8,
-  dropdownMaxHeight = 240,
+  style,
   screenWidth = 360,
   screenHeight = 800,
 }: DropdownButtonProps<T>) {
   const theme = useTheme();
-  const border = borderColor ?? theme.colors.border;
+  const border = style?.borderColor ?? theme.colors.border;
+  const borderRadius = style?.borderRadius ?? 8;
+  const width = style?.width ?? 200;
+  const height = style?.height ?? 48;
+  const dropdownMaxHeight = style?.dropdownMaxHeight ?? 240;
+
   const [isOpen, setIsOpen] = useState(false);
   const selectedItem = items.find((i) => i.value === value);
 
@@ -71,30 +68,33 @@ export const DropdownButton = React.memo(function DropdownButton<
 
   return (
     <>
-      {/* Trigger button */}
       <Box
         x={x}
         y={y}
-        width={width}
-        height={height}
-        borderRadius={borderRadius}
-        borderWidth={1}
-        borderColor={border}
-        color={theme.colors.surface}
+        style={{
+          width,
+          height,
+          borderRadius,
+          borderWidth: 1,
+          borderColor: border,
+          backgroundColor: style?.backgroundColor ?? theme.colors.surface,
+          flexDirection: 'row',
+          alignItems: 'center',
+          padding: [0, 12, 0, 12],
+          opacity: disabled ? 0.5 : 1,
+        }}
         hitTestBehavior="opaque"
         onPress={() => !disabled && setIsOpen(!isOpen)}
-        flexDirection="row"
-        alignItems="center"
-        padding={[0, 12, 0, 12]}
-        opacity={disabled ? 0.5 : 1}
       >
         <Expanded>
           <Text
             text={selectedItem?.label ?? placeholder}
-            fontSize={14}
-            color={
-              selectedItem ? theme.colors.textBody : theme.colors.textDisabled
-            }
+            style={{
+              fontSize: 14,
+              color: selectedItem
+                ? theme.colors.textBody
+                : theme.colors.textDisabled,
+            }}
           />
         </Expanded>
         <Icon
@@ -104,13 +104,11 @@ export const DropdownButton = React.memo(function DropdownButton<
         />
       </Box>
 
-      {/* Dropdown menu */}
       {isOpen && (
         <>
-          {/* Backdrop to close */}
           <Overlay
             visible
-            color="transparent"
+            barrierColor="transparent"
             onPress={() => setIsOpen(false)}
             screenWidth={screenWidth}
             screenHeight={screenHeight}
@@ -118,25 +116,33 @@ export const DropdownButton = React.memo(function DropdownButton<
           <Box
             x={x}
             y={y + height + 4}
-            width={width}
-            height={Math.min(items.length * 44, dropdownMaxHeight)}
-            color={theme.colors.surface}
-            borderRadius={borderRadius}
-            elevation={8}
-            borderWidth={1}
-            borderColor={theme.colors.divider}
+            style={{
+              width,
+              height: Math.min(items.length * 44, dropdownMaxHeight),
+              backgroundColor: theme.colors.surface,
+              borderRadius,
+              elevation: 8,
+              borderWidth: 1,
+              borderColor: theme.colors.divider,
+            }}
           >
             <Column>
               {items.map((item) => (
                 <Box
                   key={String(item.value)}
-                  width={width}
-                  height={44}
-                  color={
-                    item.value === value
-                      ? theme.colors.surfaceVariant
-                      : 'transparent'
-                  }
+                  style={{
+                    width,
+                    height: 44,
+                    backgroundColor:
+                      item.value === value
+                        ? theme.colors.surfaceVariant
+                        : 'transparent',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    padding: [0, 12, 0, 12],
+                    gap: 8,
+                    opacity: item.disabled ? 0.4 : 1,
+                  }}
                   hitTestBehavior="opaque"
                   onPress={() => {
                     if (!item.disabled) {
@@ -144,11 +150,6 @@ export const DropdownButton = React.memo(function DropdownButton<
                       setIsOpen(false);
                     }
                   }}
-                  flexDirection="row"
-                  alignItems="center"
-                  padding={[0, 12, 0, 12]}
-                  gap={8}
-                  opacity={item.disabled ? 0.4 : 1}
                 >
                   {item.icon && (
                     <Icon
@@ -159,13 +160,14 @@ export const DropdownButton = React.memo(function DropdownButton<
                   )}
                   <Text
                     text={item.label}
-                    fontSize={14}
-                    color={
-                      item.value === value
-                        ? theme.colors.primary
-                        : theme.colors.textBody
-                    }
-                    fontWeight={item.value === value ? 'bold' : 'normal'}
+                    style={{
+                      fontSize: 14,
+                      color:
+                        item.value === value
+                          ? theme.colors.primary
+                          : theme.colors.textBody,
+                      fontWeight: item.value === value ? 'bold' : 'normal',
+                    }}
                   />
                 </Box>
               ))}

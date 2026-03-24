@@ -3,17 +3,31 @@ import { useState, useCallback } from 'react';
 import { Group } from '@shopify/react-native-skia';
 import { Progress } from './Progress';
 import { useWidget } from '../hooks/useWidget';
-import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type {
+  ColorStyle,
+  FlexChildStyle,
+  SemanticColor,
+} from '../core/style.types';
+
+// === RefreshIndicator Types ===
+
+export type RefreshIndicatorStyle = ColorStyle &
+  FlexChildStyle & {
+    width?: number;
+  };
 
 export interface RefreshIndicatorProps extends WidgetProps {
   children: React.ReactNode;
   onRefresh: () => Promise<void>;
-  color?: string;
-  backgroundColor?: string;
+  /** Semantic color for the spinner */
+  color?: SemanticColor;
+  /** Displacement from top (default: 40) */
   displacement?: number;
   /** Screen width for centering indicator */
   screenWidth?: number;
+  /** Style override */
+  style?: RefreshIndicatorStyle;
 }
 
 /**
@@ -24,18 +38,16 @@ export interface RefreshIndicatorProps extends WidgetProps {
 export const RefreshIndicator = React.memo(function RefreshIndicator({
   x = 0,
   y = 0,
-  width,
   children,
   onRefresh,
-  color,
+  color = 'primary',
   displacement = 40,
   screenWidth,
+  style,
 }: RefreshIndicatorProps) {
-  const theme = useTheme();
-  const spinnerColor = color ?? theme.colors.primary;
-  const [refreshing, setRefreshing] = useState(false);
-  const containerWidth = width ?? screenWidth ?? 360;
+  const containerWidth = style?.width ?? screenWidth ?? 360;
   const spinnerX = x + containerWidth / 2 - 14; // center the 28px spinner
+  const [refreshing, setRefreshing] = useState(false);
 
   useWidget({
     type: 'RefreshIndicator',
@@ -62,8 +74,8 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
           variant="circular"
           x={spinnerX}
           y={y + displacement}
-          size={28}
-          color={spinnerColor}
+          colors={[color]}
+          style={{ size: 28 }}
         />
       )}
       {children}

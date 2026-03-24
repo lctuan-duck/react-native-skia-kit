@@ -3,16 +3,30 @@ import { Platform, StatusBar } from 'react-native';
 import { Group } from '@shopify/react-native-skia';
 import { Box } from './Box';
 import type { WidgetProps } from '../core/types';
-import type { YogaFlexProps } from '../hooks/useYogaLayout';
+import type {
+  LayoutStyle,
+  SpacingStyle,
+  ColorStyle,
+  FlexContainerStyle,
+  FlexChildStyle,
+} from '../core/style.types';
 
-export interface SafeAreaProps extends WidgetProps, YogaFlexProps {
+// === SafeArea Types ===
+
+export type SafeAreaStyle = LayoutStyle &
+  SpacingStyle &
+  ColorStyle &
+  FlexChildStyle &
+  Pick<FlexContainerStyle, 'flexDirection' | 'justifyContent' | 'alignItems' | 'gap'>;
+
+export interface SafeAreaProps extends WidgetProps {
   children: React.ReactNode;
   /** Which edges to respect (default: all) */
   edges?: ('top' | 'bottom' | 'left' | 'right')[];
-  /** Background color */
-  color?: string;
   /** Custom insets override (auto-detected from Platform if omitted) */
   insets?: { top?: number; bottom?: number; left?: number; right?: number };
+  /** Style override (width, height, backgroundColor, flexDirection, padding, gap, etc.) */
+  style?: SafeAreaStyle;
 }
 
 /**
@@ -22,7 +36,7 @@ export interface SafeAreaProps extends WidgetProps, YogaFlexProps {
  * Uses Platform defaults for insets. Pass custom `insets` prop to override.
  *
  * @example
- * <SafeArea x={0} y={0} width={360} height={800}>
+ * <SafeArea x={0} y={0} style={{ width: 360, height: 800 }}>
  *   <Box ...>
  *     <Text text="Content below status bar" />
  *   </Box>
@@ -31,19 +45,15 @@ export interface SafeAreaProps extends WidgetProps, YogaFlexProps {
 export const SafeArea = React.memo(function SafeArea({
   x = 0,
   y = 0,
-  width = 360,
-  height = 800,
   children,
   edges = ['top', 'bottom', 'left', 'right'],
-  color = 'transparent',
   insets: customInsets,
-  // Flex props
-  flexDirection,
-  justifyContent,
-  alignItems,
-  gap,
-  padding,
+  style,
 }: SafeAreaProps) {
+  const width = style?.width ?? 360;
+  const height = style?.height ?? 800;
+  const bgColor = style?.backgroundColor ?? 'transparent';
+
   // Platform-based defaults
   const defaultTop = Platform.OS === 'ios' ? 44 : StatusBar.currentHeight ?? 24;
   const defaultBottom = Platform.OS === 'ios' ? 34 : 0;
@@ -68,20 +78,26 @@ export const SafeArea = React.memo(function SafeArea({
   return (
     <Group>
       {/* Background fill for entire area */}
-      {color !== 'transparent' && (
-        <Box x={x} y={y} width={width} height={height} color={color} />
+      {bgColor !== 'transparent' && (
+        <Box
+          x={x}
+          y={y}
+          style={{ width, height, backgroundColor: bgColor }}
+        />
       )}
       {/* Content in safe area */}
       <Box
         x={safeX}
         y={safeY}
-        width={safeWidth}
-        height={safeHeight}
-        flexDirection={flexDirection}
-        justifyContent={justifyContent}
-        alignItems={alignItems}
-        gap={gap}
-        padding={padding}
+        style={{
+          width: safeWidth,
+          height: safeHeight,
+          flexDirection: style?.flexDirection,
+          justifyContent: style?.justifyContent,
+          alignItems: style?.alignItems,
+          gap: style?.gap,
+          padding: style?.padding,
+        }}
       >
         {children}
       </Box>

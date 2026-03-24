@@ -1,18 +1,43 @@
 import * as React from 'react';
 import { Box } from './Box';
 import type { WidgetProps } from '../core/types';
+import type {
+  ColorStyle,
+  BorderStyle,
+  ShadowStyle,
+  SpacingStyle,
+  FlexChildStyle,
+  SemanticColor,
+} from '../core/style.types';
 import { useTheme } from '../hooks/useTheme';
 import { useWidget } from '../hooks/useWidget';
 
-export type CardVariant = 'elevated' | 'filled' | 'outlined';
+// === Card Types ===
+
+export type CardVariant = 'solid' | 'outline' | 'ghost';
+
+export type CardStyle = ColorStyle &
+  BorderStyle &
+  ShadowStyle &
+  SpacingStyle &
+  FlexChildStyle & {
+    width?: number;
+    height?: number;
+  };
 
 export interface CardProps extends WidgetProps {
+  /** Variant */
   variant?: CardVariant;
-  borderRadius?: number;
-  backgroundColor?: string;
-  children?: React.ReactNode;
+  /** Semantic color */
+  color?: SemanticColor;
+  /** Style override */
+  style?: CardStyle;
+  /** Press callback */
   onPress?: () => void;
+  /** Long press callback */
   onLongPress?: () => void;
+  /** Children */
+  children?: React.ReactNode;
 }
 
 /**
@@ -22,34 +47,44 @@ export interface CardProps extends WidgetProps {
 export const Card = React.memo(function Card({
   x = 0,
   y = 0,
-  width,
-  height,
-  variant = 'elevated',
-  borderRadius = 12,
-  backgroundColor,
+  variant = 'solid',
+  color: _color = 'primary',
+  style,
   children,
   onPress,
   onLongPress,
 }: CardProps) {
   const theme = useTheme();
-  const styles = resolveCardStyles(variant, backgroundColor, theme);
+  const variantStyles = resolveCardStyles(variant, theme);
 
-  const w = width ?? 0;
-  const h = height ?? 0;
+  const bgColor = style?.backgroundColor ?? variantStyles.background;
+  const borderR = style?.borderRadius ?? 12;
+  const elev = style?.elevation ?? variantStyles.elevation;
+  const borderW = style?.borderWidth ?? variantStyles.borderWidth;
+  const borderC = style?.borderColor ?? variantStyles.borderColor;
 
-  useWidget({ type: 'Card', layout: { x, y, width: w, height: h } });
+  const w = style?.width;
+  const h = style?.height;
+
+  useWidget({
+    type: 'Card',
+    layout: { x, y, width: w ?? 0, height: h ?? 0 },
+  });
 
   return (
     <Box
       x={x}
       y={y}
-      width={width}
-      height={height}
-      borderRadius={borderRadius}
-      color={styles.background}
-      elevation={styles.elevation}
-      borderWidth={styles.borderWidth}
-      borderColor={styles.borderColor}
+      style={{
+        ...style,
+        width: w,
+        height: h,
+        borderRadius: borderR,
+        backgroundColor: bgColor,
+        elevation: elev,
+        borderWidth: borderW,
+        borderColor: borderC,
+      }}
       hitTestBehavior="deferToChild"
       onPress={onPress}
       onLongPress={onLongPress}
@@ -61,35 +96,34 @@ export const Card = React.memo(function Card({
 
 function resolveCardStyles(
   variant: CardVariant,
-  customBg: string | undefined,
   theme: ReturnType<typeof useTheme>
 ) {
   const c = theme.colors;
   switch (variant) {
-    case 'elevated':
+    case 'solid':
       return {
-        background: customBg ?? c.surface,
+        background: c.surface,
         elevation: 4,
         borderWidth: 0,
         borderColor: 'transparent',
       };
-    case 'filled':
+    case 'ghost':
       return {
-        background: customBg ?? c.surfaceVariant,
+        background: c.surfaceVariant,
         elevation: 0,
         borderWidth: 0,
         borderColor: 'transparent',
       };
-    case 'outlined':
+    case 'outline':
       return {
-        background: customBg ?? c.surface,
+        background: c.surface,
         elevation: 0,
         borderWidth: 1,
         borderColor: c.border,
       };
     default:
       return {
-        background: customBg ?? c.surface,
+        background: c.surface,
         elevation: 4,
         borderWidth: 0,
         borderColor: 'transparent',

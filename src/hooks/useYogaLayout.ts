@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useMemo, useEffect } from 'react';
 import type { WidgetProps } from '../core/types';
+import type { FlexChildStyle } from '../core/style.types';
 
 // ===== Types =====
 
@@ -149,24 +150,26 @@ function getComponentType(element: React.ReactElement): string {
 
 function extractChildInfo(child: React.ReactElement): ChildInfo {
   const p = child.props as WidgetProps & {
+    style?: FlexChildStyle & { width?: number; height?: number; fontSize?: number };
     fontSize?: number;
     size?: number;
     children?: React.ReactNode;
     text?: string;
   };
+  const s = p.style;
   return {
-    width: p.width,
-    height: p.height,
-    flex: p.flex,
-    flexGrow: p.flexGrow,
-    alignSelf: p.alignSelf,
-    position: p.position,
-    top: p.top,
-    left: p.left,
-    right: p.right,
-    bottom: p.bottom,
+    width: s?.width,
+    height: s?.height,
+    flex: s?.flex,
+    flexGrow: s?.flexGrow,
+    alignSelf: s?.alignSelf,
+    position: s?.position,
+    top: s?.top,
+    left: s?.left,
+    right: s?.right,
+    bottom: s?.bottom,
     componentType: getComponentType(child),
-    fontSize: p.fontSize,
+    fontSize: s?.fontSize ?? p.fontSize,
     iconSize: p.size,
     hasChildren: p.children != null,
     textContent: p.text ?? (typeof p.children === 'string' ? p.children : undefined),
@@ -620,17 +623,21 @@ export function useYogaLayout(
     childArray.length,
   ]);
 
-  // Inject computed x, y, width, height into children via cloneElement
+  // Inject computed x, y into top-level props and width, height into style
   const renderedChildren = childArray.map((child, i) => {
     if (!React.isValidElement(child)) return child;
     const layout = layouts[i];
     if (!layout) return child;
 
-    return React.cloneElement(child as React.ReactElement<WidgetProps>, {
+    const existing = (child as React.ReactElement<{ style?: Record<string, unknown> }>).props;
+    return React.cloneElement(child as React.ReactElement<WidgetProps & { style?: Record<string, unknown> }>, {
       x: layout.x,
       y: layout.y,
-      width: layout.width,
-      height: layout.height,
+      style: {
+        ...(existing.style ?? {}),
+        width: layout.width,
+        height: layout.height,
+      },
     });
   });
 

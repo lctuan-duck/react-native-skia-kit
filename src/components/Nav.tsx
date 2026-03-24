@@ -23,6 +23,10 @@ export interface ScreenProps {
 export interface NavProps extends WidgetProps {
   initial: string;
   children: React.ReactNode;
+  /** Viewport width */
+  width?: number;
+  /** Viewport height */
+  height?: number;
   /** Transition type for screen changes (default: 'slide') */
   transition?: TransitionType;
   /** Transition duration in ms (default: 300) */

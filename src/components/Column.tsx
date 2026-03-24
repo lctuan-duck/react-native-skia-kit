@@ -1,8 +1,28 @@
 import * as React from 'react';
 import { Box } from './Box';
 import type { WidgetProps } from '../core/types';
+import type {
+  LayoutStyle,
+  SpacingStyle,
+  ColorStyle,
+  BorderStyle,
+  FlexChildStyle,
+  FlexContainerStyle,
+} from '../core/style.types';
+
+// === Column Style (same as Row) ===
+
+export type FlexContainerComponentStyle = LayoutStyle &
+  SpacingStyle &
+  ColorStyle &
+  BorderStyle &
+  FlexChildStyle &
+  Pick<FlexContainerStyle, 'gap' | 'rowGap'>;
 
 export interface ColumnProps extends WidgetProps {
+  /** Consolidated style prop */
+  style?: FlexContainerComponentStyle;
+  /** Convenience: main axis alignment (maps to justifyContent) */
   mainAxisAlignment?:
     | 'start'
     | 'center'
@@ -10,11 +30,8 @@ export interface ColumnProps extends WidgetProps {
     | 'spaceBetween'
     | 'spaceAround'
     | 'spaceEvenly';
+  /** Convenience: cross axis alignment (maps to alignItems) */
   crossAxisAlignment?: 'start' | 'center' | 'end' | 'stretch';
-  gap?: number;
-  padding?: number | [number, number, number, number];
-  color?: string;
-  borderRadius?: number;
   children?: React.ReactNode;
 }
 
@@ -26,31 +43,23 @@ export interface ColumnProps extends WidgetProps {
 export const Column = React.memo(function Column({
   x = 0,
   y = 0,
-  width,
-  height,
+  style,
   mainAxisAlignment = 'start',
   crossAxisAlignment = 'start',
-  gap = 0,
-  padding = 0,
-  color = 'transparent',
-  borderRadius = 0,
   children,
-  ...rest
 }: ColumnProps) {
   return (
     <Box
       x={x}
       y={y}
-      width={width}
-      height={height}
-      color={color}
-      borderRadius={borderRadius}
-      flexDirection="column"
-      justifyContent={mainAxisAlignment}
-      alignItems={crossAxisAlignment}
-      gap={gap}
-      padding={padding}
-      {...rest}
+      style={{
+        ...style,
+        backgroundColor: style?.backgroundColor ?? 'transparent',
+        borderRadius: style?.borderRadius ?? 0,
+        flexDirection: 'column',
+        justifyContent: mainAxisAlignment,
+        alignItems: crossAxisAlignment,
+      }}
     >
       {children}
     </Box>

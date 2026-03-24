@@ -9,6 +9,10 @@ import type { WidgetProps, HitTestBehavior, PanEvent } from '../core/types';
 
 export interface GestureDetectorProps extends WidgetProps {
   children: React.ReactNode;
+  /** Width for hit test zone */
+  width?: number;
+  /** Height for hit test zone */
+  height?: number;
   /** Tap callback (maps to onPress internally) */
   onTap?: () => void;
   onDoubleTap?: () => void;
@@ -65,6 +69,10 @@ export const GestureDetector = React.memo(function GestureDetector({
 
 export interface DismissibleProps extends WidgetProps {
   children: React.ReactNode;
+  /** Width for hit test zone */
+  width?: number;
+  /** Height for hit test zone */
+  height?: number;
   onDismiss: () => void;
   direction?: 'horizontal' | 'vertical';
   /** Dismiss threshold in pixels (default: 100) */
@@ -95,8 +103,7 @@ export const Dismissible = React.memo(function Dismissible({
     <Box
       x={x}
       y={y}
-      width={width}
-      height={height}
+      style={{ width, height }}
       hitTestBehavior="opaque"
       onPanEnd={(e: PanEvent) => {
         const translation =
@@ -117,6 +124,10 @@ export const Dismissible = React.memo(function Dismissible({
 
 export interface DraggableProps extends WidgetProps {
   children: React.ReactNode;
+  /** Width for hit test zone */
+  width?: number;
+  /** Height for hit test zone */
+  height?: number;
   onDragStart?: () => void;
   onDragEnd?: (position: { x: number; y: number }) => void;
   onDragUpdate?: (position: { x: number; y: number }) => void;
@@ -147,8 +158,7 @@ export const Draggable = React.memo(function Draggable({
     <Box
       x={x}
       y={y}
-      width={width}
-      height={height}
+      style={{ width, height }}
       hitTestBehavior="opaque"
       onPanStart={() => onDragStart?.()}
       onPanUpdate={(e: PanEvent) => {

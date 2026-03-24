@@ -4,6 +4,19 @@ import { Box } from './Box';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type {
+  ColorStyle,
+  BorderStyle,
+  FlexChildStyle,
+  SemanticColor,
+} from '../core/style.types';
+import { resolveSemanticColor } from '../core/colorUtils';
+
+// === Radio Types ===
+
+export type RadioStyle = ColorStyle &
+  BorderStyle &
+  FlexChildStyle;
 
 export interface RadioProps extends WidgetProps {
   /** Size (default: 24) */
@@ -12,8 +25,10 @@ export interface RadioProps extends WidgetProps {
   selected?: boolean;
   /** Disabled state */
   disabled?: boolean;
-  /** Active color */
-  color?: string;
+  /** Semantic color */
+  color?: SemanticColor;
+  /** Style override */
+  style?: RadioStyle;
   /** Change callback */
   onChange?: (selected: boolean) => void;
   /** Press callback */
@@ -22,9 +37,7 @@ export interface RadioProps extends WidgetProps {
 
 /**
  * Radio — single selection within a group.
- * Composition: Box (outer ring) + Circle (inner dot when selected).
- *
- * Tương đương Flutter Radio.
+ * Equivalent to Flutter Radio.
  */
 export const Radio = React.memo(function Radio({
   x = 0,
@@ -32,20 +45,22 @@ export const Radio = React.memo(function Radio({
   size = 24,
   selected = false,
   disabled = false,
-  color,
+  color = 'primary',
+  style,
   onChange,
   onPress,
 }: RadioProps) {
   const theme = useTheme();
-  const activeColor = color ?? theme.colors.primary;
+  const activeColor =
+    style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
   const r = size / 2;
   const cx = x + r;
   const cy = y + r;
   const borderColor = disabled
     ? theme.colors.textDisabled
     : selected
-    ? activeColor
-    : theme.colors.outline;
+      ? activeColor
+      : theme.colors.outline;
   const dotColor = disabled ? theme.colors.textDisabled : activeColor;
 
   const handlePress = () => {
@@ -64,13 +79,15 @@ export const Radio = React.memo(function Radio({
     <Box
       x={x}
       y={y}
-      width={size}
-      height={size}
-      color="transparent"
-      borderRadius={r}
-      borderWidth={2}
-      borderColor={borderColor}
-      opacity={disabled ? 0.5 : 1}
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: 'transparent',
+        borderRadius: r,
+        borderWidth: style?.borderWidth ?? 2,
+        borderColor: style?.borderColor ?? borderColor,
+        opacity: disabled ? 0.5 : 1,
+      }}
       hitTestBehavior="opaque"
       onPress={handlePress}
     >

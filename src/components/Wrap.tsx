@@ -1,10 +1,17 @@
 import * as React from 'react';
 import { Box } from './Box';
 import type { WidgetProps } from '../core/types';
+import type { FlexChildStyle } from '../core/style.types';
+
+// === Wrap Style ===
+
+export type WrapStyle = FlexChildStyle & {
+  width?: number;
+};
 
 export interface WrapProps extends WidgetProps {
-  /** Width — REQUIRED (needed to know when to break line) */
-  width: number;
+  /** Consolidated style prop */
+  style?: WrapStyle;
   /** Horizontal gap between children */
   spacing?: number;
   /** Vertical gap between rows */
@@ -27,7 +34,7 @@ export interface WrapProps extends WidgetProps {
 export const Wrap = React.memo(function Wrap({
   x = 0,
   y = 0,
-  width,
+  style,
   spacing = 0,
   runSpacing = 0,
   alignment = 'start',
@@ -38,13 +45,15 @@ export const Wrap = React.memo(function Wrap({
     <Box
       x={x}
       y={y}
-      width={width}
-      flexDirection="row"
-      flexWrap="wrap"
-      gap={spacing}
-      rowGap={runSpacing}
-      justifyContent={alignment}
-      alignItems={crossAxisAlignment}
+      style={{
+        ...style,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing,
+        rowGap: runSpacing,
+        justifyContent: alignment,
+        alignItems: crossAxisAlignment,
+      }}
     >
       {children}
     </Box>

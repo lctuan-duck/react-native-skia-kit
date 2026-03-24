@@ -4,45 +4,68 @@ import { Text } from './Text';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../core/types';
+import type {
+  ColorStyle,
+  BorderStyle,
+  FlexChildStyle,
+  SemanticColor,
+} from '../core/style.types';
+import {
+  resolveSemanticColor,
+  withOpacity,
+  contrastColor,
+} from '../core/colorUtils';
 
-export type ChipVariant = 'filled' | 'outlined';
+// === Chip Types ===
+
+export type ChipVariant = 'solid' | 'outline' | 'ghost';
+
+export type ChipStyle = ColorStyle &
+  BorderStyle &
+  FlexChildStyle & {
+    textColor?: string;
+    width?: number;
+    height?: number;
+  };
 
 export interface ChipProps extends WidgetProps {
   /** Label text — REQUIRED */
   label: string;
   /** Selected state */
   selected?: boolean;
-  /** Variant: filled (solid bg) or outlined (border only) */
+  /** Variant */
   variant?: ChipVariant;
-  /** Primary color for the chip */
-  color?: string;
-  /** Border radius */
-  borderRadius?: number;
+  /** Semantic color */
+  color?: SemanticColor;
+  /** Style override */
+  style?: ChipStyle;
   /** Press callback */
   onPress?: () => void;
 }
 
 /**
- * Chip — tag/filter element with filled and outlined variants.
+ * Chip — tag/filter element with multiple variants.
  * Tương đương Flutter Chip / FilterChip / ChoiceChip.
- *
- * Composition: Box (background/border) + Text (label).
  */
 export const Chip = React.memo(function Chip({
   x = 0,
   y = 0,
-  width = 80,
-  height = 32,
   label,
   selected = false,
-  variant = 'filled',
-  color,
-  borderRadius = 16,
+  variant = 'solid',
+  color = 'primary',
+  style,
   onPress,
 }: ChipProps) {
   const theme = useTheme();
-  const chipColor = color ?? theme.colors.primary;
-  const styles = resolveChipStyles(variant, chipColor, selected, theme);
+  const chipColor = resolveSemanticColor(color, theme.colors);
+  const variantStyles = resolveChipStyles(variant, chipColor, selected, theme);
+
+  const width = style?.width ?? 80;
+  const height = style?.height ?? 32;
+  const borderR = style?.borderRadius ?? 16;
+  const bgColor = style?.backgroundColor ?? variantStyles.background;
+  const fgColor = style?.textColor ?? variantStyles.textColor;
 
   useWidget({
     type: 'Chip',
@@ -53,23 +76,27 @@ export const Chip = React.memo(function Chip({
     <Box
       x={x}
       y={y}
-      width={width}
-      height={height}
-      borderRadius={borderRadius}
-      color={styles.background}
-      borderWidth={styles.borderWidth}
-      borderColor={styles.borderColor}
+      style={{
+        width,
+        height,
+        borderRadius: borderR,
+        backgroundColor: bgColor,
+        borderWidth: style?.borderWidth ?? variantStyles.borderWidth,
+        borderColor: style?.borderColor ?? variantStyles.borderColor,
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
       hitTestBehavior="opaque"
       onPress={onPress}
     >
       <Text
-        x={x + 8}
-        y={y + height / 2 - 6.5}
-        width={width - 16}
         text={label}
-        fontSize={13}
-        color={styles.textColor}
-        textAlign="center"
+        style={{
+          fontSize: 13,
+          color: fgColor,
+          textAlign: 'center',
+        }}
       />
     </Box>
   );
@@ -83,29 +110,30 @@ function resolveChipStyles(
 ) {
   const c = theme.colors;
 
-  if (variant === 'outlined') {
-    return {
-      background: 'transparent',
-      borderWidth: 1,
-      borderColor: selected ? chipColor : c.border,
-      textColor: selected ? chipColor : c.textSecondary,
-    };
+  switch (variant) {
+    case 'outline':
+      return {
+        background: 'transparent',
+        borderWidth: 1,
+        borderColor: selected ? chipColor : c.border,
+        textColor: selected ? chipColor : c.textSecondary,
+      };
+    case 'ghost':
+      return {
+        background: selected
+          ? withOpacity(chipColor, 0.15)
+          : withOpacity(chipColor, 0.08),
+        borderWidth: 0,
+        borderColor: 'transparent',
+        textColor: selected ? chipColor : c.textSecondary,
+      };
+    case 'solid':
+    default:
+      return {
+        background: selected ? chipColor : c.surfaceVariant,
+        borderWidth: 0,
+        borderColor: 'transparent',
+        textColor: selected ? contrastColor(chipColor) : c.textBody,
+      };
   }
-
-  // filled variant
-  return {
-    background: selected ? chipColor : c.surfaceVariant,
-    borderWidth: 0,
-    borderColor: 'transparent',
-    textColor: selected ? contrastColor(chipColor) : c.textBody,
-  };
-}
-
-function contrastColor(hex: string): string {
-  if (!hex || hex.length < 7) return '#ffffff';
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? '#000000' : '#ffffff';
 }

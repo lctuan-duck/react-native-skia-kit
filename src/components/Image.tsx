@@ -6,20 +6,28 @@ import {
   useImage,
 } from '@shopify/react-native-skia';
 import type { WidgetProps } from '../core/types';
+import type { ColorStyle, BorderStyle, FlexChildStyle } from '../core/style.types';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
+
+// === Image Types ===
+
+export type ImageStyle = ColorStyle &
+  BorderStyle &
+  FlexChildStyle & {
+    width?: number;
+    height?: number;
+  };
 
 export interface ImageProps extends WidgetProps {
   /** Image source URL or local path — REQUIRED */
   src: string;
-  /** Border radius */
-  borderRadius?: number;
-  /** Opacity 0-1 */
-  opacity?: number;
   /** Resize mode */
   fit?: 'cover' | 'contain' | 'fill' | 'fitWidth' | 'fitHeight';
   /** Placeholder component when loading */
   placeholder?: React.ReactNode;
+  /** Style override (width, height, borderRadius, opacity) */
+  style?: ImageStyle;
   /** Press callback */
   onPress?: () => void;
   /** Error callback */
@@ -31,37 +39,35 @@ export interface ImageProps extends WidgetProps {
 /**
  * Image — displays an image from URL or local path.
  * Uses Skia's useImage hook for lazy loading.
- *
- * Tương đương Flutter Image / Image.network / CachedNetworkImage.
  */
 export const SkiaKitImage = React.memo(function SkiaKitImage({
   x = 0,
   y = 0,
-  width = 120,
-  height = 80,
   src,
-  borderRadius = 0,
-  opacity = 1,
   fit = 'cover',
   placeholder,
+  style,
   onPress,
   onLoad,
 }: ImageProps) {
   const image = useImage(src);
+
+  const width = style?.width ?? 120;
+  const height = style?.height ?? 80;
+  const borderRadius = style?.borderRadius ?? 0;
+  const opacity = style?.opacity ?? 1;
 
   const widgetId = useWidget({
     type: 'Image',
     layout: { x, y, width, height },
   });
 
-  // Register hit test for onPress — using widgetId from useWidget
   useHitTest(widgetId, {
     rect: { left: x, top: y, width, height },
     callbacks: { onPress },
     behavior: onPress ? 'opaque' : 'deferToChild',
   });
 
-  // Call onLoad when image finishes loading
   React.useEffect(() => {
     if (image) {
       onLoad?.();
@@ -69,7 +75,6 @@ export const SkiaKitImage = React.memo(function SkiaKitImage({
   }, [image, onLoad]);
 
   if (!image) {
-    // Placeholder: gray rect while loading
     return (
       (placeholder as React.ReactElement) ?? (
         <RoundedRect
@@ -115,5 +120,4 @@ export const SkiaKitImage = React.memo(function SkiaKitImage({
   );
 });
 
-// Export as "Image" for cleaner imports
 export { SkiaKitImage as Image };
