@@ -58,23 +58,19 @@ function AppContent() {
           <Box
             x={0}
             y={0}
-            width={width}
-            height={height - bottomNavH}
-            color="#F5F5F5"
+            style={{ width, height: height - bottomNavH, backgroundColor: '#F5F5F5' }}
           >
             <Text
               x={width / 2 - 50}
               y={height / 2 - 40}
               text="Thông báo"
-              fontSize={20}
-              fontWeight="bold"
+              style={{ fontSize: 20, fontWeight: 'bold' }}
             />
             <Text
               x={width / 2 - 60}
               y={height / 2 - 10}
               text="Chưa có thông báo"
-              fontSize={14}
-              color="#9CA3AF"
+              style={{ fontSize: 14, color: '#9CA3AF' }}
             />
           </Box>
         </Screen>
@@ -83,23 +79,19 @@ function AppContent() {
           <Box
             x={0}
             y={0}
-            width={width}
-            height={height - bottomNavH}
-            color="#F5F5F5"
+            style={{ width, height: height - bottomNavH, backgroundColor: '#F5F5F5' }}
           >
             <Text
               x={width / 2 - 40}
               y={height / 2 - 40}
               text="Tài khoản"
-              fontSize={20}
-              fontWeight="bold"
+              style={{ fontSize: 20, fontWeight: 'bold' }}
             />
             <Text
               x={width / 2 - 80}
               y={height / 2 - 10}
               text="Quản lý tài khoản của bạn"
-              fontSize={14}
-              color="#9CA3AF"
+              style={{ fontSize: 14, color: '#9CA3AF' }}
             />
           </Box>
         </Screen>
@@ -109,13 +101,10 @@ function AppContent() {
       <BottomNavigationBar
         x={0}
         y={height - bottomNavH}
-        width={width}
-        height={bottomNavH}
         items={bottomNavItems}
         activeIndex={activeIndex >= 0 ? activeIndex : 0}
-        activeColor="#16A34A"
         onChange={handleTabChange}
-        elevation={8}
+        style={{ width, height: bottomNavH, activeColor: '#16A34A', elevation: 8 }}
       />
     </>
   );

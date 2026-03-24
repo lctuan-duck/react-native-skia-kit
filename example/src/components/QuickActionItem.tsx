@@ -19,29 +19,29 @@ export function QuickActionItem({ size, label, color, bgColor, icon, onPress }: 
 
   return (
     <Box
-      width={size} height={size + 24}
       hitTestBehavior="opaque"
       onPress={onPress}
-      flexDirection="column" alignItems="center" gap={6}
+      style={{ width: size, height: size + 24, flexDirection: 'column', alignItems: 'center', gap: 6 }}
     >
       {/* Icon circle */}
       <Box
-        width={iconBoxSize} height={iconBoxSize}
-        borderRadius={14}
-        color={bgColor}
-        flexDirection="column" justifyContent="center" alignItems="center"
+        style={{
+          width: iconBoxSize,
+          height: iconBoxSize,
+          borderRadius: 14,
+          backgroundColor: bgColor,
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
       >
         <Icon name={icon ?? 'star'} size={22} color={color} />
       </Box>
 
       {/* Label */}
       <Text
-        width={size}
         text={label}
-        fontSize={11}
-        color={theme.colors.textBody}
-        textAlign="center"
-        height={28}
+        style={{ width: size, fontSize: 11, color: theme.colors.textBody, textAlign: 'center', height: 28 }}
       />
     </Box>
   );
