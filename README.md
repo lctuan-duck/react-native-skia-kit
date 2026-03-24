@@ -27,53 +27,99 @@ yarn add @shopify/react-native-skia react-native-reanimated react-native-gesture
 
 ```tsx
 import { useWindowDimensions } from 'react-native';
-import { CanvasRoot, Box, Text, useTheme } from 'react-native-skia-kit';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { CanvasRoot, Box, Text, Column, Button, useTheme } from 'react-native-skia-kit';
 
 function HomeScreen() {
   const theme = useTheme();
 
   return (
-    <>
-      <Box x={0} y={0} width={360} height={56} color={theme.colors.primary}>
+    <Column style={{ width: 360, height: 800, backgroundColor: '#F5F5F5' }}>
+      {/* Header */}
+      <Box style={{
+        height: 56,
+        backgroundColor: theme.colors.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+      }}>
         <Text
-          x={16}
-          y={18}
           text="Hello Skia Kit!"
-          fontSize={20}
-          fontWeight="bold"
-          color={theme.colors.onPrimary}
+          style={{ fontSize: 20, fontWeight: 'bold', color: theme.colors.onPrimary }}
         />
       </Box>
-      <Box
-        x={16}
-        y={72}
-        width={328}
-        height={80}
-        color={theme.colors.surface}
-        borderRadius={12}
-        elevation={4}
-      >
+
+      {/* Card */}
+      <Box style={{
+        margin: 16,
+        padding: 16,
+        borderRadius: 12,
+        backgroundColor: theme.colors.surface,
+        elevation: 4,
+        gap: 12,
+      }}>
         <Text
-          x={32}
-          y={100}
           text="Rendered on Skia Canvas ⚡"
-          fontSize={16}
-          color={theme.colors.textBody}
+          style={{ fontSize: 16, color: theme.colors.textBody }}
         />
+        <Button text="Get Started" color="primary" onPress={() => {}} />
       </Box>
-    </>
+    </Column>
   );
 }
 
 export default function App() {
   const { width, height } = useWindowDimensions();
   return (
-    <CanvasRoot style={{ width, height }}>
-      <HomeScreen />
-    </CanvasRoot>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <CanvasRoot style={{ width, height }}>
+        <HomeScreen />
+      </CanvasRoot>
+    </GestureHandlerRootView>
   );
 }
 ```
+
+## 🎨 Unified Style Prop API
+
+Tất cả visual props được gom vào **`style` prop** duy nhất. Shorthand props (`color`, `variant`, `disabled`) giữ lại cho rapid development.
+
+```tsx
+// ✅ New API — style prop
+<Box style={{ width: 200, height: 100, backgroundColor: '#fff', borderRadius: 12 }}>
+  <Text text="Hello" style={{ fontSize: 16, fontWeight: 'bold' }} />
+</Box>
+
+// Shorthand props for UI components
+<Button text="Submit" variant="solid" color="primary" />
+<Chip label="Tag" variant="outline" color="info" />
+<Badge value={5} color="error" />
+```
+
+### SemanticColor
+
+UI components nhận `color` dưới dạng **SemanticColor** — không phải hex:
+
+```ts
+type SemanticColor = 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral';
+```
+
+Custom hex → dùng `style.backgroundColor` hoặc `style.color`.
+
+### Base Style Types
+
+Defined in `src/types/style.types.ts`:
+
+| Type | Props |
+|------|-------|
+| `LayoutStyle` | `width`, `height`, `overflow` |
+| `SpacingStyle` | `padding`, `margin` |
+| `ColorStyle` | `backgroundColor`, `opacity` |
+| `BorderStyle` | `borderRadius`, `borderColor`, `borderWidth` |
+| `ShadowStyle` | `elevation`, `zIndex` |
+| `FlexChildStyle` | `flex`, `flexGrow`, `alignSelf`, `position`, `top/left/right/bottom` |
+| `FlexContainerStyle` | `flexDirection`, `flexWrap`, `justifyContent`, `alignItems`, `gap` |
+| `SkiaTextStyle` | `fontSize`, `fontFamily`, `fontWeight`, `color`, `textAlign`, `lineHeight` |
 
 ## 🏗 Architecture
 
@@ -121,7 +167,7 @@ export default function App() {
 
 ### Controls (7)
 
-`Button` (7 variants: filled, ghost, elevated, outlined, text, icon, fab) · `Checkbox` · `Radio` · `Switch` · `Slider` · `DropdownButton` · `PopupMenuButton`
+`Button` (6 variants: solid, outline, ghost, link, icon, fab) · `Checkbox` · `Radio` · `Switch` · `Slider` · `DropdownButton` · `PopupMenuButton`
 
 ### Display (10)
 
@@ -240,10 +286,8 @@ docs/
 ├── components/     # 49 component specs
 ├── hooks/          # 8 hook specs
 ├── store-design/   # Store architecture
-├── functions/      # Utility functions
-├── plans/          # Implementation phases (1-14)
-├── setup-guide.md
-└── development-workflow.md
+├── functions/      # Utility functions (DialogService, measureText)
+└── plans/          # Implementation phases (1-14)
 ```
 
 ## 📄 License

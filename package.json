@@ -1,6 +1,6 @@
 {
   "name": "react-native-skia-kit",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A Flutter-like UI Kit for React Native that renders all UI components on a single Skia Canvas, providing high-performance custom widgets with Yoga layout, gesture handling, and theme support.",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
