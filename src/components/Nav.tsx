@@ -10,7 +10,7 @@ import {
 } from 'react-native-reanimated';
 import { useNavStore } from '../stores/navStore';
 import { useWidget } from '../hooks/useWidget';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 
 export type TransitionType = 'slide' | 'fade' | 'none';
 

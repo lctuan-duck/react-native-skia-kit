@@ -3,13 +3,13 @@ import { Box } from './Box';
 import { Text } from './Text';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
   BorderStyle,
   FlexChildStyle,
   SemanticColor,
-} from '../core/style.types';
+} from '../types/style.types';
 import { resolveSemanticColor, resolveOnColor } from '../core/colorUtils';
 
 // === Badge Types ===
@@ -59,7 +59,7 @@ export const Badge = React.memo(function Badge({
 
   const bgColor = style?.backgroundColor ?? resolvedColor;
   const fgColor = style?.textColor ?? resolvedOnColor;
-  const badgeSize = variant === 'dot' ? (size ?? 10) : (size ?? 20);
+  const badgeSize = variant === 'dot' ? size ?? 10 : size ?? 20;
 
   useWidget({
     type: 'Badge',

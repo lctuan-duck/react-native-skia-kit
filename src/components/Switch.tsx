@@ -5,12 +5,12 @@ import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { Box } from './Box';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
   FlexChildStyle,
   SemanticColor,
-} from '../core/style.types';
+} from '../types/style.types';
 import { resolveSemanticColor } from '../core/colorUtils';
 
 // === Switch Types ===
@@ -62,9 +62,7 @@ export const Switch = React.memo(function Switch({
   const h = style?.height ?? 28;
 
   const thumbR = h / 2 - 2;
-  const thumbX = useSharedValue(
-    value ? x + w - thumbR - 4 : x + thumbR + 4
-  );
+  const thumbX = useSharedValue(value ? x + w - thumbR - 4 : x + thumbR + 4);
 
   useEffect(() => {
     thumbX.value = withTiming(value ? x + w - thumbR - 4 : x + thumbR + 4, {

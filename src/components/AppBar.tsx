@@ -7,12 +7,12 @@ import { Expanded } from './Expanded';
 import { useWidget } from '../hooks/useWidget';
 import { useNav } from '../hooks/useNav';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
   ShadowStyle,
   FlexChildStyle,
-} from '../core/style.types';
+} from '../types/style.types';
 
 // === AppBar Types ===
 

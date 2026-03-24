@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Group, Path } from '@shopify/react-native-skia';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
 import { useTheme } from '../hooks/useTheme';

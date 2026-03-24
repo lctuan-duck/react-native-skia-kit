@@ -2,14 +2,14 @@ import * as React from 'react';
 import { Platform, StatusBar } from 'react-native';
 import { Group } from '@shopify/react-native-skia';
 import { Box } from './Box';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   LayoutStyle,
   SpacingStyle,
   ColorStyle,
   FlexContainerStyle,
   FlexChildStyle,
-} from '../core/style.types';
+} from '../types/style.types';
 
 // === SafeArea Types ===
 
@@ -17,7 +17,10 @@ export type SafeAreaStyle = LayoutStyle &
   SpacingStyle &
   ColorStyle &
   FlexChildStyle &
-  Pick<FlexContainerStyle, 'flexDirection' | 'justifyContent' | 'alignItems' | 'gap'>;
+  Pick<
+    FlexContainerStyle,
+    'flexDirection' | 'justifyContent' | 'alignItems' | 'gap'
+  >;
 
 export interface SafeAreaProps extends WidgetProps {
   children: React.ReactNode;
@@ -79,11 +82,7 @@ export const SafeArea = React.memo(function SafeArea({
     <Group>
       {/* Background fill for entire area */}
       {bgColor !== 'transparent' && (
-        <Box
-          x={x}
-          y={y}
-          style={{ width, height, backgroundColor: bgColor }}
-        />
+        <Box x={x} y={y} style={{ width, height, backgroundColor: bgColor }} />
       )}
       {/* Content in safe area */}
       <Box

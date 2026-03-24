@@ -3,22 +3,20 @@ import { Box } from './Box';
 import { Image } from './Image';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
   BorderStyle,
   FlexChildStyle,
   SemanticColor,
-} from '../core/style.types';
+} from '../types/style.types';
 import { resolveSemanticColor } from '../core/colorUtils';
 
 // === Avatar Types ===
 
 export type AvatarVariant = 'circle' | 'rounded' | 'square';
 
-export type AvatarStyle = ColorStyle &
-  BorderStyle &
-  FlexChildStyle;
+export type AvatarStyle = ColorStyle & BorderStyle & FlexChildStyle;
 
 export interface AvatarProps extends WidgetProps {
   /** Size of avatar (width = height) */

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import './setup';
-import type { WidgetData } from '../core/types';
+import type { WidgetData } from '../types/widget.types';
 
 // ===== Store =====
 

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Box } from './Box';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
   BorderStyle,
@@ -8,7 +8,7 @@ import type {
   SpacingStyle,
   FlexChildStyle,
   SemanticColor,
-} from '../core/style.types';
+} from '../types/style.types';
 import { useTheme } from '../hooks/useTheme';
 import { useWidget } from '../hooks/useWidget';
 

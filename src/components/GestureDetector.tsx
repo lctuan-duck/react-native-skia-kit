@@ -3,7 +3,11 @@ import { Group } from '@shopify/react-native-skia';
 import { Box } from './Box';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
-import type { WidgetProps, HitTestBehavior, PanEvent } from '../core/types';
+import type {
+  WidgetProps,
+  HitTestBehavior,
+  PanEvent,
+} from '../types/widget.types';
 
 // ===== GestureDetector =====
 

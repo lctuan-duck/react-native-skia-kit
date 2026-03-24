@@ -3,13 +3,13 @@ import { Box } from './Box';
 import { Text } from './Text';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
   BorderStyle,
   FlexChildStyle,
   SemanticColor,
-} from '../core/style.types';
+} from '../types/style.types';
 import {
   resolveSemanticColor,
   withOpacity,

@@ -11,7 +11,7 @@ export type {
   WidgetData,
   GestureCallbacks,
   PanEvent,
-} from './core/types';
+} from './types/widget.types';
 
 // ===== Style Types =====
 export type {
@@ -24,7 +24,7 @@ export type {
   FlexContainerStyle,
   SkiaTextStyle,
   SemanticColor,
-} from './core/style.types';
+} from './types/style.types';
 
 // ===== Color Utilities =====
 export {
@@ -123,18 +123,33 @@ export type {
 } from './components/Center';
 export type { WrapProps } from './components/Wrap';
 export type { SpacerProps } from './components/Spacer';
-export type { TextProps, TextComponentStyle, EllipsisMode } from './components/Text';
+export type {
+  TextProps,
+  TextComponentStyle,
+  EllipsisMode,
+} from './components/Text';
 export type { IconProps } from './components/Icon';
 export type { ImageProps } from './components/Image';
 export type { DividerProps, DividerStyle } from './components/Divider';
 export type { CardProps, CardVariant, CardStyle } from './components/Card';
-export type { AvatarProps, AvatarVariant, AvatarStyle } from './components/Avatar';
+export type {
+  AvatarProps,
+  AvatarVariant,
+  AvatarStyle,
+} from './components/Avatar';
 export type { BadgeProps, BadgeVariant, BadgeStyle } from './components/Badge';
 export type { ChipProps, ChipVariant, ChipStyle } from './components/Chip';
 export type { TooltipProps, TooltipStyle } from './components/Tooltip';
 export type { ListTileProps, ListTileStyle } from './components/ListTile';
-export type { ExpansionTileProps, ExpansionTileStyle } from './components/ExpansionTile';
-export type { ButtonProps, ButtonVariant, ButtonStyle } from './components/Button';
+export type {
+  ExpansionTileProps,
+  ExpansionTileStyle,
+} from './components/ExpansionTile';
+export type {
+  ButtonProps,
+  ButtonVariant,
+  ButtonStyle,
+} from './components/Button';
 export type { CheckboxProps, CheckboxStyle } from './components/Checkbox';
 export type { RadioProps, RadioStyle } from './components/Radio';
 export type { SwitchProps, SwitchStyle } from './components/Switch';
@@ -149,9 +164,16 @@ export type {
 } from './components/PopupMenuButton';
 export type { InputProps, InputVariant, InputStyle } from './components/Input';
 export type { SearchBarProps, SearchBarStyle } from './components/SearchBar';
-export type { ProgressProps, ProgressVariant, ProgressStyle } from './components/Progress';
+export type {
+  ProgressProps,
+  ProgressVariant,
+  ProgressStyle,
+} from './components/Progress';
 export type { SnackBarProps, SnackBarStyle } from './components/SnackBar';
-export type { RefreshIndicatorProps, RefreshIndicatorStyle } from './components/RefreshIndicator';
+export type {
+  RefreshIndicatorProps,
+  RefreshIndicatorStyle,
+} from './components/RefreshIndicator';
 export type { NavProps, ScreenProps } from './components/Nav';
 export type { AppBarProps, AppBarStyle } from './components/AppBar';
 export type {

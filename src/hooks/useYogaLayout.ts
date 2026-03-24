@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useMemo, useEffect } from 'react';
-import type { WidgetProps } from '../core/types';
-import type { FlexChildStyle } from '../core/style.types';
+import type { WidgetProps } from '../types/widget.types';
+import type { FlexChildStyle } from '../types/style.types';
 
 // ===== Types =====
 
@@ -9,12 +9,12 @@ export interface YogaFlexProps {
   flexDirection?: 'row' | 'column';
   flexWrap?: 'nowrap' | 'wrap';
   justifyContent?:
-    | 'start'
-    | 'center'
-    | 'end'
-    | 'spaceBetween'
-    | 'spaceAround'
-    | 'spaceEvenly';
+  | 'start'
+  | 'center'
+  | 'end'
+  | 'spaceBetween'
+  | 'spaceAround'
+  | 'spaceEvenly';
   alignItems?: 'start' | 'center' | 'end' | 'stretch';
   gap?: number;
   rowGap?: number;

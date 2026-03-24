@@ -1,6 +1,13 @@
 import * as React from 'react';
 import { useEffect } from 'react';
-import { RoundedRect, Circle, Path, LinearGradient, Group, vec } from '@shopify/react-native-skia';
+import {
+  RoundedRect,
+  Circle,
+  Path,
+  LinearGradient,
+  Group,
+  vec,
+} from '@shopify/react-native-skia';
 import {
   useSharedValue,
   useDerivedValue,
@@ -9,12 +16,12 @@ import {
 } from 'react-native-reanimated';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
   FlexChildStyle,
   SemanticColor,
-} from '../core/style.types';
+} from '../types/style.types';
 import { resolveSemanticColor } from '../core/colorUtils';
 
 // === Progress Types ===

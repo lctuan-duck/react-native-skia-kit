@@ -5,7 +5,7 @@ import type {
   HitTestBehavior,
   GestureCallbacks,
   PanEvent,
-} from '../core/types';
+} from '../types/widget.types';
 
 // ===== Types =====
 

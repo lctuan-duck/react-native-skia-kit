@@ -8,8 +8,12 @@ import { Expanded } from './Expanded';
 import { Overlay } from './Overlay';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps } from '../core/types';
-import type { ColorStyle, BorderStyle, FlexChildStyle } from '../core/style.types';
+import type { WidgetProps } from '../types/widget.types';
+import type {
+  ColorStyle,
+  BorderStyle,
+  FlexChildStyle,
+} from '../types/style.types';
 
 // === DropdownButton Types ===
 

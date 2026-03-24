@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { Group } from '@shopify/react-native-skia';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 
 // ===== Form =====
 

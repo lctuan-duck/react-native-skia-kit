@@ -2,8 +2,8 @@ import * as React from 'react';
 import { useMemo } from 'react';
 import { Skia, Paragraph, TextAlign, Group } from '@shopify/react-native-skia';
 import type { SkParagraphStyle } from '@shopify/react-native-skia';
-import type { WidgetProps, HitTestBehavior } from '../core/types';
-import type { SkiaTextStyle, FlexChildStyle } from '../core/style.types';
+import type { WidgetProps, HitTestBehavior } from '../types/widget.types';
+import type { SkiaTextStyle, FlexChildStyle } from '../types/style.types';
 import { useTheme } from '../hooks/useTheme';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
@@ -41,8 +41,8 @@ export interface TextProps extends WidgetProps {
 // Map fontWeight string to Skia numeric weight
 function toSkiaFontWeight(weight: string): number {
   const map: Record<string, number> = {
-    normal: 400,
-    bold: 700,
+    'normal': 400,
+    'bold': 700,
     '100': 100,
     '200': 200,
     '300': 300,

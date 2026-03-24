@@ -11,13 +11,13 @@ import { Box } from './Box';
 import { Text } from './Text';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
   BorderStyle,
   FlexChildStyle,
   SemanticColor,
-} from '../core/style.types';
+} from '../types/style.types';
 import { resolveSemanticColor } from '../core/colorUtils';
 
 // === Input Types ===
@@ -159,8 +159,7 @@ export const Input = React.memo(function Input({
               style={{
                 width,
                 height,
-                backgroundColor:
-                  style?.backgroundColor ?? 'transparent',
+                backgroundColor: style?.backgroundColor ?? 'transparent',
               }}
             />
             <Box
@@ -169,9 +168,7 @@ export const Input = React.memo(function Input({
               style={{
                 width,
                 height: isFocused ? 2 : 1,
-                backgroundColor: isFocused
-                  ? focusColor
-                  : theme.colors.border,
+                backgroundColor: isFocused ? focusColor : theme.colors.border,
               }}
             />
           </>
@@ -188,8 +185,7 @@ export const Input = React.memo(function Input({
                 (variant === 'solid'
                   ? theme.colors.surfaceVariant
                   : 'transparent'),
-              borderWidth:
-                variant === 'outline' ? (isFocused ? 2 : 1) : 0,
+              borderWidth: variant === 'outline' ? (isFocused ? 2 : 1) : 0,
               borderColor:
                 variant === 'outline'
                   ? isFocused

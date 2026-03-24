@@ -5,12 +5,12 @@ import { Icon } from './Icon';
 import { Expanded } from './Expanded';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
   ShadowStyle,
   FlexChildStyle,
-} from '../core/style.types';
+} from '../types/style.types';
 
 // === BottomNavigationBar Types ===
 

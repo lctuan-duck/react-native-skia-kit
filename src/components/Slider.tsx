@@ -4,12 +4,12 @@ import { useDerivedValue } from 'react-native-reanimated';
 import { Box } from './Box';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps, PanEvent } from '../core/types';
+import type { WidgetProps, PanEvent } from '../types/widget.types';
 import type {
   ColorStyle,
   FlexChildStyle,
   SemanticColor,
-} from '../core/style.types';
+} from '../types/style.types';
 import { resolveSemanticColor } from '../core/colorUtils';
 
 // === Slider Types ===

@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import { Group } from '@shopify/react-native-skia';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
-import type { WidgetProps, PanEvent } from '../core/types';
+import type { WidgetProps, PanEvent } from '../types/widget.types';
 
 export interface TabBarViewProps extends WidgetProps {
   children: React.ReactNode;

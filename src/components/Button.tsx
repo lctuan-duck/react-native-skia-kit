@@ -4,7 +4,7 @@ import { Text } from './Text';
 import { Icon } from './Icon';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   LayoutStyle,
   ColorStyle,
@@ -13,7 +13,7 @@ import type {
   SpacingStyle,
   FlexChildStyle,
   SemanticColor,
-} from '../core/style.types';
+} from '../types/style.types';
 import {
   resolveSemanticColor,
   resolveOnColor,
@@ -138,7 +138,7 @@ export const Button = React.memo(function Button({
 
   // ===== FAB variant =====
   if (variant === 'fab') {
-    const fabWidth = extended ? (w ?? 140) : 56;
+    const fabWidth = extended ? w ?? 140 : 56;
     return (
       <Box
         x={x}
@@ -213,7 +213,6 @@ function resolveVariantStyles(
   onColor: string,
   _theme: ReturnType<typeof useTheme>
 ) {
-
   switch (variant) {
     case 'solid':
       return {

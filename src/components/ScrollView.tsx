@@ -8,8 +8,8 @@ import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
 import { useScrollPhysics } from '../hooks/useScrollPhysics';
 import { useEventStore } from '../stores/eventStore';
-import type { WidgetProps, PanEvent } from '../core/types';
-import type { FlexChildStyle, SpacingStyle } from '../core/style.types';
+import type { WidgetProps, PanEvent } from '../types/widget.types';
+import type { FlexChildStyle, SpacingStyle } from '../types/style.types';
 
 // ===== ScrollView =====
 
@@ -139,11 +139,7 @@ export const ScrollView = React.memo(function ScrollView({
             {children}
           </Box>
         ) : (
-          <Column
-            x={x}
-            y={y}
-            style={{ width, padding }}
-          >
+          <Column x={x} y={y} style={{ width, padding }}>
             {children}
           </Column>
         )}

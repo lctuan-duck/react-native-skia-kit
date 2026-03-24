@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Box } from './Box';
-import type { WidgetProps } from '../core/types';
-import type { FlexChildStyle } from '../core/style.types';
+import type { WidgetProps } from '../types/widget.types';
+import type { FlexChildStyle } from '../types/style.types';
 
 export type AlignmentValue =
   | 'topLeft'

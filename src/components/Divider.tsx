@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { Line } from '@shopify/react-native-skia';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
   FlexChildStyle,
   SemanticColor,
-} from '../core/style.types';
+} from '../types/style.types';
 import { useTheme } from '../hooks/useTheme';
 import { resolveSemanticColor } from '../core/colorUtils';
 
@@ -38,10 +38,9 @@ export const Divider = React.memo(function Divider({
   style,
 }: DividerProps) {
   const theme = useTheme();
-  const lineColor = style?.backgroundColor
-    ?? (color
-      ? resolveSemanticColor(color, theme.colors)
-      : theme.colors.divider);
+  const lineColor =
+    style?.backgroundColor ??
+    (color ? resolveSemanticColor(color, theme.colors) : theme.colors.divider);
 
   const length = style?.length ?? 300;
   const thickness = style?.thickness ?? 1;

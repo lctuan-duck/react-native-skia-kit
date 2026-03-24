@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import './setup';
-import type { LayoutRect } from '../core/types';
+import type { LayoutRect } from '../types/widget.types';
 
 export interface LayoutConstraints {
   minWidth: number;

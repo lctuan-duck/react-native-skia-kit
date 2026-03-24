@@ -7,8 +7,8 @@ import { Column } from './Column';
 import { Expanded } from './Expanded';
 import { useTheme } from '../hooks/useTheme';
 import { useWidget } from '../hooks/useWidget';
-import type { WidgetProps } from '../core/types';
-import type { ColorStyle, FlexChildStyle } from '../core/style.types';
+import type { WidgetProps } from '../types/widget.types';
+import type { ColorStyle, FlexChildStyle } from '../types/style.types';
 
 // === ExpansionTile Types ===
 
@@ -63,8 +63,8 @@ export const ExpansionTile = React.memo(function ExpansionTile({
   };
 
   const bgColor = expanded
-    ? (style?.backgroundColor ?? 'transparent')
-    : (style?.collapsedBackgroundColor ?? 'transparent');
+    ? style?.backgroundColor ?? 'transparent'
+    : style?.collapsedBackgroundColor ?? 'transparent';
 
   return (
     <Column x={x} y={y}>

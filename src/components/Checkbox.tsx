@@ -3,20 +3,18 @@ import { Path } from '@shopify/react-native-skia';
 import { Box } from './Box';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
   BorderStyle,
   FlexChildStyle,
   SemanticColor,
-} from '../core/style.types';
+} from '../types/style.types';
 import { resolveSemanticColor } from '../core/colorUtils';
 
 // === Checkbox Types ===
 
-export type CheckboxStyle = ColorStyle &
-  BorderStyle &
-  FlexChildStyle;
+export type CheckboxStyle = ColorStyle & BorderStyle & FlexChildStyle;
 
 export interface CheckboxProps extends WidgetProps {
   /** Size */
@@ -56,8 +54,8 @@ export const Checkbox = React.memo(function Checkbox({
   const borderColor = disabled
     ? theme.colors.textDisabled
     : checked
-      ? activeColor
-      : theme.colors.outline;
+    ? activeColor
+    : theme.colors.outline;
   const bgColor = checked
     ? disabled
       ? theme.colors.textDisabled

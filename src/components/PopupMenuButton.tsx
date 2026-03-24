@@ -8,7 +8,7 @@ import { Overlay } from './Overlay';
 import { useOverlayStore } from '../stores/overlayStore';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 
 export interface PopupMenuItem<T = string> {
   value: T;

@@ -3,8 +3,8 @@ import { Group } from '@shopify/react-native-skia';
 import { Box } from './Box';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps } from '../core/types';
-import type { ColorStyle, FlexChildStyle } from '../core/style.types';
+import type { WidgetProps } from '../types/widget.types';
+import type { ColorStyle, FlexChildStyle } from '../types/style.types';
 
 // === Scaffold Types ===
 
@@ -55,11 +55,7 @@ export const Scaffold = React.memo(function Scaffold({
 
   return (
     <Group>
-      <Box
-        x={0}
-        y={0}
-        style={{ width, height, backgroundColor: bgColor }}
-      />
+      <Box x={0} y={0} style={{ width, height, backgroundColor: bgColor }} />
       {appBar && (
         <Group>
           {React.cloneElement(appBar as React.ReactElement<WidgetProps>, {
@@ -68,9 +64,7 @@ export const Scaffold = React.memo(function Scaffold({
           })}
         </Group>
       )}
-      <Group clip={{ x: 0, y: bodyY, width, height: bodyHeight }}>
-        {body}
-      </Group>
+      <Group clip={{ x: 0, y: bodyY, width, height: bodyHeight }}>{body}</Group>
       {bottomNavigationBar && (
         <Group>
           {React.cloneElement(

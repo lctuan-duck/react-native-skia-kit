@@ -8,7 +8,7 @@ import {
 } from 'react-native-reanimated';
 import { useHeroStore } from '../stores/heroStore';
 import { useWidget } from '../hooks/useWidget';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 
 // ===== Hero =====
 

@@ -3,20 +3,18 @@ import { Circle } from '@shopify/react-native-skia';
 import { Box } from './Box';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
   BorderStyle,
   FlexChildStyle,
   SemanticColor,
-} from '../core/style.types';
+} from '../types/style.types';
 import { resolveSemanticColor } from '../core/colorUtils';
 
 // === Radio Types ===
 
-export type RadioStyle = ColorStyle &
-  BorderStyle &
-  FlexChildStyle;
+export type RadioStyle = ColorStyle & BorderStyle & FlexChildStyle;
 
 export interface RadioProps extends WidgetProps {
   /** Size (default: 24) */
@@ -59,8 +57,8 @@ export const Radio = React.memo(function Radio({
   const borderColor = disabled
     ? theme.colors.textDisabled
     : selected
-      ? activeColor
-      : theme.colors.outline;
+    ? activeColor
+    : theme.colors.outline;
   const dotColor = disabled ? theme.colors.textDisabled : activeColor;
 
   const handlePress = () => {

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useEventStore } from '../stores/eventStore';
 import type { HitRect, HitTestBehavior } from '../stores/eventStore';
-import type { GestureCallbacks } from '../core/types';
+import type { GestureCallbacks } from '../types/widget.types';
 
 export interface UseHitTestOptions {
   rect: HitRect;

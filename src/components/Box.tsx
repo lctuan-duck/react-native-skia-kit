@@ -1,6 +1,10 @@
 import * as React from 'react';
 import { Group, RoundedRect, Rect, Shadow } from '@shopify/react-native-skia';
-import type { WidgetProps, HitTestBehavior, PanEvent } from '../core/types';
+import type {
+  WidgetProps,
+  HitTestBehavior,
+  PanEvent,
+} from '../types/widget.types';
 import type {
   LayoutStyle,
   SpacingStyle,
@@ -9,7 +13,7 @@ import type {
   ShadowStyle,
   FlexChildStyle,
   FlexContainerStyle,
-} from '../core/style.types';
+} from '../types/style.types';
 import { useTheme } from '../hooks/useTheme';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';

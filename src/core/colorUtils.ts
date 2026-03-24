@@ -1,4 +1,4 @@
-import type { SemanticColor } from './style.types';
+import type { SemanticColor } from '../types/style.types';
 import type { ThemeColors } from '../stores/themeStore';
 
 /**

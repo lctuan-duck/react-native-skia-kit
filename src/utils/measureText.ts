@@ -1,6 +1,6 @@
 import { Skia } from '@shopify/react-native-skia';
 import type { SkParagraphStyle } from '@shopify/react-native-skia';
-import type { SkiaTextStyle } from '../core/style.types';
+import type { SkiaTextStyle } from '../types/style.types';
 
 // ===== Types =====
 

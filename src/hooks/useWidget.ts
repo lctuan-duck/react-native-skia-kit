@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useWidgetId } from './useWidgetId';
 import { useWidgetStore } from '../stores/widgetStore';
 import { useLayoutStore } from '../stores/layoutStore';
-import type { LayoutRect } from '../core/types';
+import type { LayoutRect } from '../types/widget.types';
 
 interface UseWidgetOptions<P = Record<string, unknown>> {
   type: string;

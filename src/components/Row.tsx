@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Box } from './Box';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   LayoutStyle,
   SpacingStyle,
@@ -8,7 +8,7 @@ import type {
   BorderStyle,
   FlexChildStyle,
   FlexContainerStyle,
-} from '../core/style.types';
+} from '../types/style.types';
 
 // === Row Style ===
 

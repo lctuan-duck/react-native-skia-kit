@@ -5,12 +5,12 @@ import { Column } from './Column';
 import { Expanded } from './Expanded';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
   SpacingStyle,
   FlexChildStyle,
-} from '../core/style.types';
+} from '../types/style.types';
 
 // === ListTile Types ===
 
@@ -65,8 +65,7 @@ export const ListTile = React.memo(function ListTile({
   const contentPadding = 16;
 
   const width = style?.width;
-  const tileHeight =
-    style?.height ?? (dense ? 48 : subtitle ? 72 : 56);
+  const tileHeight = style?.height ?? (dense ? 48 : subtitle ? 72 : 56);
 
   const w = width ?? 0;
 

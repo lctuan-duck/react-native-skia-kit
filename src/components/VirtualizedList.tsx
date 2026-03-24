@@ -16,7 +16,7 @@ import {
 } from 'react-native-reanimated';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 
 export interface VirtualizedListProps<T> extends WidgetProps {
   /** Data array */

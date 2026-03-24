@@ -5,8 +5,12 @@ import {
   RoundedRect,
   useImage,
 } from '@shopify/react-native-skia';
-import type { WidgetProps } from '../core/types';
-import type { ColorStyle, BorderStyle, FlexChildStyle } from '../core/style.types';
+import type { WidgetProps } from '../types/widget.types';
+import type {
+  ColorStyle,
+  BorderStyle,
+  FlexChildStyle,
+} from '../types/style.types';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
 

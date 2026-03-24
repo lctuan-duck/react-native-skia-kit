@@ -11,8 +11,8 @@ import { Text } from './Text';
 import { Expanded } from './Expanded';
 import { useTheme } from '../hooks/useTheme';
 import { useWidget } from '../hooks/useWidget';
-import type { WidgetProps } from '../core/types';
-import type { ColorStyle, FlexChildStyle } from '../core/style.types';
+import type { WidgetProps } from '../types/widget.types';
+import type { ColorStyle, FlexChildStyle } from '../types/style.types';
 
 // === SnackBar Types ===
 

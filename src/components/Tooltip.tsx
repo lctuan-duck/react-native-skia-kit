@@ -4,8 +4,8 @@ import { Box } from './Box';
 import { Text } from './Text';
 import { useTheme } from '../hooks/useTheme';
 import { useWidget } from '../hooks/useWidget';
-import type { WidgetProps } from '../core/types';
-import type { ColorStyle, FlexChildStyle } from '../core/style.types';
+import type { WidgetProps } from '../types/widget.types';
+import type { ColorStyle, FlexChildStyle } from '../types/style.types';
 
 // === Tooltip Types ===
 
@@ -48,16 +48,16 @@ export const Tooltip = React.memo(function Tooltip({
           y + height + 8
         } L${x + width / 2 + 6} ${y + height}`
       : arrowDirection === 'bottom'
-        ? `M${x + width / 2 - 6} ${y} L${x + width / 2} ${y - 8} L${
-            x + width / 2 + 6
-          } ${y}`
-        : arrowDirection === 'left'
-          ? `M${x + width} ${y + height / 2 - 6} L${x + width + 8} ${
-              y + height / 2
-            } L${x + width} ${y + height / 2 + 6}`
-          : `M${x} ${y + height / 2 - 6} L${x - 8} ${y + height / 2} L${x} ${
-              y + height / 2 + 6
-            }`;
+      ? `M${x + width / 2 - 6} ${y} L${x + width / 2} ${y - 8} L${
+          x + width / 2 + 6
+        } ${y}`
+      : arrowDirection === 'left'
+      ? `M${x + width} ${y + height / 2 - 6} L${x + width + 8} ${
+          y + height / 2
+        } L${x + width} ${y + height / 2 + 6}`
+      : `M${x} ${y + height / 2 - 6} L${x - 8} ${y + height / 2} L${x} ${
+          y + height / 2 + 6
+        }`;
 
   return (
     <Group>

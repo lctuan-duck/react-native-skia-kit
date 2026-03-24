@@ -3,12 +3,12 @@ import { useState, useCallback } from 'react';
 import { Group } from '@shopify/react-native-skia';
 import { Progress } from './Progress';
 import { useWidget } from '../hooks/useWidget';
-import type { WidgetProps } from '../core/types';
+import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
   FlexChildStyle,
   SemanticColor,
-} from '../core/style.types';
+} from '../types/style.types';
 
 // === RefreshIndicator Types ===
 
