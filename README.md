@@ -298,4 +298,17 @@ This project depends on [`@shopify/react-native-skia`](https://github.com/Shopif
 
 ---
 
+## ☕ Support / Donate
+
+If you find this project useful, consider buying me a coffee! ❤️
+
+| Method | Details |
+|--------|---------|
+| 💳 Visa | `4848 0402 7693 5057` |
+| 🏦 MB Bank (Vietnam) | `012032608` — **LE CONG TUAN** |
+
+Thank you for your support! 🙏
+
+---
+
 Made with [create-react-native-library](https://github.com/callstack/react-native-builder-bob)
