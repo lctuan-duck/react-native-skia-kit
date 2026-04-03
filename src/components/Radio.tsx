@@ -86,7 +86,8 @@ export const Radio = React.memo(function Radio({
         borderColor: style?.borderColor ?? borderColor,
         opacity: disabled ? 0.5 : 1,
       }}
-      hitTestBehavior="opaque"
+      hitTestBehavior="translucent"
+      interactive={disabled ? 'none' : 'ripple'}
       onPress={handlePress}
     >
       {selected && <Circle cx={cx} cy={cy} r={r * 0.4} color={dotColor} />}

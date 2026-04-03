@@ -46,7 +46,11 @@ export interface WidgetData {
  * Gesture callbacks.
  */
 export interface GestureCallbacks {
-  onPress?: () => void;
+  /**
+   * Called when a tap gesture completes.
+   * x, y are the local coordinates of the touch relative to the widget's bounding box.
+   */
+  onPress?: (localX?: number, localY?: number) => void;
   onLongPress?: () => void;
   onPanStart?: (e: PanEvent) => void;
   onPanUpdate?: (e: PanEvent) => void;
@@ -63,4 +67,6 @@ export interface PanEvent {
   velocityY: number;
   absoluteX: number;
   absoluteY: number;
+  localX: number;
+  localY: number;
 }

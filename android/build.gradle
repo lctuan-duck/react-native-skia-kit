@@ -148,3 +148,9 @@ dependencies {
   implementation "com.facebook.react:react-android"
   implementation project(":react-native-nitro-modules")
 }
+
+react {
+  jsRootDir = file("../src")
+  libraryName = "SkiaKit"
+  codegenJavaPackageName = "com.margelo.nitro.skiakit"
+}

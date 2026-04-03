@@ -19,7 +19,8 @@ interface ListTileProps {
   trailing?: React.ReactNode;
   dense?: boolean;
   style?: ListTileStyle;
-  onPress?: () => void;
+  interactive?: 'ripple' | 'bounce' | 'opacity' | 'none'; // Default: 'ripple' if onPress is set
+  onPress?: (localX?: number, localY?: number) => void;
   onLongPress?: () => void;
 }
 ```

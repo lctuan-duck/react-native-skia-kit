@@ -183,8 +183,12 @@ export const Text = React.memo(function SkiaText({
     letterSpacing,
   ]);
 
-  // Use actual paragraph height for accurate layout
-  const actualHeight = height ?? paragraph.getHeight();
+  // Use actual paragraph height for accurate layout or fallback to forced flex height
+  const pHeight = paragraph.getHeight();
+  const actualHeight = height ?? pHeight;
+  
+  // Center vertically if explicit height given is larger than content
+  const yOffset = height != null && height > pHeight ? (height - pHeight) / 2 : 0;
 
   const widgetId = useWidget({
     type: 'Text',
@@ -200,7 +204,7 @@ export const Text = React.memo(function SkiaText({
 
   return (
     <Group opacity={opacity}>
-      <Paragraph paragraph={paragraph} x={x} y={y} width={width} />
+      <Paragraph paragraph={paragraph} x={x} y={y + yOffset} width={width} />
     </Group>
   );
 });

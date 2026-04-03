@@ -1,0 +1,17 @@
+feat: implement high-performance skia interaction engine & expo support
+
+This commit introduces a massive architectural upgrade to the UI Event system and introduces high-performance, skia-native interactive gestures across all components, alongside comprehensive project tooling updates.
+
+Major Changes:
+- **Core Interaction System**: Added `interactive` prop (`ripple`, `bounce`, `opacity`, `none`) to `Box.tsx`. These effects run autonomously via `react-native-reanimated` shared values on the Skia fabric, ensuring zero JS-thread layout thrashing during animations.
+- **Adaptive Ripple Color**: Built `contrastColor` algorithm. Ripples dynamically evaluate their background `Box` lightness to spawn either a white-ghost (on dark) or black-splash (on light) effect, fully bypassing the need for manual design configuration.
+- **Local Coordinate Resolution**: Fixed a severe structural limitation in `EventStore.ts`. Global layout coordinates are now dynamically subtracted at the gesture Arena layer. `onPress` and `onPan` receive exact `localX`/`localY` coords, ensuring Ripples originate flawlessly from the user's thumb center.
+- **Library-wide Interaction Integration**:
+  - `Button`, `Card`, `Checkbox`, `Radio`, `Switch`, `BottomNavigationBar`, and `TabBar` now natively default to `ripple`.
+  - `Avatar` and `Chip` gracefully default to `opacity` crossfades.
+- **Expo & Architecture Compatibility**: 
+  - Restructured `package.json` to properly support Expo environments (`example-expo`).
+  - Added new Gradle daemon flags and optimized memory parameters in `gradle.properties` to fix `JVM Heap Space` OOM crashes occurring during high-intensity Android builds.
+- **Documentation & Examples Showcase**: 
+  - Overhauled `.md` documentation for all primitives to map against the new Interaction API.
+  - Revamped `example/src/App.tsx` Gallery to vividly showcase Navigation Bars, Interactive Lists, Cards, and Side-by-Side gesture comparisions.

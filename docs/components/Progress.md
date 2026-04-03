@@ -19,17 +19,17 @@ interface ProgressProps {
   x?: number; y?: number;
   variant?: ProgressVariant;     // default: 'linear'
   value?: number;                // 0..1, undefined = indeterminate
-  colors?: (SemanticColor | string)[];  // default: ['primary']
+  color?: SemanticColor | string | (SemanticColor | string)[];
   style?: ProgressStyle;
 }
 ```
 
-## `colors` prop
+## `color` prop (chuỗi tĩnh hoặc mảng dải màu)
 
 | Input | Hiệu ứng |
 |-------|-----------|
-| `['primary']` | Solid primary color |
-| `['success']` | Solid success color |
+| `'primary'` | Solid primary color |
+| `'success'` | Solid success color |
 | `['#ff0000', '#00ff00']` | Gradient đỏ → xanh |
 | `['warning', 'error']` | Gradient vàng → đỏ |
 
@@ -43,8 +43,8 @@ interface ProgressProps {
 <Progress variant="circular" />
 
 // Gradient progress
-<Progress value={0.5} colors={['warning', 'error']} />
+<Progress value={0.5} color={['warning', 'error']} />
 
 // Custom circular
-<Progress variant="circular" colors={['info']} style={{ size: 40, strokeWidth: 4 }} />
+<Progress variant="circular" color="info" style={{ size: 40, strokeWidth: 4 }} />
 ```

@@ -54,8 +54,12 @@ export interface ButtonProps extends WidgetProps {
   disabled?: boolean;
   /** FAB extended mode (icon + label) */
   extended?: boolean;
+  /** Interactive effect (Default: ripple) */
+  interactive?: 'ripple' | 'bounce' | 'opacity' | 'none';
+  /** Manual ripple color override */
+  rippleColor?: string;
   /** Press callback */
-  onPress?: () => void;
+  onPress?: (localX?: number, localY?: number) => void;
   /** Long press callback */
   onLongPress?: () => void;
   /** Style override (highest priority) */
@@ -79,6 +83,8 @@ export const Button = React.memo(function Button({
   color = 'primary',
   disabled = false,
   extended = false,
+  interactive = 'ripple',
+  rippleColor,
   onPress,
   onLongPress,
   style,
@@ -129,7 +135,9 @@ export const Button = React.memo(function Button({
           alignItems: 'center',
         }}
         hitTestBehavior="opaque"
-        onPress={() => !disabled && onPress?.()}
+        interactive={disabled ? 'none' : interactive}
+        onPress={(x, y) => !disabled && onPress?.(x, y)}
+        onLongPress={onLongPress}
       >
         <Icon name={icon!} size={iconSz} color={fgColor} />
       </Box>
@@ -157,7 +165,9 @@ export const Button = React.memo(function Button({
           gap: extended ? 8 : 0,
         }}
         hitTestBehavior="opaque"
-        onPress={() => !disabled && onPress?.()}
+        interactive={disabled ? 'none' : interactive}
+        onPress={(x, y) => !disabled && onPress?.(x, y)}
+        onLongPress={onLongPress}
       >
         <Icon name={icon!} size={24} color={fgColor} />
         {extended && text && (
@@ -192,14 +202,16 @@ export const Button = React.memo(function Button({
         gap: icon && text ? 8 : 0,
       }}
       hitTestBehavior="opaque"
-      onPress={() => !disabled && onPress?.()}
+      interactive={disabled ? 'none' : interactive}
+      rippleColor={rippleColor}
+      onPress={(x, y) => !disabled && onPress?.(x, y)}
       onLongPress={onLongPress}
     >
       {icon && <Icon name={icon} size={iconSz} color={fgColor} />}
       {text && (
         <Text
           text={text}
-          style={{ fontSize: 14, fontWeight: 'bold', color: fgColor }}
+          style={{ fontSize: 14, fontWeight: 'bold', color: fgColor, textAlign: 'center' }}
         />
       )}
     </Box>

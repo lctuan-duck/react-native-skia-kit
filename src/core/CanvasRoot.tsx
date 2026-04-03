@@ -57,8 +57,8 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   const dispatchPress = useCallback(
     (x: number, y: number) => {
       const receivers = useEventStore.getState().hitTest(canvasId, x, y);
-      for (const widget of receivers) {
-        widget.callbacks.onPress?.();
+      for (const receiver of receivers) {
+        receiver.entry.callbacks.onPress?.(receiver.localX, receiver.localY);
       }
     },
     [canvasId]
@@ -67,8 +67,8 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   const dispatchLongPress = useCallback(
     (x: number, y: number) => {
       const receivers = useEventStore.getState().hitTest(canvasId, x, y);
-      for (const widget of receivers) {
-        widget.callbacks.onLongPress?.();
+      for (const receiver of receivers) {
+        receiver.entry.callbacks.onLongPress?.();
       }
     },
     [canvasId]
@@ -96,14 +96,16 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       const receivers = useEventStore
         .getState()
         .hitTest(canvasId, e.absoluteX, e.absoluteY);
-      for (const widget of receivers) {
-        widget.callbacks.onPanStart?.({
+      for (const receiver of receivers) {
+        receiver.entry.callbacks.onPanStart?.({
           translationX: e.translationX,
           translationY: e.translationY,
           velocityX: e.velocityX,
           velocityY: e.velocityY,
           absoluteX: e.absoluteX,
           absoluteY: e.absoluteY,
+          localX: receiver.localX,
+          localY: receiver.localY,
         });
       }
     })
@@ -111,14 +113,16 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       const receivers = useEventStore
         .getState()
         .hitTest(canvasId, e.absoluteX, e.absoluteY);
-      for (const widget of receivers) {
-        widget.callbacks.onPanUpdate?.({
+      for (const receiver of receivers) {
+        receiver.entry.callbacks.onPanUpdate?.({
           translationX: e.translationX,
           translationY: e.translationY,
           velocityX: e.velocityX,
           velocityY: e.velocityY,
           absoluteX: e.absoluteX,
           absoluteY: e.absoluteY,
+          localX: receiver.localX,
+          localY: receiver.localY,
         });
       }
     })
@@ -126,14 +130,16 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       const receivers = useEventStore
         .getState()
         .hitTest(canvasId, e.absoluteX, e.absoluteY);
-      for (const widget of receivers) {
-        widget.callbacks.onPanEnd?.({
+      for (const receiver of receivers) {
+        receiver.entry.callbacks.onPanEnd?.({
           translationX: e.translationX,
           translationY: e.translationY,
           velocityX: e.velocityX,
           velocityY: e.velocityY,
           absoluteX: e.absoluteX,
           absoluteY: e.absoluteY,
+          localX: receiver.localX,
+          localY: receiver.localY,
         });
       }
     });

@@ -16,7 +16,8 @@ interface AvatarProps {
   color?: SemanticColor;       // default: 'primary' (fallback bg)
   size?: number;               // default: 48
   style?: AvatarStyle;
-  onPress?: () => void;
+  interactive?: 'ripple' | 'bounce' | 'opacity' | 'none'; // Default: 'opacity' if onPress is set
+  onPress?: (localX?: number, localY?: number) => void;
 }
 ```
 

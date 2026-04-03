@@ -87,6 +87,7 @@ export const BottomNavigationBar = React.memo(function BottomNavigationBar({
                 gap: 2,
               }}
               hitTestBehavior="opaque"
+              interactive="ripple"
               onPress={() => onChange?.(index)}
             >
               <Icon name={iconName} size={24} color={color} />

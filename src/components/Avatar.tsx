@@ -31,8 +31,10 @@ export interface AvatarProps extends WidgetProps {
   status?: 'online' | 'offline';
   /** Style override */
   style?: AvatarStyle;
+  /** Interactive effect (Default: opacity if pressable) */
+  interactive?: 'ripple' | 'bounce' | 'opacity' | 'none';
   /** Press callback */
-  onPress?: () => void;
+  onPress?: (localX?: number, localY?: number) => void;
 }
 
 /**
@@ -48,6 +50,7 @@ export const Avatar = React.memo(function Avatar({
   color = 'neutral',
   status,
   style,
+  interactive,
   onPress,
 }: AvatarProps) {
   const theme = useTheme();
@@ -78,6 +81,7 @@ export const Avatar = React.memo(function Avatar({
         ...style,
       }}
       hitTestBehavior={onPress ? 'opaque' : 'deferToChild'}
+      interactive={interactive ?? (onPress ? 'opacity' : 'none')}
       onPress={onPress}
     >
       {src && (

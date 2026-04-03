@@ -84,14 +84,21 @@ interface ChildInfo {
   iconSize: number | undefined;
   // Content hints for greedy/humble detection
   hasChildren: boolean;
+  hasIcon: boolean;
+  childrenNodes: React.ReactNode;
   textContent: string | undefined; // for Text width estimation
+  // Structural container properties for recursive evaluation
+  flexDirection: string | undefined;
+  flexWrap: string | undefined;
+  gap: number;
+  padding: { top: number; right: number; bottom: number; left: number };
 }
 
 // ===== Intrinsic Size Estimation =====
 // Simulates Flutter's "Sizes Go Up" — children report their natural size.
 
 /** Humble widget: returns its intrinsic (content) size on main axis */
-function getIntrinsicMainSize(child: ChildInfo, isRow: boolean): number | null {
+function getIntrinsicMainSize(child: ChildInfo, isRow: boolean, containerCrossAxis?: number): number | null {
   switch (child.componentType) {
     case 'SkiaText': // React.memo name for Text
     case 'Text': {
@@ -108,13 +115,46 @@ function getIntrinsicMainSize(child: ChildInfo, isRow: boolean): number | null {
       return child.iconSize ?? 24;
     case 'Spacer':
       return 0;
+    case 'Button': {
+      if (!isRow) return 40;
+      let w = Math.max(80, (child.textContent?.length ?? 0) * 9 + 32);
+      if (child.hasIcon && child.textContent) w += 32;
+      return w;
+    }
+    case 'Input': return isRow ? 150 : 48;
+    case 'Checkbox':
+    case 'Radio': return 24;
+    case 'Switch': return isRow ? 48 : 24;
+    case 'Avatar': return child.iconSize ?? 48;
+    case 'Chip': return isRow ? 64 : 32;
+    case 'Progress': return isRow ? 100 : 16;
+    case 'Slider': return isRow ? 150 : 40;
+    case 'Badge': return 24;
+    case 'Divider': return 1;
+    case 'Row':
+    case 'Column':
+    case 'Box':
+    case 'Section':
+      if (child.childrenNodes) {
+        const innerIsRow = child.componentType === 'Row' || child.flexDirection === 'row';
+        if (isRow === innerIsRow) {
+          const padMain = innerIsRow ? child.padding.left + child.padding.right : child.padding.top + child.padding.bottom;
+          const passedCross = innerIsRow ? child.height ?? containerCrossAxis : child.width ?? containerCrossAxis;
+          return estimateIntrinsicSize(child.childrenNodes, innerIsRow, child.gap, passedCross) + padMain;
+        } else {
+          const padCross = innerIsRow ? child.padding.top + child.padding.bottom : child.padding.left + child.padding.right;
+          const passedCross = innerIsRow ? child.width ?? containerCrossAxis : child.height ?? containerCrossAxis;
+          return estimateCrossSize(child.childrenNodes, innerIsRow, child.gap, passedCross, child.flexWrap) + padCross;
+        }
+      }
+      return child.hasChildren ? 48 : 0;
     default:
-      return null;
+      return child.hasChildren ? 48 : 40; // Default to a reasonable size instead of collapsing
   }
 }
 
 /** Humble widget: returns its intrinsic size on cross axis */
-function getIntrinsicCrossSize(child: ChildInfo, isRow: boolean): number | null {
+function getIntrinsicCrossSize(child: ChildInfo, isRow: boolean, containerCrossAxis?: number): number | null {
   switch (child.componentType) {
     case 'SkiaText':
     case 'Text':
@@ -122,8 +162,36 @@ function getIntrinsicCrossSize(child: ChildInfo, isRow: boolean): number | null 
       return child.fontSize ? Math.ceil(child.fontSize * 1.4) : 20;
     case 'Icon':
       return child.iconSize ?? 24;
+    case 'Button': return 40;
+    case 'Input': return 48;
+    case 'Checkbox':
+    case 'Radio':
+    case 'Switch': return 24;
+    case 'Avatar': return child.iconSize ?? 48;
+    case 'Chip': return 32;
+    case 'Progress': return 16;
+    case 'Slider': return 40;
+    case 'Badge': return 24;
+    case 'Divider': return 1;
+    case 'Row':
+    case 'Column':
+    case 'Box':
+    case 'Section':
+      if (child.childrenNodes) {
+        const innerIsRow = child.componentType === 'Row' || child.flexDirection === 'row';
+        if (isRow === innerIsRow) {
+          const padCross = innerIsRow ? child.padding.top + child.padding.bottom : child.padding.left + child.padding.right;
+          const passedCross = innerIsRow ? child.width ?? containerCrossAxis : child.height ?? containerCrossAxis;
+          return estimateCrossSize(child.childrenNodes, innerIsRow, child.gap, passedCross, child.flexWrap) + padCross;
+        } else {
+          const padMain = innerIsRow ? child.padding.left + child.padding.right : child.padding.top + child.padding.bottom;
+          const passedCross = innerIsRow ? child.height ?? containerCrossAxis : child.width ?? containerCrossAxis;
+          return estimateIntrinsicSize(child.childrenNodes, innerIsRow, child.gap, passedCross) + padMain;
+        }
+      }
+      return child.hasChildren ? 48 : 0;
     default:
-      return null;
+      return child.hasChildren ? 48 : 40;
   }
 }
 
@@ -150,12 +218,14 @@ function getComponentType(element: React.ReactElement): string {
 
 function extractChildInfo(child: React.ReactElement): ChildInfo {
   const p = child.props as WidgetProps & {
-    style?: FlexChildStyle & { width?: number; height?: number; fontSize?: number };
+    style?: FlexChildStyle & { width?: number; height?: number; fontSize?: number, flexDirection?: string, flexWrap?: string, padding?: number | [number, number, number, number], gap?: number };
     fontSize?: number;
-    size?: number;
-    children?: React.ReactNode;
     text?: string;
+    size?: number;
+    icon?: string;
+    children?: React.ReactNode;
   };
+
   const s = p.style;
   return {
     width: s?.width,
@@ -172,7 +242,13 @@ function extractChildInfo(child: React.ReactElement): ChildInfo {
     fontSize: s?.fontSize ?? p.fontSize,
     iconSize: p.size,
     hasChildren: p.children != null,
+    hasIcon: p.icon != null,
+    childrenNodes: p.children,
     textContent: p.text ?? (typeof p.children === 'string' ? p.children : undefined),
+    flexDirection: s?.flexDirection,
+    flexWrap: s?.flexWrap,
+    gap: s?.gap ?? 0,
+    padding: parsePadding(s?.padding),
   };
 }
 
@@ -206,10 +282,8 @@ function resolveChildSize(
       const maxMain = isRow ? constraints.maxWidth : constraints.maxHeight;
       main = Math.min(intrinsic, maxMain);
     } else {
-      // Greedy: fill available space on main axis (like Flutter Container)
-      // But in flex containers, "greedy on main" means "take all remaining"
-      // For non-flex children, default to a reasonable size
-      main = 0; // Will not consume space unless sized
+      // Fill reasonable space instead of collapsing to 0
+      main = 48; 
     }
   }
 
@@ -600,8 +674,14 @@ export function useYogaLayout(
           componentType: 'Unknown',
           fontSize: undefined,
           iconSize: undefined,
-          textContent: undefined,
           hasChildren: false,
+          hasIcon: false,
+          childrenNodes: undefined,
+          textContent: undefined,
+          flexDirection: undefined,
+          flexWrap: undefined,
+          gap: 0,
+          padding: { top: 0, right: 0, bottom: 0, left: 0 },
         };
       }
       return extractChildInfo(child);
@@ -657,33 +737,93 @@ export function useYogaLayout(
 // ===== Helper for ScrollView auto-contentSize =====
 
 /**
- * Estimate total content height from children props.
- * Used by ScrollView to auto-calculate contentSize.
+ * Estimate sequential content size (main axis) from children props.
+ * Simulates wrapping and gap calculations recursively.
  */
-export function estimateContentSize(
+export function estimateIntrinsicSize(
   children: React.ReactNode,
-  _containerWidth: number,
-  gap: number = 0
+  isRow: boolean,
+  gap: number = 0,
+  containerCrossAxis?: number
 ): number {
   const childArray = React.Children.toArray(children);
-  let totalHeight = 0;
+  let totalMain = 0;
 
   for (const child of childArray) {
     if (!React.isValidElement(child)) continue;
     const info = extractChildInfo(child);
 
-    if (info.height != null) {
-      totalHeight += info.height;
+    const explicitMain = isRow ? info.width : info.height;
+    if (explicitMain != null) {
+      totalMain += explicitMain;
     } else {
-      const intrinsic = getIntrinsicMainSize(info, false); // column = vertical
-      totalHeight += intrinsic ?? 48; // reasonable default for unknown components
+      const intrinsic = getIntrinsicMainSize(info, isRow, containerCrossAxis);
+      totalMain += intrinsic ?? 48;
     }
   }
 
   // Add gaps between children
   if (childArray.length > 1) {
-    totalHeight += (childArray.length - 1) * gap;
+    totalMain += (childArray.length - 1) * gap;
   }
 
-  return totalHeight;
+  return totalMain;
+}
+
+/**
+ * Estimate cross-axis size from children props.
+ * Finds the maximum cross dimension of the children.
+ */
+export function estimateCrossSize(
+  children: React.ReactNode,
+  isRow: boolean,
+  gap: number = 0,
+  containerCrossAxis?: number,
+  flexWrap?: string
+): number {
+  const childArray = React.Children.toArray(children);
+
+  if (isRow && flexWrap === 'wrap' && containerCrossAxis != null) {
+    let lines = 1;
+    let currentLineW = 0;
+    let maxLineH = 0;
+    let totalH = 0;
+
+    for (const child of childArray) {
+      if (!React.isValidElement(child)) continue;
+      const info = extractChildInfo(child);
+      const childW = info.width ?? getIntrinsicMainSize(info, true, undefined) ?? 48;
+      const childH = info.height ?? getIntrinsicCrossSize(info, true, undefined) ?? 48;
+
+      const gapBefore = currentLineW > 0 ? gap : 0;
+      if (currentLineW + gapBefore + childW > containerCrossAxis) {
+        totalH += maxLineH;
+        lines++;
+        currentLineW = childW;
+        maxLineH = childH;
+      } else {
+        currentLineW += gapBefore + childW;
+        maxLineH = Math.max(maxLineH, childH);
+      }
+    }
+    totalH += maxLineH + (lines > 1 ? gap * (lines - 1) : 0);
+    return totalH;
+  }
+
+  let maxCross = 0;
+
+  for (const child of childArray) {
+    if (!React.isValidElement(child)) continue;
+    const info = extractChildInfo(child);
+
+    const explicitCross = isRow ? info.height : info.width;
+    if (explicitCross != null) {
+      maxCross = Math.max(maxCross, explicitCross);
+    } else {
+      const intrinsic = getIntrinsicCrossSize(info, isRow, containerCrossAxis);
+      maxCross = Math.max(maxCross, intrinsic ?? 48);
+    }
+  }
+
+  return maxCross;
 }

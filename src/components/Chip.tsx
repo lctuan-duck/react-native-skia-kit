@@ -40,7 +40,7 @@ export interface ChipProps extends WidgetProps {
   /** Style override */
   style?: ChipStyle;
   /** Press callback */
-  onPress?: () => void;
+  onPress?: (localX?: number, localY?: number) => void;
 }
 
 /**
@@ -87,7 +87,8 @@ export const Chip = React.memo(function Chip({
         justifyContent: 'center',
         alignItems: 'center',
       }}
-      hitTestBehavior="opaque"
+      hitTestBehavior="translucent"
+      interactive="opacity"
       onPress={onPress}
     >
       <Text

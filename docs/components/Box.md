@@ -13,7 +13,9 @@ interface BoxProps {
   y?: number;
   style?: BoxStyle;
   hitTestBehavior?: HitTestBehavior;
-  onPress?: () => void;
+  interactive?: 'ripple' | 'bounce' | 'opacity' | 'none';
+  rippleColor?: string;
+  onPress?: (localX?: number, localY?: number) => void;
   onLongPress?: () => void;
   onPanStart?: (e: PanEvent) => void;
   onPanUpdate?: (e: PanEvent) => void;
@@ -76,14 +78,19 @@ interface BoxProps {
 </Box>
 ```
 
-### Event handling
 ```tsx
 <Box
   style={{ height: 48, backgroundColor: '#1A73E8', borderRadius: 8 }}
   hitTestBehavior="opaque"
-  onPress={() => console.log('Pressed!')}
+  interactive="ripple" // Hoặc 'bounce', 'opacity'
+  onPress={(x, y) => console.log(`Pressed at local coords ${x}, ${y}!`)}
 />
 ```
+
+### Các chế độ Tương tác (Interactive)
+- `ripple`: Tỏa bóng sóng (Ink Ripple) từ điểm chạm. Màu sóng tự động thay đổi bám theo độ sáng của màu nền (Light/Dark adaptation) hoặc bằng cách nén trực tiếp vào `rippleColor`.
+- `bounce`: Trạng thái nút nảy lò xo thu nhỏ (scale 0.95 với animation Spring).
+- `opacity`: Hiệu ứng giảm Alpha gọn lẹ phù hợp cho tag.
 
 ## Layout Model
 - Box là **greedy** (mặc định stretch cross-axis)

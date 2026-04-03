@@ -15,7 +15,8 @@ interface ChipProps {
   variant?: ChipVariant;       // default: 'solid'
   color?: SemanticColor;       // default: 'primary'
   style?: ChipStyle;
-  onPress?: () => void;
+  interactive?: 'ripple' | 'bounce' | 'opacity' | 'none'; // Default: 'opacity'
+  onPress?: (localX?: number, localY?: number) => void;
 }
 ```
 

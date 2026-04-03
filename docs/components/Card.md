@@ -15,7 +15,8 @@ type CardStyle = ColorStyle & BorderStyle & ShadowStyle & SpacingStyle & FlexChi
 interface CardProps {
   variant?: CardVariant;       // default: 'solid'
   color?: SemanticColor;       // default: 'primary'
-  onPress?: () => void;
+  interactive?: 'ripple' | 'bounce' | 'opacity' | 'none'; // Default: 'ripple' if onPress is set
+  onPress?: (localX?: number, localY?: number) => void;
   onLongPress?: () => void;
   style?: CardStyle;
   children?: React.ReactNode;

@@ -32,8 +32,10 @@ export interface CardProps extends WidgetProps {
   color?: SemanticColor;
   /** Style override */
   style?: CardStyle;
+  /** Interactive effect (Default: ripple if pressable) */
+  interactive?: 'ripple' | 'bounce' | 'opacity' | 'none';
   /** Press callback */
-  onPress?: () => void;
+  onPress?: (localX?: number, localY?: number) => void;
   /** Long press callback */
   onLongPress?: () => void;
   /** Children */
@@ -50,6 +52,7 @@ export const Card = React.memo(function Card({
   variant = 'solid',
   color: _color = 'primary',
   style,
+  interactive,
   children,
   onPress,
   onLongPress,
@@ -85,7 +88,8 @@ export const Card = React.memo(function Card({
         borderWidth: borderW,
         borderColor: borderC,
       }}
-      hitTestBehavior="deferToChild"
+      hitTestBehavior={onPress ? 'opaque' : 'deferToChild'}
+      interactive={interactive ?? (onPress ? 'ripple' : 'none')}
       onPress={onPress}
       onLongPress={onLongPress}
     >

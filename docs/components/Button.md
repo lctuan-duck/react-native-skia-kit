@@ -20,7 +20,9 @@ interface ButtonProps {
   color?: SemanticColor;         // default: 'primary'
   disabled?: boolean;
   extended?: boolean;            // FAB: icon + label
-  onPress?: () => void;
+  interactive?: 'ripple' | 'bounce' | 'opacity' | 'none'; // Default: 'ripple'
+  rippleColor?: string;
+  onPress?: (localX?: number, localY?: number) => void;
   onLongPress?: () => void;
   style?: ButtonStyle;
 }

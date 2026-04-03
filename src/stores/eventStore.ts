@@ -111,7 +111,13 @@ interface EventStoreState {
   updateScrollOffset: (widgetId: string, offset: number) => void;
 
   // Hit test: find all widgets at (x, y) for a given canvas
-  hitTest: (canvasId: string, x: number, y: number) => HitEntry[];
+  hitTest: (canvasId: string, x: number, y: number) => HitResult[];
+}
+
+export interface HitResult {
+  entry: HitEntry;
+  localX: number;
+  localY: number;
 }
 
 export const useEventStore = create<EventStoreState>()(
@@ -180,7 +186,7 @@ export const useEventStore = create<EventStoreState>()(
         }
       }
 
-      const hitWidgets: HitEntry[] = [];
+      const hitWidgets: HitResult[] = [];
       for (const [, entry] of hitMap) {
         const { left, top, width, height } = entry.rect;
         if (
@@ -189,18 +195,22 @@ export const useEventStore = create<EventStoreState>()(
           adjustedY >= top &&
           adjustedY <= top + height
         ) {
-          hitWidgets.push(entry);
+          hitWidgets.push({
+            entry,
+            localX: adjustedX - left,
+            localY: adjustedY - top,
+          });
         }
       }
 
       // Sort by zIndex descending (topmost first)
-      hitWidgets.sort((a, b) => b.zIndex - a.zIndex);
+      hitWidgets.sort((a, b) => b.entry.zIndex - a.entry.zIndex);
 
       // Apply HitTestBehavior
-      const eventReceivers: HitEntry[] = [];
-      for (const widget of hitWidgets) {
-        eventReceivers.push(widget);
-        if (widget.hitTestBehavior === 'opaque') {
+      const eventReceivers: HitResult[] = [];
+      for (const result of hitWidgets) {
+        eventReceivers.push(result);
+        if (result.entry.hitTestBehavior === 'opaque') {
           break;
         }
       }
@@ -214,7 +224,7 @@ export const useEventStore = create<EventStoreState>()(
 
 export function handleTouch(canvasId: string, x: number, y: number) {
   const receivers = useEventStore.getState().hitTest(canvasId, x, y);
-  for (const widget of receivers) {
-    widget.callbacks.onPress?.();
+  for (const receiver of receivers) {
+    receiver.entry.callbacks.onPress?.(receiver.localX, receiver.localY);
   }
 }

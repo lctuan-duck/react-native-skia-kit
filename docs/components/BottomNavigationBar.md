@@ -22,6 +22,8 @@ interface BottomNavigationBarProps {
 }
 ```
 
+> **Gợi ý**: Mọi nút bấm trong BottomNavigationBar đều tích hợp sẵn hiệu ứng tỏa sóng `interactive="ripple"` siêu thanh lịch!
+
 ## Cách dùng
 
 ```tsx

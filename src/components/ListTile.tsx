@@ -36,8 +36,10 @@ export interface ListTileProps extends WidgetProps {
   dense?: boolean;
   /** Style override */
   style?: ListTileStyle;
+  /** Interactive effect (Default: ripple) */
+  interactive?: 'ripple' | 'bounce' | 'opacity' | 'none';
   /** Press callback */
-  onPress?: () => void;
+  onPress?: (localX?: number, localY?: number) => void;
   /** Long press callback */
   onLongPress?: () => void;
 }
@@ -54,6 +56,7 @@ export const ListTile = React.memo(function ListTile({
   leading,
   trailing,
   dense = false,
+  interactive,
   style,
   onPress,
   onLongPress,
@@ -89,6 +92,7 @@ export const ListTile = React.memo(function ListTile({
         ...style,
       }}
       hitTestBehavior="opaque"
+      interactive={interactive ?? (onPress ? 'ripple' : 'none')}
       onPress={onPress}
       onLongPress={onLongPress}
     >

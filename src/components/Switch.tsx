@@ -98,7 +98,8 @@ export const Switch = React.memo(function Switch({
         backgroundColor: trackFill,
         opacity: disabled ? 0.5 : 1,
       }}
-      hitTestBehavior="opaque"
+      hitTestBehavior="translucent"
+      interactive={disabled ? 'none' : 'ripple'}
       onPress={handlePress}
     >
       <Circle cx={thumbX} cy={y + h / 2} r={thumbR} color={thumbClr} />

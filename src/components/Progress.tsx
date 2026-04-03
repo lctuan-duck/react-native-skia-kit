@@ -43,11 +43,10 @@ export interface ProgressProps extends WidgetProps {
   /** 0..1, undefined = indeterminate */
   value?: number;
   /**
-   * Colors: accepts SemanticColor | hex string.
-   * 1 color → solid fill, >=2 colors → Skia LinearGradient.
-   * Default: ['primary']
+   * Colors: accepts SemanticColor | hex string or Array of strings.
+   * 1 color → solid fill, >=2 colors → Skia Sweep/Linear Gradient.
    */
-  colors?: (SemanticColor | string)[];
+  color?: SemanticColor | string | (SemanticColor | string)[];
   /** Style override */
   style?: ProgressStyle;
 }
@@ -61,13 +60,14 @@ export const Progress = React.memo(function Progress({
   y = 0,
   variant = 'linear',
   value,
-  colors = ['primary'],
+  color,
   style,
 }: ProgressProps) {
   const theme = useTheme();
 
-  // Resolve colors array
-  const resolvedColors = colors.map((c) => {
+  // Resolve colors array from `color`
+  const inputColors = Array.isArray(color) ? color : color ? [color] : ['primary'];
+  const resolvedColors = inputColors.map((c) => {
     // Check if it's a semantic color name
     const semanticNames = [
       'primary',
@@ -133,6 +133,18 @@ export const Progress = React.memo(function Progress({
   }, [variant, isDeterminate]);
 
   // === LINEAR ===
+  const animatedFillX = useDerivedValue(() => {
+    return isDeterminate ? x : x + animX.value;
+  }, [animX, x, isDeterminate]);
+
+  const animatedStart = useDerivedValue(() => {
+    return vec(isDeterminate ? x : x + animX.value, y);
+  }, [animX, x, y, isDeterminate]);
+
+  const animatedEnd = useDerivedValue(() => {
+    return vec((isDeterminate ? x : x + animX.value) + linearFillWidth, y);
+  }, [animX, x, y, isDeterminate, linearFillWidth]);
+
   if (variant === 'linear') {
     const useGradient = resolvedColors.length >= 2;
     const fillColor = resolvedColors[0] ?? theme.colors.primary;
@@ -148,20 +160,17 @@ export const Progress = React.memo(function Progress({
           color={trackBg}
         />
         <RoundedRect
-          x={isDeterminate ? x : x + animX.value}
+          x={animatedFillX}
           y={y}
           width={linearFillWidth}
           height={height}
           r={linearR}
-          color={useGradient ? 'transparent' : fillColor}
+          color={useGradient ? undefined : fillColor}
         >
           {useGradient && (
             <LinearGradient
-              start={vec(isDeterminate ? x : x + animX.value, y)}
-              end={vec(
-                (isDeterminate ? x : x + animX.value) + linearFillWidth,
-                y
-              )}
+              start={animatedStart}
+              end={animatedEnd}
               colors={resolvedColors}
             />
           )}

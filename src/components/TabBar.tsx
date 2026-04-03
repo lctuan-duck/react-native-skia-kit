@@ -97,6 +97,7 @@ export const TabBar = React.memo(function TabBar({
                   gap: item.icon ? 6 : 0,
                 }}
                 hitTestBehavior="opaque"
+                interactive={item.disabled ? 'none' : 'opacity'}
                 onPress={() => !item.disabled && onChanged?.(i)}
               >
                 {item.icon && (
@@ -146,6 +147,7 @@ export const TabBar = React.memo(function TabBar({
                 alignItems: 'center',
               }}
               hitTestBehavior="opaque"
+              interactive={item.disabled ? 'none' : 'ripple'}
               onPress={() => !item.disabled && onChanged?.(i)}
             >
               <Row style={{ gap: item.icon ? 6 : 0 }}>

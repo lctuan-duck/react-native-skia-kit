@@ -17,6 +17,7 @@ export type ScrollViewStyle = FlexChildStyle &
   SpacingStyle & {
     width?: number;
     height?: number;
+    gap?: number;
   };
 
 export interface ScrollViewProps extends WidgetProps {
@@ -43,13 +44,20 @@ export const ScrollView = React.memo(function ScrollView({
   const width = style?.width ?? 360;
   const height = style?.height ?? 600;
   const padding = style?.padding ?? 0;
+  const gap = style?.gap ?? 0;
 
   let estimatedContentSize: number;
   if (contentSize != null) {
     estimatedContentSize = contentSize;
   } else {
-    const { estimateContentSize: estimate } = require('../hooks/useYogaLayout');
-    const autoSize = estimate(children, width);
+    let padExtra = 0;
+    if (Array.isArray(padding)) {
+      padExtra = horizontal ? padding[1] + padding[3] : padding[0] + padding[2];
+    } else {
+      padExtra = padding * 2;
+    }
+    const { estimateIntrinsicSize: estimate } = require('../hooks/useYogaLayout');
+    const autoSize = estimate(children, horizontal, gap, horizontal ? height : width) + padExtra;
     estimatedContentSize = Math.max(autoSize, horizontal ? width : height);
   }
 
@@ -79,35 +87,37 @@ export const ScrollView = React.memo(function ScrollView({
 
   const lastTranslationRef = useRef(0);
 
+  const hitCallbacks = React.useMemo(() => ({
+    onPanStart: scrollEnabled
+      ? () => {
+          lastTranslationRef.current = 0;
+        }
+      : undefined,
+    onPanUpdate: scrollEnabled
+      ? (e: PanEvent) => {
+          const currentTranslation = horizontal
+            ? e?.translationX ?? 0
+            : e?.translationY ?? 0;
+          const delta = currentTranslation - lastTranslationRef.current;
+          lastTranslationRef.current = currentTranslation;
+          handlePanUpdate(delta);
+          useEventStore
+            .getState()
+            .updateScrollOffset(widgetId, scrollOffset.value);
+        }
+      : undefined,
+    onPanEnd: scrollEnabled
+      ? (e: PanEvent) => {
+          const velocity = horizontal ? e?.velocityX ?? 0 : e?.velocityY ?? 0;
+          handlePanEnd(velocity);
+          lastTranslationRef.current = 0;
+        }
+      : undefined,
+  }), [scrollEnabled, horizontal, handlePanUpdate, handlePanEnd, widgetId, scrollOffset]);
+
   useHitTest(widgetId, {
     rect: { left: x, top: y, width, height },
-    callbacks: {
-      onPanStart: scrollEnabled
-        ? () => {
-            lastTranslationRef.current = 0;
-          }
-        : undefined,
-      onPanUpdate: scrollEnabled
-        ? (e: PanEvent) => {
-            const currentTranslation = horizontal
-              ? e?.translationX ?? 0
-              : e?.translationY ?? 0;
-            const delta = currentTranslation - lastTranslationRef.current;
-            lastTranslationRef.current = currentTranslation;
-            handlePanUpdate(delta);
-            useEventStore
-              .getState()
-              .updateScrollOffset(widgetId, scrollOffset.value);
-          }
-        : undefined,
-      onPanEnd: scrollEnabled
-        ? (e: PanEvent) => {
-            const velocity = horizontal ? e?.velocityX ?? 0 : e?.velocityY ?? 0;
-            handlePanEnd(velocity);
-            lastTranslationRef.current = 0;
-          }
-        : undefined,
-    },
+    callbacks: hitCallbacks,
     behavior: 'translucent',
   });
 
@@ -134,12 +144,13 @@ export const ScrollView = React.memo(function ScrollView({
               height,
               flexDirection: 'row',
               padding,
+              gap,
             }}
           >
             {children}
           </Box>
         ) : (
-          <Column x={x} y={y} style={{ width, padding }}>
+          <Column x={x} y={y} style={{ width, padding, gap }}>
             {children}
           </Column>
         )}

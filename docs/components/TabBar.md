@@ -41,6 +41,8 @@ interface TabBarViewProps {
 
 ## Cách dùng
 
+> **Gợi ý Interactive**: Dạng `tab` mặc định sẽ tỏa bóng Ripple chuẩn Material Design, trong khi dạng `segment` sẽ làm tối nền Opacity thanh lịch chuẩn iOS.
+
 ```tsx
 const [tab, setTab] = useState(0);
 

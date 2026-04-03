@@ -16,11 +16,21 @@ A **Flutter-like UI Kit** for React Native that renders all UI on a single **Ski
 
 ## 📦 Installation
 
+### React Native CLI
+
 ```sh
 yarn add react-native-skia-kit
 
 # Peer dependencies
 yarn add @shopify/react-native-skia react-native-reanimated react-native-gesture-handler
+```
+
+### Expo
+
+> ⚠️ **Note:** This library uses custom native code (Nitro Modules) and **cannot be used in Expo Go**. You must use **Expo Dev Builds** (`npx expo run:android` / `npx expo run:ios`).
+
+```sh
+npx expo install react-native-skia-kit @shopify/react-native-skia react-native-reanimated react-native-gesture-handler
 ```
 
 ## 🚀 Quick Start

@@ -90,7 +90,8 @@ export const Checkbox = React.memo(function Checkbox({
         borderColor: style?.borderColor ?? borderColor,
         opacity: disabled ? 0.5 : 1,
       }}
-      hitTestBehavior="opaque"
+      hitTestBehavior="translucent"
+      interactive={disabled ? 'none' : 'ripple'}
       onPress={handlePress}
     >
       {checked && (
