@@ -42,6 +42,9 @@ interface LayoutStoreState {
 
   // Batch recalculate dirty widgets
   recalculateLayout: (yogaEngine?: unknown) => void;
+
+  // Batch update multiple layouts
+  setLayouts: (layoutsMap: Record<string, LayoutEntry>) => void;
 }
 
 export const useLayoutStore = create<LayoutStoreState>()(
@@ -54,6 +57,14 @@ export const useLayoutStore = create<LayoutStoreState>()(
       set((state) => {
         state.layoutMap.set(widgetId, { rect, constraints });
         state.dirtyWidgets.delete(widgetId);
+      }),
+
+    setLayouts: (layoutsMap) =>
+      set((state) => {
+        Object.entries(layoutsMap).forEach(([widgetId, entry]) => {
+          state.layoutMap.set(widgetId, entry);
+          state.dirtyWidgets.delete(widgetId);
+        });
       }),
 
     removeLayout: (widgetId) =>

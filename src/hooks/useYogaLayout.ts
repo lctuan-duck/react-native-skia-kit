@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useMemo, useEffect } from 'react';
 import type { WidgetProps } from '../types/widget.types';
 import type { FlexChildStyle } from '../types/style.types';
+import type { LayoutEntry } from '../stores/layoutStore';
 
 // ===== Types =====
 
@@ -283,7 +284,7 @@ function resolveChildSize(
       main = Math.min(intrinsic, maxMain);
     } else {
       // Fill reasonable space instead of collapsing to 0
-      main = 48; 
+      main = 48;
     }
   }
 
@@ -638,6 +639,14 @@ function calculateWrapLayout(
   return results;
 }
 
+// ===== Helpers & Caches =====
+
+const intrinsicSizeCache = new WeakMap<object, { main?: number; cross?: number }>();
+
+function getChildLayoutHash(info: ChildInfo): string {
+  return `${info.width}_${info.height}_${info.flex}_${info.flexGrow}_${info.alignSelf}_${info.componentType}_${info.fontSize}_${info.iconSize}_${info.hasChildren}_${info.textContent}_${info.flexDirection}_${info.flexWrap}_${info.gap}_${info.padding.top}_${info.padding.right}_${info.padding.bottom}_${info.padding.left}`;
+}
+
 // ===== Hook =====
 
 /**
@@ -657,36 +666,44 @@ export function useYogaLayout(
 ): { layouts: ComputedLayout[]; renderedChildren: React.ReactNode } {
   const childArray = React.Children.toArray(childrenElements);
 
-  const layouts = useMemo(() => {
-    const childInfos: ChildInfo[] = childArray.map((child) => {
-      if (!React.isValidElement(child)) {
-        return {
-          width: undefined,
-          height: undefined,
-          flex: undefined,
-          flexGrow: undefined,
-          alignSelf: undefined,
-          position: undefined,
-          top: undefined,
-          left: undefined,
-          right: undefined,
-          bottom: undefined,
-          componentType: 'Unknown',
-          fontSize: undefined,
-          iconSize: undefined,
-          hasChildren: false,
-          hasIcon: false,
-          childrenNodes: undefined,
-          textContent: undefined,
-          flexDirection: undefined,
-          flexWrap: undefined,
-          gap: 0,
-          padding: { top: 0, right: 0, bottom: 0, left: 0 },
-        };
-      }
-      return extractChildInfo(child);
-    });
+  let childInfos: ChildInfo[] = [];
+  let childrenHash = '';
 
+  for (let i = 0; i < childArray.length; i++) {
+    const child = childArray[i];
+    if (!React.isValidElement(child)) {
+      childInfos.push({
+        width: undefined,
+        height: undefined,
+        flex: undefined,
+        flexGrow: undefined,
+        alignSelf: undefined,
+        position: undefined,
+        top: undefined,
+        left: undefined,
+        right: undefined,
+        bottom: undefined,
+        componentType: 'Unknown',
+        fontSize: undefined,
+        iconSize: undefined,
+        hasChildren: false,
+        hasIcon: false,
+        childrenNodes: undefined,
+        textContent: undefined,
+        flexDirection: undefined,
+        flexWrap: undefined,
+        gap: 0,
+        padding: { top: 0, right: 0, bottom: 0, left: 0 },
+      });
+      childrenHash += 'unknown|';
+    } else {
+      const info = extractChildInfo(child);
+      childInfos.push(info);
+      childrenHash += getChildLayoutHash(info) + '|';
+    }
+  }
+
+  const layouts = useMemo(() => {
     return calculateFlexLayout(container, flexProps, childInfos);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -700,7 +717,7 @@ export function useYogaLayout(
     flexProps.gap,
     flexProps.padding,
     flexProps.flexWrap,
-    childArray.length,
+    childrenHash,
   ]);
 
   // Inject computed x, y into top-level props and width, height into style
@@ -724,11 +741,12 @@ export function useYogaLayout(
   // Write computed child layouts to layoutStore
   useEffect(() => {
     const { useLayoutStore } = require('../stores/layoutStore');
-    layouts.forEach((layout) => {
-      useLayoutStore
-        .getState()
-        .setLayout(`${widgetId}_child_${layouts.indexOf(layout)}`, layout);
-    });
+    const batch = layouts.reduce((acc, layout, index) => {
+      acc[`${widgetId}_child_${index}`] = { rect: layout };
+      return acc;
+    }, {} as Record<string, LayoutEntry>);
+
+    useLayoutStore.getState().setLayouts(batch);
   }, [layouts, widgetId]);
 
   return { layouts, renderedChildren };
@@ -746,6 +764,11 @@ export function estimateIntrinsicSize(
   gap: number = 0,
   containerCrossAxis?: number
 ): number {
+  if (typeof children === 'object' && children !== null) {
+    const cached = intrinsicSizeCache.get(children);
+    if (cached?.main !== undefined) return cached.main;
+  }
+
   const childArray = React.Children.toArray(children);
   let totalMain = 0;
 
@@ -767,6 +790,11 @@ export function estimateIntrinsicSize(
     totalMain += (childArray.length - 1) * gap;
   }
 
+  if (typeof children === 'object' && children !== null) {
+    const cached = intrinsicSizeCache.get(children) || {};
+    cached.main = totalMain;
+    intrinsicSizeCache.set(children, cached);
+  }
   return totalMain;
 }
 
@@ -781,6 +809,11 @@ export function estimateCrossSize(
   containerCrossAxis?: number,
   flexWrap?: string
 ): number {
+  if (typeof children === 'object' && children !== null) {
+    const cached = intrinsicSizeCache.get(children);
+    if (cached?.cross !== undefined) return cached.cross;
+  }
+
   const childArray = React.Children.toArray(children);
 
   if (isRow && flexWrap === 'wrap' && containerCrossAxis != null) {
@@ -807,6 +840,11 @@ export function estimateCrossSize(
       }
     }
     totalH += maxLineH + (lines > 1 ? gap * (lines - 1) : 0);
+    if (typeof children === 'object' && children !== null) {
+      const cached = intrinsicSizeCache.get(children) || {};
+      cached.cross = totalH;
+      intrinsicSizeCache.set(children, cached);
+    }
     return totalH;
   }
 
@@ -825,5 +863,10 @@ export function estimateCrossSize(
     }
   }
 
+  if (typeof children === 'object' && children !== null) {
+    const cached = intrinsicSizeCache.get(children) || {};
+    cached.cross = maxCross;
+    intrinsicSizeCache.set(children, cached);
+  }
   return maxCross;
 }
