@@ -228,8 +228,8 @@ export const Box = React.memo(function Box({
 
   const finalX = layoutResult?.x ?? x;
   const finalY = layoutResult?.y ?? y;
-  const finalW = layoutResult?.width || w;
-  const finalH = layoutResult?.height || h;
+  const finalW = layoutResult?.width ?? w ?? 0;
+  const finalH = layoutResult?.height ?? h ?? 0;
 
   // Register hit test for events
   useHitTest(widgetId, {

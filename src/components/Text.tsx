@@ -210,7 +210,7 @@ export const Text = React.memo(function SkiaText({
 
   const finalX = layoutResult?.x ?? x;
   const finalY = layoutResult?.y ?? y;
-  const finalWidth = layoutResult?.width ?? width;
+  const finalWidth = layoutResult?.width ?? width ?? paragraph.getMaxIntrinsicWidth();
 
   // Register hit test only if there are callbacks
   useHitTest(widgetId, {
