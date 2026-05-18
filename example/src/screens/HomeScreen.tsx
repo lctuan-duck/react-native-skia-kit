@@ -67,7 +67,15 @@ export function HomeScreen() {
             />
           </Column>
         </Row>
-        <Button icon="notifications" variant="icon" color="primary" />
+        <Row style={{ gap: 8, alignItems: 'center' }}>
+          <Button
+            icon={theme.mode === 'dark' ? 'lightbulb' : 'moon'}
+            variant="icon"
+            color="secondary"
+            onPress={theme.toggleTheme}
+          />
+          <Button icon="notifications" variant="icon" color="primary" />
+        </Row>
       </Row>
 
       {/* Credit Card Hero */}

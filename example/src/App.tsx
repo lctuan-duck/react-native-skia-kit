@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
@@ -6,38 +5,21 @@ import {
   Nav,
   Screen,
   HeroOverlay,
-  useThemeStore,
+  useTheme,
+  enableThemePersistence,
 } from 'react-native-skia-kit';
 
 import { HomeScreen } from './screens/HomeScreen';
 import { CardDetailScreen } from './screens/CardDetailScreen';
 
-export default function App() {
-  const { width, height } = useWindowDimensions();
+enableThemePersistence();
 
-  // Set up Dark Theme and Neon colors
-  useEffect(() => {
-    const store = useThemeStore.getState();
-    const darkTheme = store.themeMap.get('dark');
-    if (darkTheme) {
-      store.registerTheme('dark', {
-        ...darkTheme, // inherit base dark theme
-        colors: {
-          ...darkTheme.colors,
-          background: '#0A0A0A',
-          surface: '#1A1A1A',
-          primary: '#00E5FF',    // Cyan Neon
-          secondary: '#B000FF',  // Purple Neon
-          textBody: '#FFFFFF',
-          textSecondary: '#A0A0A0',
-        },
-      });
-      store.setActiveTheme('dark');
-    }
-  }, []);
+function RootApp() {
+  const { width, height } = useWindowDimensions();
+  const theme = useTheme();
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0A0A0A' }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <CanvasRoot style={{ width, height }}>
         <Nav
           initial="Home"
@@ -58,4 +40,8 @@ export default function App() {
       </CanvasRoot>
     </GestureHandlerRootView>
   );
+}
+
+export default function App() {
+  return <RootApp />;
 }
