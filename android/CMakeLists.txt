@@ -13,6 +13,7 @@ add_library(
   ../cpp/HybridUIEngine.cpp
   ../cpp/subsystems/HitTestSubsystem.cpp
   ../cpp/subsystems/LayoutSubsystem.cpp
+  ../cpp/strategies/QuadTree.cpp
 )
 
 # Add Nitrogen specs :)
@@ -23,6 +24,7 @@ include_directories(
   "src/main/cpp"
   "../cpp"
   "../cpp/subsystems"
+  "../cpp/strategies"
   "../nitrogen/generated/shared/c++"
 )
 

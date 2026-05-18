@@ -27,7 +27,7 @@ Pod::Spec.new do |s|
 
   # Ensure C++ subsystem files can find nitrogen-generated headers
   s.pod_target_xcconfig = (s.attributes_hash['pod_target_xcconfig'] || {}).merge({
-    "HEADER_SEARCH_PATHS" => "\"$(PODS_TARGET_SRCROOT)/cpp\" \"$(PODS_TARGET_SRCROOT)/cpp/subsystems\" \"$(PODS_TARGET_SRCROOT)/nitrogen/generated/shared/c++\""
+    "HEADER_SEARCH_PATHS" => "\"$(PODS_TARGET_SRCROOT)/cpp\" \"$(PODS_TARGET_SRCROOT)/cpp/subsystems\" \"$(PODS_TARGET_SRCROOT)/cpp/strategies\" \"$(PODS_TARGET_SRCROOT)/nitrogen/generated/shared/c++\""
   })
 
   install_modules_dependencies(s)
