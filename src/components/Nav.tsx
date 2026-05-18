@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Group } from '@shopify/react-native-skia';
 import { useWindowDimensions } from 'react-native';
 import {
