@@ -20,11 +20,7 @@ namespace margelo::nitro::skiakit {
     void clear() override;
 
     // Layout Subsystem
-    void updateLayoutNode(
-      const std::string& id, const std::string& flexDirection, const std::string& justifyContent,
-      const std::string& alignItems, const std::string& flexWrap, double width, double height,
-      double flex, double gap, double paddingTop, double paddingRight, double paddingBottom, double paddingLeft
-    ) override;
+    void updateLayoutNode(const std::string& id, const NativeYogaStyle& style) override;
     void removeLayoutNode(const std::string& id) override;
     void setChildren(const std::string& parentId, const std::vector<std::string>& childrenIds) override;
     void calculateLayout(const std::string& rootId, double width, double height) override;

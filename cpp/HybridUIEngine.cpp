@@ -29,12 +29,8 @@ namespace margelo::nitro::skiakit {
 
   // ================= YOGA LAYOUT ================= //
 
-  void HybridUIEngine::updateLayoutNode(
-    const std::string& id, const std::string& flexDirection, const std::string& justifyContent,
-    const std::string& alignItems, const std::string& flexWrap, double width, double height,
-    double flex, double gap, double paddingTop, double paddingRight, double paddingBottom, double paddingLeft
-  ) {
-    _layoutSubsystem.updateLayoutNode(id, flexDirection, justifyContent, alignItems, flexWrap, width, height, flex, gap, paddingTop, paddingRight, paddingBottom, paddingLeft);
+  void HybridUIEngine::updateLayoutNode(const std::string& id, const NativeYogaStyle& style) {
+    _layoutSubsystem.updateLayoutNode(id, style);
   }
 
   void HybridUIEngine::removeLayoutNode(const std::string& id) {

@@ -17,59 +17,100 @@ namespace margelo::nitro::skiakit {
     clear();
   }
 
-  void LayoutSubsystem::updateLayoutNode(
-    const std::string& id, const std::string& flexDirection, const std::string& justifyContent,
-    const std::string& alignItems, const std::string& flexWrap, double width, double height,
-    double flex, double gap, double paddingTop, double paddingRight, double paddingBottom, double paddingLeft
-  ) {
+  void LayoutSubsystem::updateLayoutNode(const std::string& id, const NativeYogaStyle& style) {
     YGNodeRef node = static_cast<YGNodeRef>(getOrCreateYogaNode(id));
 
-    // Direction
-    if (flexDirection == "row") YGNodeStyleSetFlexDirection(node, YGFlexDirectionRow);
-    else if (flexDirection == "column") YGNodeStyleSetFlexDirection(node, YGFlexDirectionColumn);
+    // === Flex Direction ===
+    if (style.flexDirection.has_value()) {
+      const auto& v = style.flexDirection.value();
+      if (v == "row") YGNodeStyleSetFlexDirection(node, YGFlexDirectionRow);
+      else if (v == "row-reverse") YGNodeStyleSetFlexDirection(node, YGFlexDirectionRowReverse);
+      else if (v == "column-reverse") YGNodeStyleSetFlexDirection(node, YGFlexDirectionColumnReverse);
+      else YGNodeStyleSetFlexDirection(node, YGFlexDirectionColumn);
+    }
 
-    // Justify
-    if (justifyContent == "center") YGNodeStyleSetJustifyContent(node, YGJustifyCenter);
-    else if (justifyContent == "flex-end" || justifyContent == "end") YGNodeStyleSetJustifyContent(node, YGJustifyFlexEnd);
-    else if (justifyContent == "space-between" || justifyContent == "spaceBetween") YGNodeStyleSetJustifyContent(node, YGJustifySpaceBetween);
-    else if (justifyContent == "space-around" || justifyContent == "spaceAround") YGNodeStyleSetJustifyContent(node, YGJustifySpaceAround);
-    else YGNodeStyleSetJustifyContent(node, YGJustifyFlexStart);
+    // === Justify Content ===
+    if (style.justifyContent.has_value()) {
+      const auto& v = style.justifyContent.value();
+      if (v == "center") YGNodeStyleSetJustifyContent(node, YGJustifyCenter);
+      else if (v == "flex-end" || v == "end") YGNodeStyleSetJustifyContent(node, YGJustifyFlexEnd);
+      else if (v == "space-between" || v == "spaceBetween") YGNodeStyleSetJustifyContent(node, YGJustifySpaceBetween);
+      else if (v == "space-around" || v == "spaceAround") YGNodeStyleSetJustifyContent(node, YGJustifySpaceAround);
+      else if (v == "space-evenly" || v == "spaceEvenly") YGNodeStyleSetJustifyContent(node, YGJustifySpaceEvenly);
+      else YGNodeStyleSetJustifyContent(node, YGJustifyFlexStart);
+    }
 
-    // Align Items
-    if (alignItems == "center") YGNodeStyleSetAlignItems(node, YGAlignCenter);
-    else if (alignItems == "flex-end" || alignItems == "end") YGNodeStyleSetAlignItems(node, YGAlignFlexEnd);
-    else if (alignItems == "stretch") YGNodeStyleSetAlignItems(node, YGAlignStretch);
-    else YGNodeStyleSetAlignItems(node, YGAlignFlexStart);
+    // === Align Items ===
+    if (style.alignItems.has_value()) {
+      const auto& v = style.alignItems.value();
+      if (v == "center") YGNodeStyleSetAlignItems(node, YGAlignCenter);
+      else if (v == "flex-end" || v == "end") YGNodeStyleSetAlignItems(node, YGAlignFlexEnd);
+      else if (v == "stretch") YGNodeStyleSetAlignItems(node, YGAlignStretch);
+      else if (v == "baseline") YGNodeStyleSetAlignItems(node, YGAlignBaseline);
+      else YGNodeStyleSetAlignItems(node, YGAlignFlexStart);
+    }
 
-    // Wrap
-    if (flexWrap == "wrap") YGNodeStyleSetFlexWrap(node, YGWrapWrap);
-    else YGNodeStyleSetFlexWrap(node, YGWrapNoWrap);
+    // === Flex Wrap ===
+    if (style.flexWrap.has_value()) {
+      const auto& v = style.flexWrap.value();
+      if (v == "wrap") YGNodeStyleSetFlexWrap(node, YGWrapWrap);
+      else if (v == "wrap-reverse") YGNodeStyleSetFlexWrap(node, YGWrapWrapReverse);
+      else YGNodeStyleSetFlexWrap(node, YGWrapNoWrap);
+    }
 
-    // Dimensions
-    if (width >= 0) YGNodeStyleSetWidth(node, width);
-    else YGNodeStyleSetWidthAuto(node);
+    // === Dimensions ===
+    if (style.width.has_value()) YGNodeStyleSetWidth(node, style.width.value());
+    if (style.height.has_value()) YGNodeStyleSetHeight(node, style.height.value());
 
-    if (height >= 0) YGNodeStyleSetHeight(node, height);
-    else YGNodeStyleSetHeightAuto(node);
+    // === Flex Child ===
+    if (style.flex.has_value()) YGNodeStyleSetFlex(node, style.flex.value());
+    if (style.flexGrow.has_value()) YGNodeStyleSetFlexGrow(node, style.flexGrow.value());
+    if (style.flexShrink.has_value()) YGNodeStyleSetFlexShrink(node, style.flexShrink.value());
+    if (style.flexBasis.has_value()) YGNodeStyleSetFlexBasis(node, style.flexBasis.value());
 
-    // Flex
-    if (flex > 0) YGNodeStyleSetFlex(node, flex);
+    // === Align Self ===
+    if (style.alignSelf.has_value()) {
+      const auto& v = style.alignSelf.value();
+      if (v == "center") YGNodeStyleSetAlignSelf(node, YGAlignCenter);
+      else if (v == "flex-end" || v == "end") YGNodeStyleSetAlignSelf(node, YGAlignFlexEnd);
+      else if (v == "flex-start" || v == "start") YGNodeStyleSetAlignSelf(node, YGAlignFlexStart);
+      else if (v == "stretch") YGNodeStyleSetAlignSelf(node, YGAlignStretch);
+      else if (v == "baseline") YGNodeStyleSetAlignSelf(node, YGAlignBaseline);
+      else YGNodeStyleSetAlignSelf(node, YGAlignAuto);
+    }
 
-    // Gap
-    if (gap > 0) YGNodeStyleSetGap(node, YGGutterAll, gap);
+    // === Gap ===
+    if (style.gap.has_value()) YGNodeStyleSetGap(node, YGGutterAll, style.gap.value());
+    if (style.rowGap.has_value()) YGNodeStyleSetGap(node, YGGutterRow, style.rowGap.value());
 
-    // Padding
-    if (paddingTop >= 0) YGNodeStyleSetPadding(node, YGEdgeTop, paddingTop);
-    if (paddingRight >= 0) YGNodeStyleSetPadding(node, YGEdgeRight, paddingRight);
-    if (paddingBottom >= 0) YGNodeStyleSetPadding(node, YGEdgeBottom, paddingBottom);
-    if (paddingLeft >= 0) YGNodeStyleSetPadding(node, YGEdgeLeft, paddingLeft);
+    // === Padding ===
+    if (style.paddingTop.has_value()) YGNodeStyleSetPadding(node, YGEdgeTop, style.paddingTop.value());
+    if (style.paddingRight.has_value()) YGNodeStyleSetPadding(node, YGEdgeRight, style.paddingRight.value());
+    if (style.paddingBottom.has_value()) YGNodeStyleSetPadding(node, YGEdgeBottom, style.paddingBottom.value());
+    if (style.paddingLeft.has_value()) YGNodeStyleSetPadding(node, YGEdgeLeft, style.paddingLeft.value());
+
+    // === Margin ===
+    if (style.marginTop.has_value()) YGNodeStyleSetMargin(node, YGEdgeTop, style.marginTop.value());
+    if (style.marginRight.has_value()) YGNodeStyleSetMargin(node, YGEdgeRight, style.marginRight.value());
+    if (style.marginBottom.has_value()) YGNodeStyleSetMargin(node, YGEdgeBottom, style.marginBottom.value());
+    if (style.marginLeft.has_value()) YGNodeStyleSetMargin(node, YGEdgeLeft, style.marginLeft.value());
+
+    // === Position ===
+    if (style.position.has_value()) {
+      const auto& v = style.position.value();
+      if (v == "absolute") YGNodeStyleSetPositionType(node, YGPositionTypeAbsolute);
+      else YGNodeStyleSetPositionType(node, YGPositionTypeRelative);
+    }
+    if (style.top.has_value()) YGNodeStyleSetPosition(node, YGEdgeTop, style.top.value());
+    if (style.left.has_value()) YGNodeStyleSetPosition(node, YGEdgeLeft, style.left.value());
+    if (style.right.has_value()) YGNodeStyleSetPosition(node, YGEdgeRight, style.right.value());
+    if (style.bottom.has_value()) YGNodeStyleSetPosition(node, YGEdgeBottom, style.bottom.value());
   }
 
   void LayoutSubsystem::removeLayoutNode(const std::string& id) {
     auto it = _yogaNodes.find(id);
     if (it != _yogaNodes.end()) {
       YGNodeRef node = static_cast<YGNodeRef>(it->second);
-      // Remove from parent if needed, Yoga handles some of this but we should free it.
       YGNodeFree(node);
       _yogaNodes.erase(it);
     }

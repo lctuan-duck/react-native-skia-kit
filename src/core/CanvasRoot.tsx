@@ -62,21 +62,13 @@ export const CanvasRoot = React.memo(function CanvasRoot({
 
   useLayoutEffect(() => {
     // 1. Register Canvas Root node
-    uiEngine.updateLayoutNode(
-      canvasId,
-      'column',
-      'flex-start',
-      'stretch',
-      'nowrap',
-      screenWidth > 0 ? screenWidth : -1,
-      screenHeight > 0 ? screenHeight : -1,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    );
+    uiEngine.updateLayoutNode(canvasId, {
+      flexDirection: 'column',
+      justifyContent: 'start',
+      alignItems: 'stretch',
+      width: screenWidth > 0 ? screenWidth : undefined,
+      height: screenHeight > 0 ? screenHeight : undefined,
+    });
 
     // Parse children IDs
     const childIds: string[] = [];

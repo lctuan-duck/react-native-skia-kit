@@ -7,6 +7,50 @@ export interface NativeLayoutRect {
   height: number;
 }
 
+/**
+ * Yoga style object truyền từ JS → C++.
+ * Mỗi field là optional — C++ chỉ set property nào có giá trị (has_value).
+ */
+export interface NativeYogaStyle {
+  // === Container ===
+  flexDirection?: string;
+  justifyContent?: string;
+  alignItems?: string;
+  flexWrap?: string;
+  gap?: number;
+  rowGap?: number;
+
+  // === Child ===
+  flex?: number;
+  flexGrow?: number;
+  flexShrink?: number;
+  flexBasis?: number;
+  alignSelf?: string;
+
+  // === Dimensions ===
+  width?: number;
+  height?: number;
+
+  // === Padding ===
+  paddingTop?: number;
+  paddingRight?: number;
+  paddingBottom?: number;
+  paddingLeft?: number;
+
+  // === Margin ===
+  marginTop?: number;
+  marginRight?: number;
+  marginBottom?: number;
+  marginLeft?: number;
+
+  // === Position ===
+  position?: string;
+  top?: number;
+  left?: number;
+  right?: number;
+  bottom?: number;
+}
+
 export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   // ================= HIT TESTING ================= //
 
@@ -39,24 +83,9 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
 
   /**
    * Cập nhật style Flexbox của một Node.
-   * Để giảm overhead JSI, dùng string cho ENUM (VD: 'row', 'column', 'center', 'flex-start'...)
-   * Kích thước mảng padding/margin: [top, right, bottom, left]. Nếutruyền -1 thì bỏ qua.
+   * Chỉ set property nào có giá trị trong object, bỏ qua undefined.
    */
-  updateLayoutNode(
-    id: string,
-    flexDirection: string,
-    justifyContent: string,
-    alignItems: string,
-    flexWrap: string,
-    width: number,
-    height: number,
-    flex: number,
-    gap: number,
-    paddingTop: number,
-    paddingRight: number,
-    paddingBottom: number,
-    paddingLeft: number
-  ): void;
+  updateLayoutNode(id: string, style: NativeYogaStyle): void;
 
   /**
    * Xoá một Layout Node khỏi cây Flexbox C++ khi Component Unmount.
