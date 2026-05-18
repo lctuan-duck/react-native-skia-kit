@@ -90,6 +90,10 @@ namespace margelo::nitro::skiakit {
     _scrollAreas[id] = {id, x, y, w, h, 0.0, horizontal};
   }
 
+  void HitTestSubsystem::unregisterScrollArea(const std::string& id) {
+    _scrollAreas.erase(id);
+  }
+
   void HitTestSubsystem::updateScrollOffset(const std::string& id, double offset) {
     auto it = _scrollAreas.find(id);
     if (it != _scrollAreas.end()) {

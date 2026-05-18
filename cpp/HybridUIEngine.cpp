@@ -18,6 +18,10 @@ namespace margelo::nitro::skiakit {
     _hitTestSubsystem.registerScrollArea(id, x, y, w, h, horizontal);
   }
 
+  void HybridUIEngine::unregisterScrollArea(const std::string& id) {
+    _hitTestSubsystem.unregisterScrollArea(id);
+  }
+
   void HybridUIEngine::updateScrollOffset(const std::string& id, double offset) {
     _hitTestSubsystem.updateScrollOffset(id, offset);
   }

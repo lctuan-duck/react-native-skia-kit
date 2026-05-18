@@ -100,6 +100,7 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
     h: number,
     horizontal: boolean
   ): void;
+  unregisterScrollArea(id: string): void;
   updateScrollOffset(id: string, offset: number): void;
   hitTest(x: number, y: number): NativeHitResult[];
   clear(): void;

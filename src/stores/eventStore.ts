@@ -129,8 +129,8 @@ export const useEventStore = create<EventStoreState>()(
       set((state) => {
         state.scrollAreas.delete(widgetId);
       });
-      // Cannot fully unregister scroll area in MVP C++ right now, but we can reset offset
-      uiEngine.updateScrollOffset(widgetId, 0);
+      // Sync to C++ Engine
+      uiEngine.unregisterScrollArea(widgetId);
     },
 
     updateScrollOffset: (widgetId, offset) => {
