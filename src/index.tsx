@@ -236,9 +236,8 @@ export { measureText } from './utils/measureText';
 
 // ===== Stores =====
 export { useThemeStore, enableThemePersistence } from './stores/themeStore';
-export { useWidgetStore } from './stores/widgetStore';
 export { useLayoutStore } from './stores/layoutStore';
-export { useEventStore, GestureArenaManager } from './stores/eventStore';
+export { useEventStore } from './stores/eventStore';
 export { useNavStore } from './stores/navStore';
 export { useOverlayStore } from './stores/overlayStore';
 export { useHeroStore } from './stores/heroStore';
@@ -260,7 +259,6 @@ export type { LayoutEntry, LayoutConstraints } from './stores/layoutStore';
 export type {
   HitEntry,
   HitRect,
-  GestureDisposition,
 } from './stores/eventStore';
 export type { NavObject } from './stores/navStore';
 export type { OverlayEntry } from './stores/overlayStore';

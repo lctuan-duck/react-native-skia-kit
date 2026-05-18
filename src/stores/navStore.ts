@@ -8,15 +8,12 @@ export interface NavObject {
   navigationStack: string[];
   screenMap: Map<string, unknown>;
   stateMap: Map<string, Record<string, unknown>>;
-  layoutMap?: Map<string, unknown>;
 }
 
 interface NavStoreState {
   navMaps: Map<string, NavObject>;
   activeNav: string;
   currentUrl: string;
-  router: unknown;
-  screensMap: Record<string, unknown>;
 
   setActiveNav: (navId: string) => void;
 
@@ -46,12 +43,6 @@ interface NavStoreState {
   setCurrentUrl: (url: string) => void;
   setCurrentScreen: (screenName: string) => void;
 
-  // Doc actions
-  setNavMap: (navId: string, navObj: NavObject) => void;
-  setNavLayoutMap: (navId: string, layoutMap: Map<string, unknown>) => void;
-  setRouter: (router: unknown) => void;
-  setScreens: (screensMap: Record<string, unknown>) => void;
-
   // Helpers
   getNav: (navId: string) => NavObject | undefined;
   getCurrentScreenName: (navId: string) => string | undefined;
@@ -70,8 +61,6 @@ export const useNavStore = create<NavStoreState>()(
     navMaps: new Map<string, NavObject>(),
     activeNav: 'main',
     currentUrl: '',
-    router: null,
-    screensMap: {},
 
     setActiveNav: (navId) =>
       set((state) => {
@@ -147,29 +136,6 @@ export const useNavStore = create<NavStoreState>()(
           state.navMaps.set(navId, createNavObject());
         }
         state.navMaps.get(navId)!.navigationStack = [screenName];
-      }),
-
-    setNavMap: (navId, navObj) =>
-      set((state) => {
-        state.navMaps.set(navId, navObj);
-      }),
-
-    setNavLayoutMap: (navId, layoutMap) =>
-      set((state) => {
-        const nav = state.navMaps.get(navId);
-        if (nav) {
-          nav.layoutMap = layoutMap;
-        }
-      }),
-
-    setRouter: (router) =>
-      set((state) => {
-        state.router = router;
-      }),
-
-    setScreens: (screensMap) =>
-      set((state) => {
-        state.screensMap = screensMap;
       }),
 
     getNav: (navId) => {

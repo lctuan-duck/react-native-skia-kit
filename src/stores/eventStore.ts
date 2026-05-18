@@ -28,60 +28,6 @@ export interface HitEntry {
   callbacks: GestureCallbacks;
 }
 
-// ===== Gesture Arena =====
-
-export type GestureDisposition = 'accepted' | 'rejected';
-
-export interface GestureArenaMember {
-  acceptGesture(pointerId: number): void;
-  rejectGesture(pointerId: number): void;
-}
-
-export class GestureArenaManager {
-  private arenas: Map<number, GestureArenaMember[]> = new Map();
-
-  add(pointerId: number, member: GestureArenaMember) {
-    if (!this.arenas.has(pointerId)) {
-      this.arenas.set(pointerId, []);
-    }
-    this.arenas.get(pointerId)!.push(member);
-  }
-
-  resolve(
-    pointerId: number,
-    member: GestureArenaMember,
-    disposition: GestureDisposition
-  ) {
-    const members = this.arenas.get(pointerId);
-    if (!members) return;
-
-    if (disposition === 'accepted') {
-      for (const other of members) {
-        if (other !== member) other.rejectGesture(pointerId);
-      }
-      member.acceptGesture(pointerId);
-      this.arenas.delete(pointerId);
-    } else {
-      const filtered = members.filter((m) => m !== member);
-      if (filtered.length === 1) {
-        filtered[0]!.acceptGesture(pointerId);
-        this.arenas.delete(pointerId);
-      } else {
-        this.arenas.set(pointerId, filtered);
-      }
-    }
-  }
-
-  close(pointerId: number) {
-    const members = this.arenas.get(pointerId);
-    if (!members || members.length === 0) return;
-    members[0]!.acceptGesture(pointerId);
-    for (let i = 1; i < members.length; i++) {
-      members[i]!.rejectGesture(pointerId);
-    }
-    this.arenas.delete(pointerId);
-  }
-}
 
 // ===== Scroll Offset Entry =====
 
@@ -98,7 +44,6 @@ export interface ScrollArea {
 
 interface EventStoreState {
   hitMaps: Map<string, Map<string, HitEntry>>;
-  gestureArena: GestureArenaManager;
   /** Scroll areas: widgetId → ScrollArea */
   scrollAreas: Map<string, ScrollArea>;
 
@@ -124,7 +69,6 @@ export interface HitResult {
 export const useEventStore = create<EventStoreState>()(
   immer((set, get) => ({
     hitMaps: new Map<string, Map<string, HitEntry>>(),
-    gestureArena: new GestureArenaManager(),
     scrollAreas: new Map<string, ScrollArea>(),
 
     registerHit: (canvasId, widgetId, hitEntry) => {
@@ -260,46 +204,3 @@ export const useEventStore = create<EventStoreState>()(
   }))
 );
 
-// ===== Touch handler =====
-
-export function handleTouch(canvasId: string, x: number, y: number) {
-  const receivers = useEventStore.getState().hitTest(canvasId, x, y);
-  for (const receiver of receivers) {
-    receiver.entry.callbacks.onPress?.(receiver.localX, receiver.localY);
-  }
-}
-
-export function handlePanStart(canvasId: string, x: number, y: number): string | null {
-  const receivers = useEventStore.getState().hitTest(canvasId, x, y);
-  for (const receiver of receivers) {
-    if (receiver.entry.callbacks.onPanStart) {
-      uiEngine.setWidgetDynamic(receiver.entry.widgetId, true);
-      receiver.entry.callbacks.onPanStart({ localX: receiver.localX, localY: receiver.localY, absoluteX: x, absoluteY: y, translationX: 0, translationY: 0, velocityX: 0, velocityY: 0 });
-      return receiver.entry.widgetId; // Return active widget for subsequent pan updates
-    }
-  }
-  return null;
-}
-
-export function handlePanUpdate(canvasId: string, widgetId: string, x: number, y: number, tx: number, ty: number, vx: number, vy: number) {
-  const state = useEventStore.getState();
-  const hitMap = state.hitMaps.get(canvasId);
-  if (!hitMap) return;
-  const entry = hitMap.get(widgetId);
-  if (entry && entry.callbacks.onPanUpdate) {
-    entry.callbacks.onPanUpdate({ localX: x, localY: y, absoluteX: x, absoluteY: y, translationX: tx, translationY: ty, velocityX: vx, velocityY: vy });
-  }
-}
-
-export function handlePanEnd(canvasId: string, widgetId: string, x: number, y: number, tx: number, ty: number, vx: number, vy: number) {
-  const state = useEventStore.getState();
-  const hitMap = state.hitMaps.get(canvasId);
-  if (!hitMap) return;
-  const entry = hitMap.get(widgetId);
-  if (entry) {
-    if (entry.callbacks.onPanEnd) {
-      entry.callbacks.onPanEnd({ localX: x, localY: y, absoluteX: x, absoluteY: y, translationX: tx, translationY: ty, velocityX: vx, velocityY: vy });
-    }
-    uiEngine.setWidgetDynamic(widgetId, false);
-  }
-}
