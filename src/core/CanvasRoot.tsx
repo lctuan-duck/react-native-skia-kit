@@ -105,9 +105,15 @@ export const CanvasRoot = React.memo(function CanvasRoot({
 
   const dispatchPress = useCallback(
     (x: number, y: number) => {
-      const receivers = useEventStore.getState().hitTest(canvasId, x, y);
-      for (const receiver of receivers) {
-        receiver.entry.callbacks.onPress?.(receiver.localX, receiver.localY);
+      const hits = uiEngine.hitTest(x, y);
+      const hitMap = useEventStore.getState().hitMaps.get(canvasId);
+      if (!hitMap) return;
+
+      for (const hit of hits) {
+        const entry = hitMap.get(hit.id);
+        if (entry) {
+          entry.callbacks.onPress?.(hit.localX, hit.localY);
+        }
       }
     },
     [canvasId]
@@ -115,9 +121,15 @@ export const CanvasRoot = React.memo(function CanvasRoot({
 
   const dispatchLongPress = useCallback(
     (x: number, y: number) => {
-      const receivers = useEventStore.getState().hitTest(canvasId, x, y);
-      for (const receiver of receivers) {
-        receiver.entry.callbacks.onLongPress?.();
+      const hits = uiEngine.hitTest(x, y);
+      const hitMap = useEventStore.getState().hitMaps.get(canvasId);
+      if (!hitMap) return;
+
+      for (const hit of hits) {
+        const entry = hitMap.get(hit.id);
+        if (entry) {
+          entry.callbacks.onLongPress?.();
+        }
       }
     },
     [canvasId]
@@ -139,28 +151,31 @@ export const CanvasRoot = React.memo(function CanvasRoot({
     });
 
   const dispatchJSPan = useCallback(
-    (type: 'start' | 'update' | 'end', e: any) => {
-      const receivers = useEventStore
-        .getState()
-        .hitTest(canvasId, e.absoluteX, e.absoluteY);
-      for (const receiver of receivers) {
+    (type: 'start' | 'update' | 'end', e: any, hits: { id: string; localX: number; localY: number }[]) => {
+      const hitMap = useEventStore.getState().hitMaps.get(canvasId);
+      if (!hitMap) return;
+
+      for (const hit of hits) {
+        const entry = hitMap.get(hit.id);
+        if (!entry) continue;
+
         if (type === 'start')
-          receiver.entry.callbacks.onPanStart?.({
+          entry.callbacks.onPanStart?.({
             ...e,
-            localX: receiver.localX,
-            localY: receiver.localY,
+            localX: hit.localX,
+            localY: hit.localY,
           });
         else if (type === 'update')
-          receiver.entry.callbacks.onPanUpdate?.({
+          entry.callbacks.onPanUpdate?.({
             ...e,
-            localX: receiver.localX,
-            localY: receiver.localY,
+            localX: hit.localX,
+            localY: hit.localY,
           });
         else if (type === 'end')
-          receiver.entry.callbacks.onPanEnd?.({
+          entry.callbacks.onPanEnd?.({
             ...e,
-            localX: receiver.localX,
-            localY: receiver.localY,
+            localX: hit.localX,
+            localY: hit.localY,
           });
       }
     },
@@ -173,26 +188,28 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       'worklet';
       const hits = uiEngine.hitTest(e.absoluteX, e.absoluteY);
       if (hits && hits.length > 0) {
-        globalActiveWidgetId.value = hits[0] || null;
+        globalActiveWidgetId.value = hits[0]?.id || null;
       } else {
         globalActiveWidgetId.value = null;
       }
       globalPanEvent.value = e as any;
       globalPanState.value = 'start';
-      runOnJS(dispatchJSPan)('start', e);
+      runOnJS(dispatchJSPan)('start', e, hits);
     })
     .onUpdate((e) => {
       'worklet';
+      const hits = uiEngine.hitTest(e.absoluteX, e.absoluteY);
       globalPanEvent.value = e as any;
       globalPanState.value = 'update';
-      runOnJS(dispatchJSPan)('update', e);
+      runOnJS(dispatchJSPan)('update', e, hits);
     })
     .onEnd((e) => {
       'worklet';
+      const hits = uiEngine.hitTest(e.absoluteX, e.absoluteY);
       globalPanEvent.value = e as any;
       globalPanState.value = 'end';
       globalActiveWidgetId.value = null;
-      runOnJS(dispatchJSPan)('end', e);
+      runOnJS(dispatchJSPan)('end', e, hits);
     });
 
   // Combine gestures: tap and long press are exclusive, pan is simultaneous

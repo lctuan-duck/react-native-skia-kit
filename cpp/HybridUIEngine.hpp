@@ -17,7 +17,7 @@ namespace margelo::nitro::skiakit {
     void setWidgetDynamic(const std::string& id, bool isDynamic) override;
     void registerScrollArea(const std::string& id, double x, double y, double w, double h, bool horizontal) override;
     void updateScrollOffset(const std::string& id, double offset) override;
-    std::vector<std::string> hitTest(double x, double y) override;
+    std::vector<NativeHitResult> hitTest(double x, double y) override;
     void clear() override;
 
     // Layout Subsystem

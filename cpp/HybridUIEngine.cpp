@@ -22,7 +22,7 @@ namespace margelo::nitro::skiakit {
     _hitTestSubsystem.updateScrollOffset(id, offset);
   }
 
-  std::vector<std::string> HybridUIEngine::hitTest(double x, double y) {
+  std::vector<NativeHitResult> HybridUIEngine::hitTest(double x, double y) {
     return _hitTestSubsystem.hitTest(x, y);
   }
 

@@ -97,7 +97,7 @@ namespace margelo::nitro::skiakit {
     }
   }
 
-  std::vector<std::string> HitTestSubsystem::hitTest(double x, double y) {
+  std::vector<NativeHitResult> HitTestSubsystem::hitTest(double x, double y) {
     double adjustedX = x;
     double adjustedY = y;
     
@@ -131,9 +131,9 @@ namespace margelo::nitro::skiakit {
       return a.zIndex > b.zIndex;
     });
 
-    std::vector<std::string> result;
+    std::vector<NativeHitResult> result;
     for (const auto& node : hits) {
-      result.push_back(node.id);
+      result.push_back({node.id, adjustedX - node.x, adjustedY - node.y});
       // behavior 1 = opaque, stops propagation
       if (node.behavior == 1.0) {
         break;

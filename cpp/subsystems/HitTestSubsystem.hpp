@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include "NativeHitResult.hpp"
 #include "../core/Node.hpp"
 #include "../strategies/QuadTree.hpp"
 
@@ -19,7 +20,7 @@ namespace margelo::nitro::skiakit {
 
     void registerScrollArea(const std::string& id, double x, double y, double w, double h, bool horizontal);
     void updateScrollOffset(const std::string& id, double offset);
-    std::vector<std::string> hitTest(double x, double y);
+    std::vector<NativeHitResult> hitTest(double x, double y);
     void clear();
 
   private:

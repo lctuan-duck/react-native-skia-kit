@@ -7,6 +7,12 @@ export interface NativeLayoutRect {
   height: number;
 }
 
+export interface NativeHitResult {
+  id: string;
+  localX: number;
+  localY: number;
+}
+
 /**
  * Yoga style object truyền từ JS → C++.
  * Mỗi field là optional — C++ chỉ set property nào có giá trị (has_value).
@@ -93,7 +99,7 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
     horizontal: boolean
   ): void;
   updateScrollOffset(id: string, offset: number): void;
-  hitTest(x: number, y: number): string[];
+  hitTest(x: number, y: number): NativeHitResult[];
   clear(): void;
 
   // ================= YOGA LAYOUT ================= //

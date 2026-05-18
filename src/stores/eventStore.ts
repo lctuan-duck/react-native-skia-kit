@@ -56,8 +56,6 @@ interface EventStoreState {
   unregisterScrollArea: (widgetId: string) => void;
   updateScrollOffset: (widgetId: string, offset: number) => void;
 
-  // Hit test: find all widgets at (x, y) for a given canvas
-  hitTest: (canvasId: string, x: number, y: number) => HitResult[];
 }
 
 export interface HitResult {
@@ -67,7 +65,7 @@ export interface HitResult {
 }
 
 export const useEventStore = create<EventStoreState>()(
-  immer((set, get) => ({
+  immer((set) => ({
     hitMaps: new Map<string, Map<string, HitEntry>>(),
     scrollAreas: new Map<string, ScrollArea>(),
 
@@ -144,63 +142,6 @@ export const useEventStore = create<EventStoreState>()(
       uiEngine.updateScrollOffset(widgetId, offset);
     },
 
-    hitTest: (canvasId, x, y) => {
-      const state = get();
-      // ... existing JS hitTest logic for fallback ...
-      const hitMap = state.hitMaps.get(canvasId);
-      if (!hitMap) return [];
-
-      // Calculate scroll-adjusted coordinates
-      // If (x,y) falls inside a scroll area, shift coordinates by scroll offset
-      let adjustedX = x;
-      let adjustedY = y;
-      for (const [, scrollArea] of state.scrollAreas) {
-        const { rect, offset, horizontal } = scrollArea;
-        if (
-          x >= rect.left &&
-          x <= rect.left + rect.width &&
-          y >= rect.top &&
-          y <= rect.top + rect.height
-        ) {
-          if (horizontal) {
-            adjustedX += offset;
-          } else {
-            adjustedY += offset;
-          }
-        }
-      }
-
-      const hitWidgets: HitResult[] = [];
-      for (const [, entry] of hitMap) {
-        const { left, top, width, height } = entry.rect;
-        if (
-          adjustedX >= left &&
-          adjustedX <= left + width &&
-          adjustedY >= top &&
-          adjustedY <= top + height
-        ) {
-          hitWidgets.push({
-            entry,
-            localX: adjustedX - left,
-            localY: adjustedY - top,
-          });
-        }
-      }
-
-      // Sort by zIndex descending (topmost first)
-      hitWidgets.sort((a, b) => b.entry.zIndex - a.entry.zIndex);
-
-      // Apply HitTestBehavior
-      const eventReceivers: HitResult[] = [];
-      for (const result of hitWidgets) {
-        eventReceivers.push(result);
-        if (result.entry.hitTestBehavior === 'opaque') {
-          break;
-        }
-      }
-
-      return eventReceivers;
-    },
   }))
 );
 
