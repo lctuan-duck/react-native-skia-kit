@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useEffect, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { Group } from '@shopify/react-native-skia';
 import { useWindowDimensions } from 'react-native';
 import {
@@ -7,12 +7,14 @@ import {
   useDerivedValue,
   withTiming,
   Easing,
+  runOnJS,
 } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import { useNavStore } from '../stores/navStore';
 import { useWidget } from '../hooks/useWidget';
 import type { WidgetProps } from '../types/widget.types';
 
-export type TransitionType = 'slide' | 'fade' | 'none';
+export type TransitionType = 'slide' | 'fade' | 'none' | 'custom';
 
 export interface ScreenProps {
   name: string;
@@ -31,20 +33,17 @@ export interface NavProps extends WidgetProps {
   transition?: TransitionType;
   /** Transition duration in ms (default: 300) */
   transitionDuration?: number;
+  /** Custom transition renderer (used when transition = 'custom') */
+  customTransition?: (props: {
+    currentScreen: React.ReactNode;
+    prevScreen: React.ReactNode;
+    progress: SharedValue<number>;
+    width: number;
+    height: number;
+  }) => React.ReactNode;
   onNavigate?: (screenName: string) => void;
 }
 
-/**
- * Nav — navigation container with transition animations.
- * Auto-registers child Screens by name and renders current screen.
- *
- * Tương đương Flutter Navigator / Router.
- *
- * Supports:
- * - 'slide': Slide-in from right (push), slide-out to right (pop)
- * - 'fade': Cross-fade between screens
- * - 'none': Instant switch
- */
 export const Nav = React.memo(function Nav({
   width: propWidth,
   height: propHeight,
@@ -52,6 +51,7 @@ export const Nav = React.memo(function Nav({
   initial,
   transition = 'slide',
   transitionDuration = 300,
+  customTransition,
   onNavigate: _onNavigate,
 }: NavProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
@@ -65,62 +65,115 @@ export const Nav = React.memo(function Nav({
     layout: { x: 0, y: 0, width: navWidth, height: navHeight },
   });
 
-  const currentScreenName = getCurrentScreenName('main') ?? initial;
-  const prevScreenNameRef = useRef<string>(currentScreenName);
+  const storeScreenName = getCurrentScreenName('main') ?? initial;
+
+  const [navState, setNavState] = useState<{
+    currentScreen: string;
+    prevScreen: string | null;
+  }>({
+    currentScreen: initial,
+    prevScreen: null,
+  });
 
   // --- Transition animation values ---
-  const slideProgress = useSharedValue(0);
-  const fadeOpacity = useSharedValue(1);
+  // progress goes from 0 to 1
+  const progress = useSharedValue(1);
 
-  // Track previous screen for outgoing animation
+  const clearPrevScreen = useCallback(() => {
+    setNavState((s) => ({ ...s, prevScreen: null }));
+  }, []);
 
   useEffect(() => {
     setCurrentScreen(initial);
   }, [initial, setCurrentScreen]);
 
-  // When screen changes → trigger transition
+  // When store's active screen changes → trigger transition
   useEffect(() => {
-    if (prevScreenNameRef.current !== currentScreenName) {
-      if (transition === 'slide') {
-        slideProgress.value = navWidth; // start off-screen
-        slideProgress.value = withTiming(0, {
-          duration: transitionDuration,
-          easing: Easing.out(Easing.cubic),
-        });
-      } else if (transition === 'fade') {
-        fadeOpacity.value = 0;
-        fadeOpacity.value = withTiming(1, {
-          duration: transitionDuration,
-          easing: Easing.inOut(Easing.ease),
-        });
-      }
-      prevScreenNameRef.current = currentScreenName;
-    }
-  }, [currentScreenName, transition, transitionDuration, navWidth]);
+    if (navState.currentScreen !== storeScreenName) {
+      setNavState({
+        prevScreen: navState.currentScreen,
+        currentScreen: storeScreenName,
+      });
 
-  // Derived transforms for Skia Group
-  const slideTransform = useDerivedValue(() => [
-    { translateX: slideProgress.value },
+      if (transition !== 'none') {
+        progress.value = 0;
+        progress.value = withTiming(
+          1,
+          {
+            duration: transitionDuration,
+            easing: Easing.out(Easing.cubic),
+          },
+          (finished) => {
+            if (finished) {
+              runOnJS(clearPrevScreen)();
+            }
+          }
+        );
+      } else {
+        progress.value = 1;
+        clearPrevScreen();
+      }
+    }
+  }, [
+    storeScreenName,
+    navState.currentScreen,
+    transition,
+    transitionDuration,
+    clearPrevScreen,
+    progress,
   ]);
 
-  const fadeTransform = useDerivedValue(() => fadeOpacity.value);
+  // Extract screens from children
+  let currentScreenNode: React.ReactNode = null;
+  let prevScreenNode: React.ReactNode = null;
 
-  // Find the screen component for current name
-  let currentScreen: React.ReactNode = null;
   React.Children.forEach(children, (child) => {
-    if (
-      React.isValidElement(child) &&
-      (child.props as ScreenProps).name === currentScreenName
-    ) {
-      currentScreen = child;
+    if (React.isValidElement(child)) {
+      const name = (child.props as ScreenProps).name;
+      if (name === navState.currentScreen) currentScreenNode = child;
+      if (name === navState.prevScreen) prevScreenNode = child;
     }
   });
 
-  // Render based on transition type — wrapped in clip to prevent overflow
+  // --- Derived Animation Transforms ---
+
+  // Slide: new screen slides in from right (100% to 0)
+  const currentSlideTransform = useDerivedValue(() => [
+    { translateX: (1 - progress.value) * navWidth },
+  ]);
+  // Slide: old screen slides out to left (0 to -30%)
+  const prevSlideTransform = useDerivedValue(() => [
+    { translateX: progress.value * -navWidth * 0.3 },
+  ]);
+
+  // Fade: new screen opacity (0 to 1)
+  const currentFadeOpacity = useDerivedValue(() => progress.value);
+  // Fade: old screen opacity (1 to 0)
+  const prevFadeOpacity = useDerivedValue(() => 1 - progress.value);
+
+  // --- Render logic ---
+
+  if (transition === 'custom' && customTransition) {
+    return (
+      <Group clip={{ x: 0, y: 0, width: navWidth, height: navHeight }}>
+        {customTransition({
+          currentScreen: currentScreenNode,
+          prevScreen: prevScreenNode,
+          progress,
+          width: navWidth,
+          height: navHeight,
+        })}
+      </Group>
+    );
+  }
+
   if (transition === 'slide') {
     return (
       <Group clip={{ x: 0, y: 0, width: navWidth, height: navHeight }}>
-        <Group transform={slideTransform}>{currentScreen}</Group>
+        {prevScreenNode && (
+          <Group transform={prevSlideTransform}>{prevScreenNode}</Group>
+        )}
+        <Group transform={currentSlideTransform}>{currentScreenNode}</Group>
       </Group>
     );
   }
@@ -128,19 +181,18 @@ export const Nav = React.memo(function Nav({
   if (transition === 'fade') {
     return (
       <Group clip={{ x: 0, y: 0, width: navWidth, height: navHeight }}>
-        <Group opacity={fadeTransform}>{currentScreen}</Group>
+        {prevScreenNode && (
+          <Group opacity={prevFadeOpacity}>{prevScreenNode}</Group>
+        )}
+        <Group opacity={currentFadeOpacity}>{currentScreenNode}</Group>
       </Group>
     );
   }
 
   // No transition
-  return <Group>{currentScreen}</Group>;
+  return <Group>{currentScreenNode}</Group>;
 });
 
-/**
- * Screen — wrapper for a named screen within Nav.
- * Just renders children; name is consumed by Nav.
- */
 export const Screen = React.memo(function Screen({ children }: ScreenProps) {
   return <Group>{children}</Group>;
 });
