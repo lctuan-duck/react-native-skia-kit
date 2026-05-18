@@ -6,7 +6,8 @@ import { Icon } from './Icon';
 import { Column } from './Column';
 import { Expanded } from './Expanded';
 import { Overlay } from './Overlay';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
+import { useLayoutStore } from '../stores/layoutStore';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -68,11 +69,15 @@ export const DropdownButton = React.memo(function DropdownButton<
   const [isOpen, setIsOpen] = useState(false);
   const selectedItem = items.find((i) => i.value === value);
 
-  useWidget({ type: 'DropdownButton', layout: { x, y, width, height } });
+  const widgetId = useWidgetId('DropdownButton');
+  const layout = useLayoutStore((s) => s.layoutMap.get(widgetId));
+  const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 200);
+  const finalHeight = layout?.rect.height ?? (typeof height === 'number' ? height : 48);
 
   return (
     <>
       <Box
+        id={widgetId}
         x={x}
         y={y}
         style={{
@@ -119,9 +124,9 @@ export const DropdownButton = React.memo(function DropdownButton<
           />
           <Box
             x={x}
-            y={y + height + 4}
+            y={y + finalHeight + 4}
             style={{
-              width,
+              width: finalWidth,
               height: Math.min(items.length * 44, dropdownMaxHeight),
               backgroundColor: theme.colors.surface,
               borderRadius,
@@ -135,7 +140,7 @@ export const DropdownButton = React.memo(function DropdownButton<
                 <Box
                   key={String(item.value)}
                   style={{
-                    width,
+                    width: finalWidth,
                     height: 44,
                     backgroundColor:
                       item.value === value

@@ -4,7 +4,8 @@ import { Text } from './Text';
 import { Icon } from './Icon';
 import { Row } from './Row';
 import { Expanded } from './Expanded';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
+import { useLayoutStore } from '../stores/layoutStore';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -62,13 +63,15 @@ export const TabBar = React.memo(function TabBar({
   const borderRadius = style?.borderRadius ?? 24;
   const width = style?.width ?? 360;
   const height = style?.height ?? 48;
-  const tabWidth = width / items.length;
-
-  useWidget({ type: 'TabBar', layout: { x, y, width, height } });
+  const widgetId = useWidgetId('TabBar');
+  const layout = useLayoutStore((s) => s.layoutMap.get(widgetId));
+  const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 360);
+  const tabWidth = finalWidth / items.length;
 
   if (variant === 'segment') {
     return (
       <Box
+        id={widgetId}
         x={x}
         y={y}
         style={{
@@ -125,6 +128,7 @@ export const TabBar = React.memo(function TabBar({
 
   return (
     <Box
+      id={widgetId}
       x={x}
       y={y}
       style={{
