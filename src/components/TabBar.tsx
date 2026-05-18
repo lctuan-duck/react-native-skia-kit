@@ -184,3 +184,5 @@ export const TabBar = React.memo(function TabBar({
     </Box>
   );
 });
+
+(TabBar as any).skiaWidgetType = 'TabBar';

@@ -107,3 +107,5 @@ export const SearchBar = React.memo(function SearchBar({
     </Box>
   );
 });
+
+(SearchBar as any).skiaWidgetType = 'SearchBar';

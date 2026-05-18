@@ -105,3 +105,5 @@ export const AppBar = React.memo(function AppBar({
     </Box>
   );
 });
+
+(AppBar as any).skiaWidgetType = 'AppBar';

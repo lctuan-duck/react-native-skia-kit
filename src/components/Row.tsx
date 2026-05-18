@@ -6,7 +6,6 @@ import type {
   SpacingStyle,
   ColorStyle,
   BorderStyle,
-  FlexChildStyle,
   FlexContainerStyle,
 } from '../types/style.types';
 
@@ -16,8 +15,7 @@ export type FlexContainerComponentStyle = LayoutStyle &
   SpacingStyle &
   ColorStyle &
   BorderStyle &
-  FlexChildStyle &
-  Pick<FlexContainerStyle, 'gap' | 'rowGap'>;
+  FlexContainerStyle;
 
 export interface RowProps extends WidgetProps {
   /** Consolidated style prop */
@@ -64,3 +62,5 @@ export const Row = React.memo(function Row({
     </Box>
   );
 });
+
+(Row as any).skiaWidgetType = 'Row';

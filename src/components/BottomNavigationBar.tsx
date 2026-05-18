@@ -10,6 +10,8 @@ import type {
   ColorStyle,
   ShadowStyle,
   FlexChildStyle,
+  LayoutStyle,
+  BorderStyle,
 } from '../types/style.types';
 
 // === BottomNavigationBar Types ===
@@ -22,11 +24,11 @@ export interface BottomNavItem {
 
 export type BottomNavigationBarStyle = ColorStyle &
   ShadowStyle &
-  FlexChildStyle & {
+  FlexChildStyle &
+  LayoutStyle &
+  BorderStyle & {
     activeColor?: string;
     inactiveColor?: string;
-    width?: number;
-    height?: number;
   };
 
 export interface BottomNavigationBarProps extends WidgetProps {
@@ -106,3 +108,5 @@ export const BottomNavigationBar = React.memo(function BottomNavigationBar({
     </Box>
   );
 });
+
+(BottomNavigationBar as any).skiaWidgetType = 'BottomNavigationBar';

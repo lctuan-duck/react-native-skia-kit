@@ -217,3 +217,7 @@ const HeroAnimatedRect = React.memo(function HeroAnimatedRect({
     </Group>
   );
 });
+
+(Hero as any).skiaWidgetType = 'Hero';
+
+(HeroOverlay as any).skiaWidgetType = 'HeroOverlay';

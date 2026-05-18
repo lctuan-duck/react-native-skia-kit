@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useCallback } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 import { Canvas, Group } from '@shopify/react-native-skia';
 import { useWindowDimensions } from 'react-native';
 import type { ViewStyle } from 'react-native';
@@ -9,6 +9,14 @@ import {
 } from 'react-native-gesture-handler';
 import { useOverlayStore } from '../stores/overlayStore';
 import { useEventStore } from '../stores/eventStore';
+import { useLayoutStore } from '../stores/layoutStore';
+import { runOnJS } from 'react-native-reanimated';
+import {
+  uiEngine,
+  globalActiveWidgetId,
+  globalPanEvent,
+  globalPanState,
+} from './GlobalEngine';
 
 interface CanvasRootProps {
   /** Style cho Canvas container */
@@ -50,6 +58,55 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   // Sort overlays by zIndex (lower zIndex drawn first, higher drawn on top)
   const sortedOverlays = [...overlays].sort((a, b) => a.zIndex - b.zIndex);
 
+  // === YOGA LAYOUT ===
+
+  useLayoutEffect(() => {
+    // 1. Register Canvas Root node
+    uiEngine.updateLayoutNode(
+      canvasId,
+      'column',
+      'flex-start',
+      'stretch',
+      'nowrap',
+      screenWidth > 0 ? screenWidth : -1,
+      screenHeight > 0 ? screenHeight : -1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    );
+
+    // Parse children IDs
+    const childIds: string[] = [];
+    React.Children.forEach(children, (child) => {
+      if (
+        React.isValidElement(child) &&
+        child.props &&
+        typeof child.props === 'object' &&
+        'id' in child.props
+      ) {
+        childIds.push((child.props as any).id);
+      }
+    });
+    uiEngine.setChildren(canvasId, childIds);
+
+    // 2. Trigger Yoga calculation
+    uiEngine.calculateLayout(canvasId, screenWidth, screenHeight);
+
+    // 3. Fetch all computed layouts and update JS store for rendering
+    const allLayouts = uiEngine.getAllLayouts();
+    const layoutEntries: Record<
+      string,
+      { rect: { x: number; y: number; width: number; height: number } }
+    > = {};
+    for (const [id, rect] of Object.entries(allLayouts)) {
+      layoutEntries[id] = { rect };
+    }
+    useLayoutStore.getState().setLayouts(layoutEntries);
+  });
+
   // === Touch Event Dispatch ===
   // All gesture callbacks run on JS thread via .runOnJS(true)
   // because they access zustand stores which are JS-thread only
@@ -89,59 +146,59 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       dispatchLongPress(e.absoluteX, e.absoluteY);
     });
 
+  const dispatchJSPan = (type: 'start' | 'update' | 'end', e: any) => {
+    // Fallback JS dispatcher if needed
+    const receivers = useEventStore
+      .getState()
+      .hitTest(canvasId, e.absoluteX, e.absoluteY);
+    for (const receiver of receivers) {
+      if (type === 'start')
+        receiver.entry.callbacks.onPanStart?.({
+          ...e,
+          localX: receiver.localX,
+          localY: receiver.localY,
+        });
+      else if (type === 'update')
+        receiver.entry.callbacks.onPanUpdate?.({
+          ...e,
+          localX: receiver.localX,
+          localY: receiver.localY,
+        });
+      else if (type === 'end')
+        receiver.entry.callbacks.onPanEnd?.({
+          ...e,
+          localX: receiver.localX,
+          localY: receiver.localY,
+        });
+    }
+  };
+
   // Pan gesture → onPanStart/onPanUpdate/onPanEnd
   const panGesture = Gesture.Pan()
-    .runOnJS(true)
     .onStart((e) => {
-      const receivers = useEventStore
-        .getState()
-        .hitTest(canvasId, e.absoluteX, e.absoluteY);
-      for (const receiver of receivers) {
-        receiver.entry.callbacks.onPanStart?.({
-          translationX: e.translationX,
-          translationY: e.translationY,
-          velocityX: e.velocityX,
-          velocityY: e.velocityY,
-          absoluteX: e.absoluteX,
-          absoluteY: e.absoluteY,
-          localX: receiver.localX,
-          localY: receiver.localY,
-        });
+      'worklet';
+      const hits = uiEngine.hitTest(e.absoluteX, e.absoluteY);
+      if (hits && hits.length > 0) {
+        globalActiveWidgetId.value = hits[0] || null;
+      } else {
+        globalActiveWidgetId.value = null;
       }
+      globalPanEvent.value = e as any;
+      globalPanState.value = 'start';
+      runOnJS(dispatchJSPan)('start', e);
     })
     .onUpdate((e) => {
-      const receivers = useEventStore
-        .getState()
-        .hitTest(canvasId, e.absoluteX, e.absoluteY);
-      for (const receiver of receivers) {
-        receiver.entry.callbacks.onPanUpdate?.({
-          translationX: e.translationX,
-          translationY: e.translationY,
-          velocityX: e.velocityX,
-          velocityY: e.velocityY,
-          absoluteX: e.absoluteX,
-          absoluteY: e.absoluteY,
-          localX: receiver.localX,
-          localY: receiver.localY,
-        });
-      }
+      'worklet';
+      globalPanEvent.value = e as any;
+      globalPanState.value = 'update';
+      runOnJS(dispatchJSPan)('update', e);
     })
     .onEnd((e) => {
-      const receivers = useEventStore
-        .getState()
-        .hitTest(canvasId, e.absoluteX, e.absoluteY);
-      for (const receiver of receivers) {
-        receiver.entry.callbacks.onPanEnd?.({
-          translationX: e.translationX,
-          translationY: e.translationY,
-          velocityX: e.velocityX,
-          velocityY: e.velocityY,
-          absoluteX: e.absoluteX,
-          absoluteY: e.absoluteY,
-          localX: receiver.localX,
-          localY: receiver.localY,
-        });
-      }
+      'worklet';
+      globalPanEvent.value = e as any;
+      globalPanState.value = 'end';
+      globalActiveWidgetId.value = null;
+      runOnJS(dispatchJSPan)('end', e);
     });
 
   // Combine gestures: tap and long press are exclusive, pan is simultaneous

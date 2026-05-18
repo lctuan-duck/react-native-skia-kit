@@ -184,3 +184,5 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
 }) as <T extends string>(
   props: PopupMenuButtonProps<T> & { ref?: React.Ref<any> }
 ) => React.ReactElement | null;
+
+(PopupMenuButton as any).skiaWidgetType = 'PopupMenuButton';

@@ -107,3 +107,5 @@ export const Checkbox = React.memo(function Checkbox({
     </Box>
   );
 });
+
+(Checkbox as any).skiaWidgetType = 'Checkbox';

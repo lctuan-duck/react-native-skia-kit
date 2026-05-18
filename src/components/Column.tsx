@@ -6,7 +6,6 @@ import type {
   SpacingStyle,
   ColorStyle,
   BorderStyle,
-  FlexChildStyle,
   FlexContainerStyle,
 } from '../types/style.types';
 
@@ -16,8 +15,7 @@ export type FlexContainerComponentStyle = LayoutStyle &
   SpacingStyle &
   ColorStyle &
   BorderStyle &
-  FlexChildStyle &
-  Pick<FlexContainerStyle, 'gap' | 'rowGap'>;
+  FlexContainerStyle;
 
 export interface ColumnProps extends WidgetProps {
   /** Consolidated style prop */
@@ -65,3 +63,5 @@ export const Column = React.memo(function Column({
     </Box>
   );
 });
+
+(Column as any).skiaWidgetType = 'Column';

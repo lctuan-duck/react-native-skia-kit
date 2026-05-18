@@ -116,3 +116,5 @@ export const Badge = React.memo(function Badge({
     </Box>
   );
 });
+
+(Badge as any).skiaWidgetType = 'Badge';

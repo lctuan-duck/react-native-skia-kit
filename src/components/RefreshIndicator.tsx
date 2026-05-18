@@ -74,7 +74,7 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
           variant="circular"
           x={spinnerX}
           y={y + displacement}
-          colors={[color]}
+          color={color}
           style={{ size: 28 }}
         />
       )}
@@ -82,3 +82,5 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
     </Group>
   );
 });
+
+(RefreshIndicator as any).skiaWidgetType = 'RefreshIndicator';

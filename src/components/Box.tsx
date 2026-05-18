@@ -1,7 +1,12 @@
 import * as React from 'react';
 import { useState, useCallback } from 'react';
 import { Group, RoundedRect, Rect, Shadow } from '@shopify/react-native-skia';
-import { useSharedValue, withSpring, withTiming, useDerivedValue } from 'react-native-reanimated';
+import {
+  useSharedValue,
+  withSpring,
+  withTiming,
+  useDerivedValue,
+} from 'react-native-reanimated';
 import type {
   WidgetProps,
   HitTestBehavior,
@@ -19,8 +24,7 @@ import type {
 import { useTheme } from '../hooks/useTheme';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
-import { useYogaLayout } from '../hooks/useYogaLayout';
-import type { YogaFlexProps } from '../hooks/useYogaLayout';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import { RippleEffect } from './RippleEffect';
 import { contrastColor, withOpacity } from '../core/colorUtils';
 
@@ -148,7 +152,9 @@ export const Box = React.memo(function Box({
   });
 
   // Interactive Animations (Hooks must be unconditional)
-  const [ripples, setRipples] = useState<{ id: string; x: number; y: number }[]>([]);
+  const [ripples, setRipples] = useState<
+    { id: string; x: number; y: number }[]
+  >([]);
   const tapScale = useSharedValue(1);
   const pressOpacity = useSharedValue(1);
 
@@ -168,31 +174,66 @@ export const Box = React.memo(function Box({
     }
   }, [interactive, tapScale, pressOpacity]);
 
-  const handlePanStart = useCallback((e: PanEvent) => {
-    if (interactive === 'bounce') {
-      tapScale.value = withSpring(0.95, { stiffness: 400, damping: 20 });
-    } else if (interactive === 'opacity') {
-      pressOpacity.value = withTiming(0.6, { duration: 100 });
-    } else if (interactive === 'ripple') {
-      const newRipple = { id: Date.now().toString() + Math.random(), x: e.localX, y: e.localY };
-      setRipples((prev) => [...prev, newRipple]);
-    }
-    onPanStart?.(e);
-  }, [interactive, tapScale, pressOpacity, onPanStart]);
+  const handlePanStart = useCallback(
+    (e: PanEvent) => {
+      if (interactive === 'bounce') {
+        tapScale.value = withSpring(0.95, { stiffness: 400, damping: 20 });
+      } else if (interactive === 'opacity') {
+        pressOpacity.value = withTiming(0.6, { duration: 100 });
+      } else if (interactive === 'ripple') {
+        const newRipple = {
+          id: Date.now().toString() + Math.random(),
+          x: e.localX,
+          y: e.localY,
+        };
+        setRipples((prev) => [...prev, newRipple]);
+      }
+      onPanStart?.(e);
+    },
+    [interactive, tapScale, pressOpacity, onPanStart]
+  );
 
-  const handlePanEnd = useCallback((e: PanEvent) => {
-    restoreInteraction();
-    onPanEnd?.(e);
-  }, [restoreInteraction, onPanEnd]);
+  const handlePanEnd = useCallback(
+    (e: PanEvent) => {
+      restoreInteraction();
+      onPanEnd?.(e);
+    },
+    [restoreInteraction, onPanEnd]
+  );
 
-  const handlePress = useCallback((localX?: number, localY?: number) => {
-    restoreInteraction();
-    onPress?.(localX, localY);
-  }, [restoreInteraction, onPress]);
+  const handlePress = useCallback(
+    (localX?: number, localY?: number) => {
+      restoreInteraction();
+      onPress?.(localX, localY);
+    },
+    [restoreInteraction, onPress]
+  );
+
+  const layoutResult = useNativeYogaLayout(
+    widgetId,
+    {
+      ...style,
+      flexDirection,
+      flexWrap,
+      justifyContent,
+      alignItems,
+      gap,
+      rowGap,
+      padding,
+      width: w,
+      height: h,
+    },
+    children
+  );
+
+  const finalX = layoutResult?.x ?? x;
+  const finalY = layoutResult?.y ?? y;
+  const finalW = layoutResult?.width || w;
+  const finalH = layoutResult?.height || h;
 
   // Register hit test for events
   useHitTest(widgetId, {
-    rect: { left: x, top: y, width: w, height: h },
+    rect: { left: finalX, top: finalY, width: finalW, height: finalH },
     callbacks: {
       onPress: handlePress,
       onLongPress,
@@ -204,36 +245,9 @@ export const Box = React.memo(function Box({
     zIndex,
   });
 
-  // Always call useYogaLayout (hooks must not be conditional).
-  // When no flex props, it returns children unmodified.
-  const flexProps: YogaFlexProps = {
-    flexDirection,
-    flexWrap,
-    justifyContent,
-    alignItems,
-    gap,
-    rowGap,
-    padding,
-  };
-
-  const hasFlex = !!(
-    flexDirection ||
-    justifyContent ||
-    alignItems ||
-    gap != null
-  );
-  const result = useYogaLayout(
-    widgetId,
-    { x, y, width: w, height: h },
-    hasFlex ? flexProps : {},
-    hasFlex ? children : null
-  );
-
-  const renderedChildren = hasFlex ? result.renderedChildren : children;
-
   // Fire onLayout callback
   if (onLayout) {
-    onLayout({ x, y, width: w, height: h });
+    onLayout({ x: finalX, y: finalY, width: finalW, height: finalH });
   }
 
   const showBackground = bgColor !== 'transparent';
@@ -242,16 +256,28 @@ export const Box = React.memo(function Box({
   // Clip rect for overflow:'hidden'
   const clipRect = shouldClip
     ? borderRadius > 0
-      ? { x, y, width: w, height: h, rx: borderRadius, ry: borderRadius }
-      : { x, y, width: w, height: h }
+      ? {
+          x: finalX,
+          y: finalY,
+          width: finalW,
+          height: finalH,
+          rx: borderRadius,
+          ry: borderRadius,
+        }
+      : { x: finalX, y: finalY, width: finalW, height: finalH }
     : undefined;
 
-  const calculatedRippleColor = rippleColor ?? withOpacity(contrastColor(bgColor !== 'transparent' ? bgColor : theme.colors.surface), 0.15);
+  const calculatedRippleColor =
+    rippleColor ??
+    withOpacity(
+      contrastColor(bgColor !== 'transparent' ? bgColor : theme.colors.surface),
+      0.15
+    );
 
   return (
-    <Group 
-      opacity={groupOpacity} 
-      origin={{ x: x + w / 2, y: y + h / 2 }}
+    <Group
+      opacity={groupOpacity}
+      origin={{ x: finalX + finalW / 2, y: finalY + finalH / 2 }}
       transform={groupTransform}
       clip={clipRect}
     >
@@ -260,10 +286,10 @@ export const Box = React.memo(function Box({
         <Group>
           {borderRadius > 0 ? (
             <RoundedRect
-              x={x}
-              y={y}
-              width={w}
-              height={h}
+              x={finalX}
+              y={finalY}
+              width={finalW}
+              height={finalH}
               r={borderRadius}
               color={showBackground ? bgColor : theme.colors.surface}
             >
@@ -276,10 +302,10 @@ export const Box = React.memo(function Box({
             </RoundedRect>
           ) : (
             <Rect
-              x={x}
-              y={y}
-              width={w}
-              height={h}
+              x={finalX}
+              y={finalY}
+              width={finalW}
+              height={finalH}
               color={showBackground ? bgColor : theme.colors.surface}
             >
               <Shadow
@@ -298,29 +324,46 @@ export const Box = React.memo(function Box({
         showBackground &&
         (borderRadius > 0 ? (
           <RoundedRect
-            x={x}
-            y={y}
-            width={w}
-            height={h}
+            x={finalX}
+            y={finalY}
+            width={finalW}
+            height={finalH}
             r={borderRadius}
             color={bgColor}
           />
         ) : (
-          <Rect x={x} y={y} width={w} height={h} color={bgColor} />
+          <Rect
+            x={finalX}
+            y={finalY}
+            width={finalW}
+            height={finalH}
+            color={bgColor}
+          />
         ))}
 
       {/* Ripple Animation Layer - Clipped strictly to bounds */}
       {interactive === 'ripple' && ripples.length > 0 && (
-        <Group clip={{ x, y, width: w, height: h, rx: borderRadius, ry: borderRadius }}>
+        <Group
+          clip={{
+            x: finalX,
+            y: finalY,
+            width: finalW,
+            height: finalH,
+            rx: borderRadius,
+            ry: borderRadius,
+          }}
+        >
           {ripples.map((r) => (
             <RippleEffect
               key={r.id}
-              x={x + r.x}
-              y={y + r.y}
-              boundsWidth={w}
-              boundsHeight={h}
+              x={finalX + r.x}
+              y={finalY + r.y}
+              boundsWidth={finalW}
+              boundsHeight={finalH}
               color={calculatedRippleColor}
-              onComplete={() => setRipples((prev) => prev.filter((p) => p.id !== r.id))}
+              onComplete={() =>
+                setRipples((prev) => prev.filter((p) => p.id !== r.id))
+              }
             />
           ))}
         </Group>
@@ -331,10 +374,10 @@ export const Box = React.memo(function Box({
         <>
           {borderRadius > 0 ? (
             <RoundedRect
-              x={x}
-              y={y}
-              width={w}
-              height={h}
+              x={finalX}
+              y={finalY}
+              width={finalW}
+              height={finalH}
               r={borderRadius}
               color={borderColor}
               style="stroke"
@@ -342,10 +385,10 @@ export const Box = React.memo(function Box({
             />
           ) : (
             <Rect
-              x={x}
-              y={y}
-              width={w}
-              height={h}
+              x={finalX}
+              y={finalY}
+              width={finalW}
+              height={finalH}
               color={borderColor}
               style="stroke"
               strokeWidth={borderWidth}
@@ -355,7 +398,9 @@ export const Box = React.memo(function Box({
       )}
 
       {/* Children */}
-      {renderedChildren}
+      {children}
     </Group>
   );
 });
+
+(Box as any).skiaWidgetType = 'Box';

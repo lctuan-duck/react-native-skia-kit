@@ -117,3 +117,5 @@ export const ExpansionTile = React.memo(function ExpansionTile({
     </Column>
   );
 });
+
+(ExpansionTile as any).skiaWidgetType = 'ExpansionTile';

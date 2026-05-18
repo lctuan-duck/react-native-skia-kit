@@ -3,6 +3,8 @@
  * Flex child / layout props đã chuyển sang style.types.ts (FlexChildStyle, LayoutStyle).
  */
 export interface WidgetProps {
+  /** Optional manual ID for the widget */
+  id?: string;
   /** Top-left X position (injected by parent flex layout) */
   x?: number;
   /** Top-left Y position (injected by parent flex layout) */

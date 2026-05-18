@@ -59,3 +59,5 @@ export const Wrap = React.memo(function Wrap({
     </Box>
   );
 });
+
+(Wrap as any).skiaWidgetType = 'Wrap';

@@ -102,3 +102,7 @@ export const Align = React.memo(function Align({
     </Box>
   );
 });
+
+(Center as any).skiaWidgetType = 'Center';
+
+(Align as any).skiaWidgetType = 'Align';

@@ -123,3 +123,5 @@ export const ListTile = React.memo(function ListTile({
     </Box>
   );
 });
+
+(ListTile as any).skiaWidgetType = 'ListTile';

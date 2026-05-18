@@ -35,3 +35,5 @@ export const Spacer = React.memo(function Spacer({
 
   return null; // Spacer renders nothing — only takes space in layout
 });
+
+(Spacer as any).skiaWidgetType = 'Spacer';

@@ -209,7 +209,7 @@ export { useTheme } from './hooks/useTheme';
 export { useWidget } from './hooks/useWidget';
 export { useWidgetId } from './hooks/useWidgetId';
 export { useHitTest } from './hooks/useHitTest';
-export { useYogaLayout } from './hooks/useYogaLayout';
+export { useNativeYogaLayout } from './hooks/useNativeYogaLayout';
 export { useNav } from './hooks/useNav';
 export { useAnimation } from './hooks/useAnimation';
 export { useScrollPhysics } from './hooks/useScrollPhysics';
@@ -267,7 +267,7 @@ export type { OverlayEntry } from './stores/overlayStore';
 export type { HeroData } from './stores/heroStore';
 export type { AccessibilityInfo } from './stores/accessibilityStore';
 
-export type { YogaFlexProps, ComputedLayout } from './hooks/useYogaLayout';
+export type { NativeComputedLayout } from './hooks/useNativeYogaLayout';
 export type {
   AnimationConfig,
   AnimationController,

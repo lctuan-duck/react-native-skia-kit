@@ -1,13 +1,25 @@
 import * as React from 'react';
-import { useRef, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Group, Rect } from '@shopify/react-native-skia';
-import { useDerivedValue } from 'react-native-reanimated';
+import {
+  useDerivedValue,
+  useSharedValue,
+  useAnimatedReaction,
+  runOnJS,
+} from 'react-native-reanimated';
+import {
+  globalActiveWidgetId,
+  globalPanEvent,
+  globalPanState,
+  uiEngine,
+} from '../core/GlobalEngine';
 import { Box } from './Box';
 import { Column } from './Column';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
 import { useScrollPhysics } from '../hooks/useScrollPhysics';
 import { useEventStore } from '../stores/eventStore';
+import { useLayoutStore } from '../stores/layoutStore';
 import type { WidgetProps, PanEvent } from '../types/widget.types';
 import type { FlexChildStyle, SpacingStyle } from '../types/style.types';
 
@@ -39,26 +51,29 @@ export const ScrollView = React.memo(function ScrollView({
   horizontal = false,
   physics = 'clamped',
   contentSize,
-  scrollEnabled = true,
 }: ScrollViewProps) {
   const width = style?.width ?? 360;
   const height = style?.height ?? 600;
   const padding = style?.padding ?? 0;
   const gap = style?.gap ?? 0;
 
+  const widgetId = useWidget({
+    type: 'ScrollView',
+    layout: { x, y, width, height },
+  });
+
+  const contentContainerId = `${widgetId}-content`;
+  const contentLayout = useLayoutStore((s) =>
+    s.layoutMap.get(contentContainerId)
+  );
+
   let estimatedContentSize: number;
   if (contentSize != null) {
     estimatedContentSize = contentSize;
   } else {
-    let padExtra = 0;
-    if (Array.isArray(padding)) {
-      padExtra = horizontal ? padding[1] + padding[3] : padding[0] + padding[2];
-    } else {
-      padExtra = padding * 2;
-    }
-    const { estimateIntrinsicSize: estimate } = require('../hooks/useYogaLayout');
-    const autoSize = estimate(children, horizontal, gap, horizontal ? height : width) + padExtra;
-    estimatedContentSize = Math.max(autoSize, horizontal ? width : height);
+    estimatedContentSize = horizontal
+      ? contentLayout?.rect.width ?? width
+      : contentLayout?.rect.height ?? height;
   }
 
   const { scrollOffset, handlePanUpdate, handlePanEnd } = useScrollPhysics(
@@ -68,11 +83,6 @@ export const ScrollView = React.memo(function ScrollView({
       contentSize: estimatedContentSize,
     }
   );
-
-  const widgetId = useWidget({
-    type: 'ScrollView',
-    layout: { x, y, width, height },
-  });
 
   useEffect(() => {
     useEventStore.getState().registerScrollArea(widgetId, {
@@ -85,35 +95,47 @@ export const ScrollView = React.memo(function ScrollView({
     };
   }, [widgetId, x, y, width, height, horizontal]);
 
-  const lastTranslationRef = useRef(0);
+  const lastTranslation = useSharedValue(0);
 
-  const hitCallbacks = React.useMemo(() => ({
-    onPanStart: scrollEnabled
-      ? () => {
-          lastTranslationRef.current = 0;
-        }
-      : undefined,
-    onPanUpdate: scrollEnabled
-      ? (e: PanEvent) => {
+  // Sync scroll offset to C++ engine
+
+  useAnimatedReaction(
+    () => scrollOffset.value,
+    (offset) => {
+      'worklet';
+      uiEngine.updateScrollOffset(widgetId, offset);
+      runOnJS(useEventStore.getState().updateScrollOffset)(widgetId, offset);
+    }
+  );
+
+  // Read global events natively
+  useAnimatedReaction(
+    () => globalPanEvent.value,
+    (e) => {
+      if (
+        globalActiveWidgetId.value === widgetId &&
+        e &&
+        globalPanState.value
+      ) {
+        if (globalPanState.value === 'start') {
+          lastTranslation.value = 0;
+        } else if (globalPanState.value === 'update') {
           const currentTranslation = horizontal
-            ? e?.translationX ?? 0
-            : e?.translationY ?? 0;
-          const delta = currentTranslation - lastTranslationRef.current;
-          lastTranslationRef.current = currentTranslation;
+            ? e.translationX
+            : e.translationY;
+          const delta = currentTranslation - lastTranslation.value;
+          lastTranslation.value = currentTranslation;
           handlePanUpdate(delta);
-          useEventStore
-            .getState()
-            .updateScrollOffset(widgetId, scrollOffset.value);
-        }
-      : undefined,
-    onPanEnd: scrollEnabled
-      ? (e: PanEvent) => {
-          const velocity = horizontal ? e?.velocityX ?? 0 : e?.velocityY ?? 0;
+        } else if (globalPanState.value === 'end') {
+          const velocity = horizontal ? e.velocityX : e.velocityY;
           handlePanEnd(velocity);
-          lastTranslationRef.current = 0;
+          lastTranslation.value = 0;
         }
-      : undefined,
-  }), [scrollEnabled, horizontal, handlePanUpdate, handlePanEnd, widgetId, scrollOffset]);
+      }
+    }
+  );
+
+  const hitCallbacks = React.useMemo(() => ({}), []);
 
   useHitTest(widgetId, {
     rect: { left: x, top: y, width, height },
@@ -137,6 +159,7 @@ export const ScrollView = React.memo(function ScrollView({
       <Group transform={transform}>
         {horizontal ? (
           <Box
+            id={contentContainerId}
             x={x}
             y={y}
             style={{
@@ -150,7 +173,12 @@ export const ScrollView = React.memo(function ScrollView({
             {children}
           </Box>
         ) : (
-          <Column x={x} y={y} style={{ width, padding, gap }}>
+          <Column
+            id={contentContainerId}
+            x={x}
+            y={y}
+            style={{ width, padding, gap }}
+          >
             {children}
           </Column>
         )}
@@ -264,3 +292,9 @@ export const PageView = React.memo(function PageView({
     </Group>
   );
 });
+
+(ScrollView as any).skiaWidgetType = 'ScrollView';
+
+(GridView as any).skiaWidgetType = 'GridView';
+
+(PageView as any).skiaWidgetType = 'PageView';

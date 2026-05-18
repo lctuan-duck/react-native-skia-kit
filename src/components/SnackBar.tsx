@@ -111,3 +111,5 @@ export const SnackBar = React.memo(function SnackBar({
     </Group>
   );
 });
+
+(SnackBar as any).skiaWidgetType = 'SnackBar';

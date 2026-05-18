@@ -211,7 +211,12 @@ export const Button = React.memo(function Button({
       {text && (
         <Text
           text={text}
-          style={{ fontSize: 14, fontWeight: 'bold', color: fgColor, textAlign: 'center' }}
+          style={{
+            fontSize: 14,
+            fontWeight: 'bold',
+            color: fgColor,
+            textAlign: 'center',
+          }}
         />
       )}
     </Box>
@@ -284,3 +289,5 @@ function resolveVariantStyles(
       };
   }
 }
+
+(Button as any).skiaWidgetType = 'Button';

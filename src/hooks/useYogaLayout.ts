@@ -10,12 +10,12 @@ export interface YogaFlexProps {
   flexDirection?: 'row' | 'column';
   flexWrap?: 'nowrap' | 'wrap';
   justifyContent?:
-  | 'start'
-  | 'center'
-  | 'end'
-  | 'spaceBetween'
-  | 'spaceAround'
-  | 'spaceEvenly';
+    | 'start'
+    | 'center'
+    | 'end'
+    | 'spaceBetween'
+    | 'spaceAround'
+    | 'spaceEvenly';
   alignItems?: 'start' | 'center' | 'end' | 'stretch';
   gap?: number;
   rowGap?: number;
@@ -99,7 +99,11 @@ interface ChildInfo {
 // Simulates Flutter's "Sizes Go Up" — children report their natural size.
 
 /** Humble widget: returns its intrinsic (content) size on main axis */
-function getIntrinsicMainSize(child: ChildInfo, isRow: boolean, containerCrossAxis?: number): number | null {
+function getIntrinsicMainSize(
+  child: ChildInfo,
+  isRow: boolean,
+  containerCrossAxis?: number
+): number | null {
   switch (child.componentType) {
     case 'SkiaText': // React.memo name for Text
     case 'Text': {
@@ -122,30 +126,63 @@ function getIntrinsicMainSize(child: ChildInfo, isRow: boolean, containerCrossAx
       if (child.hasIcon && child.textContent) w += 32;
       return w;
     }
-    case 'Input': return isRow ? 150 : 48;
+    case 'Input':
+      return isRow ? 150 : 48;
     case 'Checkbox':
-    case 'Radio': return 24;
-    case 'Switch': return isRow ? 48 : 24;
-    case 'Avatar': return child.iconSize ?? 48;
-    case 'Chip': return isRow ? 64 : 32;
-    case 'Progress': return isRow ? 100 : 16;
-    case 'Slider': return isRow ? 150 : 40;
-    case 'Badge': return 24;
-    case 'Divider': return 1;
+    case 'Radio':
+      return 24;
+    case 'Switch':
+      return isRow ? 48 : 24;
+    case 'Avatar':
+      return child.iconSize ?? 48;
+    case 'Chip':
+      return isRow ? 64 : 32;
+    case 'Progress':
+      return isRow ? 100 : 16;
+    case 'Slider':
+      return isRow ? 150 : 40;
+    case 'Badge':
+      return 24;
+    case 'Divider':
+      return 1;
     case 'Row':
     case 'Column':
     case 'Box':
     case 'Section':
       if (child.childrenNodes) {
-        const innerIsRow = child.componentType === 'Row' || child.flexDirection === 'row';
+        const innerIsRow =
+          child.componentType === 'Row' || child.flexDirection === 'row';
         if (isRow === innerIsRow) {
-          const padMain = innerIsRow ? child.padding.left + child.padding.right : child.padding.top + child.padding.bottom;
-          const passedCross = innerIsRow ? child.height ?? containerCrossAxis : child.width ?? containerCrossAxis;
-          return estimateIntrinsicSize(child.childrenNodes, innerIsRow, child.gap, passedCross) + padMain;
+          const padMain = innerIsRow
+            ? child.padding.left + child.padding.right
+            : child.padding.top + child.padding.bottom;
+          const passedCross = innerIsRow
+            ? child.height ?? containerCrossAxis
+            : child.width ?? containerCrossAxis;
+          return (
+            estimateIntrinsicSize(
+              child.childrenNodes,
+              innerIsRow,
+              child.gap,
+              passedCross
+            ) + padMain
+          );
         } else {
-          const padCross = innerIsRow ? child.padding.top + child.padding.bottom : child.padding.left + child.padding.right;
-          const passedCross = innerIsRow ? child.width ?? containerCrossAxis : child.height ?? containerCrossAxis;
-          return estimateCrossSize(child.childrenNodes, innerIsRow, child.gap, passedCross, child.flexWrap) + padCross;
+          const padCross = innerIsRow
+            ? child.padding.top + child.padding.bottom
+            : child.padding.left + child.padding.right;
+          const passedCross = innerIsRow
+            ? child.width ?? containerCrossAxis
+            : child.height ?? containerCrossAxis;
+          return (
+            estimateCrossSize(
+              child.childrenNodes,
+              innerIsRow,
+              child.gap,
+              passedCross,
+              child.flexWrap
+            ) + padCross
+          );
         }
       }
       return child.hasChildren ? 48 : 0;
@@ -155,7 +192,11 @@ function getIntrinsicMainSize(child: ChildInfo, isRow: boolean, containerCrossAx
 }
 
 /** Humble widget: returns its intrinsic size on cross axis */
-function getIntrinsicCrossSize(child: ChildInfo, isRow: boolean, containerCrossAxis?: number): number | null {
+function getIntrinsicCrossSize(
+  child: ChildInfo,
+  isRow: boolean,
+  containerCrossAxis?: number
+): number | null {
   switch (child.componentType) {
     case 'SkiaText':
     case 'Text':
@@ -163,31 +204,64 @@ function getIntrinsicCrossSize(child: ChildInfo, isRow: boolean, containerCrossA
       return child.fontSize ? Math.ceil(child.fontSize * 1.4) : 20;
     case 'Icon':
       return child.iconSize ?? 24;
-    case 'Button': return 40;
-    case 'Input': return 48;
+    case 'Button':
+      return 40;
+    case 'Input':
+      return 48;
     case 'Checkbox':
     case 'Radio':
-    case 'Switch': return 24;
-    case 'Avatar': return child.iconSize ?? 48;
-    case 'Chip': return 32;
-    case 'Progress': return 16;
-    case 'Slider': return 40;
-    case 'Badge': return 24;
-    case 'Divider': return 1;
+    case 'Switch':
+      return 24;
+    case 'Avatar':
+      return child.iconSize ?? 48;
+    case 'Chip':
+      return 32;
+    case 'Progress':
+      return 16;
+    case 'Slider':
+      return 40;
+    case 'Badge':
+      return 24;
+    case 'Divider':
+      return 1;
     case 'Row':
     case 'Column':
     case 'Box':
     case 'Section':
       if (child.childrenNodes) {
-        const innerIsRow = child.componentType === 'Row' || child.flexDirection === 'row';
+        const innerIsRow =
+          child.componentType === 'Row' || child.flexDirection === 'row';
         if (isRow === innerIsRow) {
-          const padCross = innerIsRow ? child.padding.top + child.padding.bottom : child.padding.left + child.padding.right;
-          const passedCross = innerIsRow ? child.width ?? containerCrossAxis : child.height ?? containerCrossAxis;
-          return estimateCrossSize(child.childrenNodes, innerIsRow, child.gap, passedCross, child.flexWrap) + padCross;
+          const padCross = innerIsRow
+            ? child.padding.top + child.padding.bottom
+            : child.padding.left + child.padding.right;
+          const passedCross = innerIsRow
+            ? child.width ?? containerCrossAxis
+            : child.height ?? containerCrossAxis;
+          return (
+            estimateCrossSize(
+              child.childrenNodes,
+              innerIsRow,
+              child.gap,
+              passedCross,
+              child.flexWrap
+            ) + padCross
+          );
         } else {
-          const padMain = innerIsRow ? child.padding.left + child.padding.right : child.padding.top + child.padding.bottom;
-          const passedCross = innerIsRow ? child.height ?? containerCrossAxis : child.width ?? containerCrossAxis;
-          return estimateIntrinsicSize(child.childrenNodes, innerIsRow, child.gap, passedCross) + padMain;
+          const padMain = innerIsRow
+            ? child.padding.left + child.padding.right
+            : child.padding.top + child.padding.bottom;
+          const passedCross = innerIsRow
+            ? child.height ?? containerCrossAxis
+            : child.width ?? containerCrossAxis;
+          return (
+            estimateIntrinsicSize(
+              child.childrenNodes,
+              innerIsRow,
+              child.gap,
+              passedCross
+            ) + padMain
+          );
         }
       }
       return child.hasChildren ? 48 : 0;
@@ -195,8 +269,6 @@ function getIntrinsicCrossSize(child: ChildInfo, isRow: boolean, containerCrossA
       return child.hasChildren ? 48 : 40;
   }
 }
-
-
 
 // ===== Component Type Extraction =====
 
@@ -206,9 +278,12 @@ function getComponentType(element: React.ReactElement): string {
   const fn = type as {
     displayName?: string;
     name?: string;
-    type?: { displayName?: string; name?: string };
+    skiaWidgetType?: string;
+    type?: { displayName?: string; name?: string; skiaWidgetType?: string };
   };
   return (
+    fn.skiaWidgetType ||
+    fn.type?.skiaWidgetType ||
     fn.displayName ||
     fn.name ||
     fn.type?.displayName ||
@@ -219,7 +294,15 @@ function getComponentType(element: React.ReactElement): string {
 
 function extractChildInfo(child: React.ReactElement): ChildInfo {
   const p = child.props as WidgetProps & {
-    style?: FlexChildStyle & { width?: number; height?: number; fontSize?: number, flexDirection?: string, flexWrap?: string, padding?: number | [number, number, number, number], gap?: number };
+    style?: FlexChildStyle & {
+      width?: number;
+      height?: number;
+      fontSize?: number;
+      flexDirection?: string;
+      flexWrap?: string;
+      padding?: number | [number, number, number, number];
+      gap?: number;
+    };
     fontSize?: number;
     text?: string;
     size?: number;
@@ -245,7 +328,8 @@ function extractChildInfo(child: React.ReactElement): ChildInfo {
     hasChildren: p.children != null,
     hasIcon: p.icon != null,
     childrenNodes: p.children,
-    textContent: p.text ?? (typeof p.children === 'string' ? p.children : undefined),
+    textContent:
+      p.text ?? (typeof p.children === 'string' ? p.children : undefined),
     flexDirection: s?.flexDirection,
     flexWrap: s?.flexWrap,
     gap: s?.gap ?? 0,
@@ -641,10 +725,29 @@ function calculateWrapLayout(
 
 // ===== Helpers & Caches =====
 
-const intrinsicSizeCache = new WeakMap<object, { main?: number; cross?: number }>();
+const MAX_CACHE_SIZE = 500;
+const intrinsicSizeCache = new Map<string, { main?: number; cross?: number }>();
+let cacheKeyQueue: string[] = [];
 
 function getChildLayoutHash(info: ChildInfo): string {
   return `${info.width}_${info.height}_${info.flex}_${info.flexGrow}_${info.alignSelf}_${info.componentType}_${info.fontSize}_${info.iconSize}_${info.hasChildren}_${info.textContent}_${info.flexDirection}_${info.flexWrap}_${info.gap}_${info.padding.top}_${info.padding.right}_${info.padding.bottom}_${info.padding.left}`;
+}
+
+function computeChildrenTreeHash(children: React.ReactNode): string {
+  if (!children) return '';
+  const childArray = React.Children.toArray(children);
+  let hash = '';
+  for (let i = 0; i < childArray.length; i++) {
+    const child = childArray[i];
+    if (React.isValidElement(child)) {
+      hash += getComponentType(child) + '|';
+      const p = child.props as any;
+      if (p.text) hash += p.text + '|';
+      if (p.children) hash += 'c|';
+      if (p.style) hash += JSON.stringify(p.style) + '|';
+    }
+  }
+  return hash;
 }
 
 // ===== Hook =====
@@ -726,16 +829,23 @@ export function useYogaLayout(
     const layout = layouts[i];
     if (!layout) return child;
 
-    const existing = (child as React.ReactElement<{ style?: Record<string, unknown> }>).props;
-    return React.cloneElement(child as React.ReactElement<WidgetProps & { style?: Record<string, unknown> }>, {
-      x: layout.x,
-      y: layout.y,
-      style: {
-        ...(existing.style ?? {}),
-        width: layout.width,
-        height: layout.height,
-      },
-    });
+    const existing = (
+      child as React.ReactElement<{ style?: Record<string, unknown> }>
+    ).props;
+    return React.cloneElement(
+      child as React.ReactElement<
+        WidgetProps & { style?: Record<string, unknown> }
+      >,
+      {
+        x: layout.x,
+        y: layout.y,
+        style: {
+          ...(existing.style ?? {}),
+          width: layout.width,
+          height: layout.height,
+        },
+      }
+    );
   });
 
   // Write computed child layouts to layoutStore
@@ -764,10 +874,12 @@ export function estimateIntrinsicSize(
   gap: number = 0,
   containerCrossAxis?: number
 ): number {
-  if (typeof children === 'object' && children !== null) {
-    const cached = intrinsicSizeCache.get(children);
-    if (cached?.main !== undefined) return cached.main;
-  }
+  const hashKey =
+    computeChildrenTreeHash(children) +
+    `_${isRow}_${gap}_${containerCrossAxis}`;
+
+  const cached = intrinsicSizeCache.get(hashKey);
+  if (cached?.main !== undefined) return cached.main;
 
   const childArray = React.Children.toArray(children);
   let totalMain = 0;
@@ -790,11 +902,17 @@ export function estimateIntrinsicSize(
     totalMain += (childArray.length - 1) * gap;
   }
 
-  if (typeof children === 'object' && children !== null) {
-    const cached = intrinsicSizeCache.get(children) || {};
-    cached.main = totalMain;
-    intrinsicSizeCache.set(children, cached);
+  const newCached = intrinsicSizeCache.get(hashKey) || {};
+  newCached.main = totalMain;
+  intrinsicSizeCache.set(hashKey, newCached);
+  cacheKeyQueue.push(hashKey);
+
+  // Evict old cache
+  if (intrinsicSizeCache.size > MAX_CACHE_SIZE) {
+    const oldestKey = cacheKeyQueue.shift();
+    if (oldestKey) intrinsicSizeCache.delete(oldestKey);
   }
+
   return totalMain;
 }
 
@@ -809,12 +927,15 @@ export function estimateCrossSize(
   containerCrossAxis?: number,
   flexWrap?: string
 ): number {
-  if (typeof children === 'object' && children !== null) {
-    const cached = intrinsicSizeCache.get(children);
-    if (cached?.cross !== undefined) return cached.cross;
-  }
+  const hashKey =
+    computeChildrenTreeHash(children) +
+    `_cross_${isRow}_${gap}_${containerCrossAxis}_${flexWrap}`;
+
+  const cached = intrinsicSizeCache.get(hashKey);
+  if (cached?.cross !== undefined) return cached.cross;
 
   const childArray = React.Children.toArray(children);
+  let result = 0;
 
   if (isRow && flexWrap === 'wrap' && containerCrossAxis != null) {
     let lines = 1;
@@ -825,8 +946,10 @@ export function estimateCrossSize(
     for (const child of childArray) {
       if (!React.isValidElement(child)) continue;
       const info = extractChildInfo(child);
-      const childW = info.width ?? getIntrinsicMainSize(info, true, undefined) ?? 48;
-      const childH = info.height ?? getIntrinsicCrossSize(info, true, undefined) ?? 48;
+      const childW =
+        info.width ?? getIntrinsicMainSize(info, true, undefined) ?? 48;
+      const childH =
+        info.height ?? getIntrinsicCrossSize(info, true, undefined) ?? 48;
 
       const gapBefore = currentLineW > 0 ? gap : 0;
       if (currentLineW + gapBefore + childW > containerCrossAxis) {
@@ -840,33 +963,38 @@ export function estimateCrossSize(
       }
     }
     totalH += maxLineH + (lines > 1 ? gap * (lines - 1) : 0);
-    if (typeof children === 'object' && children !== null) {
-      const cached = intrinsicSizeCache.get(children) || {};
-      cached.cross = totalH;
-      intrinsicSizeCache.set(children, cached);
+    result = totalH;
+  } else {
+    let maxCross = 0;
+
+    for (const child of childArray) {
+      if (!React.isValidElement(child)) continue;
+      const info = extractChildInfo(child);
+
+      const explicitCross = isRow ? info.height : info.width;
+      if (explicitCross != null) {
+        maxCross = Math.max(maxCross, explicitCross);
+      } else {
+        const intrinsic = getIntrinsicCrossSize(
+          info,
+          isRow,
+          containerCrossAxis
+        );
+        maxCross = Math.max(maxCross, intrinsic ?? 48);
+      }
     }
-    return totalH;
+    result = maxCross;
   }
 
-  let maxCross = 0;
+  const newCached = intrinsicSizeCache.get(hashKey) || {};
+  newCached.cross = result;
+  intrinsicSizeCache.set(hashKey, newCached);
+  cacheKeyQueue.push(hashKey);
 
-  for (const child of childArray) {
-    if (!React.isValidElement(child)) continue;
-    const info = extractChildInfo(child);
-
-    const explicitCross = isRow ? info.height : info.width;
-    if (explicitCross != null) {
-      maxCross = Math.max(maxCross, explicitCross);
-    } else {
-      const intrinsic = getIntrinsicCrossSize(info, isRow, containerCrossAxis);
-      maxCross = Math.max(maxCross, intrinsic ?? 48);
-    }
+  if (intrinsicSizeCache.size > MAX_CACHE_SIZE) {
+    const oldestKey = cacheKeyQueue.shift();
+    if (oldestKey) intrinsicSizeCache.delete(oldestKey);
   }
 
-  if (typeof children === 'object' && children !== null) {
-    const cached = intrinsicSizeCache.get(children) || {};
-    cached.cross = maxCross;
-    intrinsicSizeCache.set(children, cached);
-  }
-  return maxCross;
+  return result;
 }

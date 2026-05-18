@@ -125,3 +125,5 @@ export const SkiaKitImage = React.memo(function SkiaKitImage({
 });
 
 export { SkiaKitImage as Image };
+
+(SkiaKitImage as any).skiaWidgetType = 'SkiaKitImage';

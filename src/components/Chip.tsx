@@ -138,3 +138,5 @@ function resolveChipStyles(
       };
   }
 }
+
+(Chip as any).skiaWidgetType = 'Chip';

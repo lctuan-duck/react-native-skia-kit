@@ -5,6 +5,7 @@ import type {
   ColorStyle,
   FlexChildStyle,
   SemanticColor,
+  LayoutStyle,
 } from '../types/style.types';
 import { useTheme } from '../hooks/useTheme';
 import { resolveSemanticColor } from '../core/colorUtils';
@@ -12,7 +13,8 @@ import { resolveSemanticColor } from '../core/colorUtils';
 // === Divider Types ===
 
 export type DividerStyle = ColorStyle &
-  FlexChildStyle & {
+  FlexChildStyle &
+  LayoutStyle & {
     length?: number;
     thickness?: number;
   };
@@ -64,3 +66,5 @@ export const Divider = React.memo(function Divider({
     />
   );
 });
+
+(Divider as any).skiaWidgetType = 'Divider';

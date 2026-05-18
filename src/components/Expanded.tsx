@@ -78,3 +78,7 @@ export const Flexible = React.memo(function Flexible({
     </Box>
   );
 });
+
+(Expanded as any).skiaWidgetType = 'Expanded';
+
+(Flexible as any).skiaWidgetType = 'Flexible';

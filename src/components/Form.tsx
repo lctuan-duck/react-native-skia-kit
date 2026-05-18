@@ -94,3 +94,5 @@ export const Form = React.memo(function Form({
     </FormContext.Provider>
   );
 });
+
+(Form as any).skiaWidgetType = 'Form';

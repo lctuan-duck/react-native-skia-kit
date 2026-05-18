@@ -17,8 +17,8 @@ export interface MeasureTextResult {
 // Map fontWeight string to Skia numeric weight (shared with Text component)
 function toSkiaFontWeight(weight: SkiaTextStyle['fontWeight']): number {
   const map: Record<string, number> = {
-    normal: 400,
-    bold: 700,
+    'normal': 400,
+    'bold': 700,
     '100': 100,
     '200': 200,
     '300': 300,

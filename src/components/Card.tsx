@@ -8,6 +8,8 @@ import type {
   SpacingStyle,
   FlexChildStyle,
   SemanticColor,
+  FlexContainerStyle,
+  LayoutStyle,
 } from '../types/style.types';
 import { useTheme } from '../hooks/useTheme';
 import { useWidget } from '../hooks/useWidget';
@@ -20,10 +22,9 @@ export type CardStyle = ColorStyle &
   BorderStyle &
   ShadowStyle &
   SpacingStyle &
-  FlexChildStyle & {
-    width?: number;
-    height?: number;
-  };
+  FlexChildStyle &
+  FlexContainerStyle &
+  LayoutStyle;
 
 export interface CardProps extends WidgetProps {
   /** Variant */
@@ -134,3 +135,5 @@ function resolveCardStyles(
       };
   }
 }
+
+(Card as any).skiaWidgetType = 'Card';

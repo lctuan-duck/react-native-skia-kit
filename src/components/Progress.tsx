@@ -66,7 +66,11 @@ export const Progress = React.memo(function Progress({
   const theme = useTheme();
 
   // Resolve colors array from `color`
-  const inputColors = Array.isArray(color) ? color : color ? [color] : ['primary'];
+  const inputColors = Array.isArray(color)
+    ? color
+    : color
+    ? [color]
+    : ['primary'];
   const resolvedColors = inputColors.map((c) => {
     // Check if it's a semantic color name
     const semanticNames = [
@@ -246,3 +250,5 @@ function makeArcPath(
 
   return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
 }
+
+(Progress as any).skiaWidgetType = 'Progress';

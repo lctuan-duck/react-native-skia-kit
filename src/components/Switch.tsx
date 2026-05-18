@@ -106,3 +106,5 @@ export const Switch = React.memo(function Switch({
     </Box>
   );
 });
+
+(Switch as any).skiaWidgetType = 'Switch';

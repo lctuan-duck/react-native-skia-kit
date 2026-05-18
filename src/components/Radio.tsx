@@ -94,3 +94,5 @@ export const Radio = React.memo(function Radio({
     </Box>
   );
 });
+
+(Radio as any).skiaWidgetType = 'Radio';

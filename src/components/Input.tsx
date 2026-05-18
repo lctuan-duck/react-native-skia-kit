@@ -223,3 +223,5 @@ export const Input = React.memo(function Input({
     </>
   );
 });
+
+(Input as any).skiaWidgetType = 'Input';

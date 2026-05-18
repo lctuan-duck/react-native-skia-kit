@@ -286,3 +286,11 @@ export const Drawer = React.memo(function Drawer({
     </Group>
   );
 });
+
+(Overlay as any).skiaWidgetType = 'Overlay';
+
+(Modal as any).skiaWidgetType = 'Modal';
+
+(BottomSheet as any).skiaWidgetType = 'BottomSheet';
+
+(Drawer as any).skiaWidgetType = 'Drawer';

@@ -129,3 +129,5 @@ export const Avatar = React.memo(function Avatar({
     </Box>
   );
 });
+
+(Avatar as any).skiaWidgetType = 'Avatar';

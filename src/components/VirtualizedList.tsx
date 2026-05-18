@@ -107,3 +107,5 @@ export const VirtualizedList = React.memo(function VirtualizedList<T>({
     </Group>
   );
 }) as <T>(props: VirtualizedListProps<T>) => React.ReactElement;
+
+(VirtualizedList as any).skiaWidgetType = 'VirtualizedList';

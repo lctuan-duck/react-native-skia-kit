@@ -176,3 +176,9 @@ export const Draggable = React.memo(function Draggable({
     </Box>
   );
 });
+
+(GestureDetector as any).skiaWidgetType = 'GestureDetector';
+
+(Dismissible as any).skiaWidgetType = 'Dismissible';
+
+(Draggable as any).skiaWidgetType = 'Draggable';

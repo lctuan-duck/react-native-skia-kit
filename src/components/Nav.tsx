@@ -144,3 +144,7 @@ export const Nav = React.memo(function Nav({
 export const Screen = React.memo(function Screen({ children }: ScreenProps) {
   return <Group>{children}</Group>;
 });
+
+(Nav as any).skiaWidgetType = 'Nav';
+
+(Screen as any).skiaWidgetType = 'Screen';

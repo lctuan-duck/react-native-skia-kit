@@ -184,3 +184,5 @@ export const DropdownButton = React.memo(function DropdownButton<
 }) as <T extends string>(
   props: DropdownButtonProps<T> & { ref?: React.Ref<any> }
 ) => React.ReactElement | null;
+
+(DropdownButton as any).skiaWidgetType = 'DropdownButton';

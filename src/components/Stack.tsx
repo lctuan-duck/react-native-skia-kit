@@ -70,3 +70,7 @@ export const Positioned = React.memo(function Positioned({
     </Box>
   );
 });
+
+(Stack as any).skiaWidgetType = 'Stack';
+
+(Positioned as any).skiaWidgetType = 'Positioned';

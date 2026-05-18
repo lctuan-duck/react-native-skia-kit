@@ -172,3 +172,5 @@ export const Icon = React.memo(function Icon({
 export function getIconNames(): string[] {
   return Object.keys(iconMap);
 }
+
+(Icon as any).skiaWidgetType = 'Icon';

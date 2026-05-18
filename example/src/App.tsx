@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
@@ -113,12 +113,29 @@ function UIComponentsGallery() {
           'Interactive Modes',
           <Column style={{ width: contentWidth - 32, gap: 16 }}>
             <Row style={{ gap: 8, flexWrap: 'wrap' }}>
-              <Button text="Default Ripple" interactive="ripple" color="primary" />
-              <Button text="Bounce Effect" interactive="bounce" color="secondary" />
-              <Button text="Opacity Effect" interactive="opacity" color="success" />
+              <Button
+                text="Default Ripple"
+                interactive="ripple"
+                color="primary"
+              />
+              <Button
+                text="Bounce Effect"
+                interactive="bounce"
+                color="secondary"
+              />
+              <Button
+                text="Opacity Effect"
+                interactive="opacity"
+                color="success"
+              />
             </Row>
             <Row style={{ gap: 8, flexWrap: 'wrap' }}>
-              <Button text="Custom Ripple" interactive="ripple" rippleColor="rgba(255, 0, 0, 0.4)" color="warning" />
+              <Button
+                text="Custom Ripple"
+                interactive="ripple"
+                rippleColor="rgba(255, 0, 0, 0.4)"
+                color="warning"
+              />
               <Button text="Disabled" disabled />
             </Row>
           </Column>
@@ -140,24 +157,43 @@ function UIComponentsGallery() {
         {renderSection(
           'Cards & Lists',
           <Column style={{ width: contentWidth - 32, gap: 16 }}>
-            <Card onPress={() => {}} style={{ padding: 16, gap: 8, width: contentWidth - 32 }}>
-              <Text text="Interactive Card" style={{ fontSize: 18, fontWeight: 'bold' }} />
-              <Text text="This card ripples when tapped. Beautiful, isn't it?" style={{ color: '#6B7280' }} />
+            <Card
+              onPress={() => {}}
+              style={{ padding: 16, gap: 8, width: contentWidth - 32 }}
+            >
+              <Text
+                text="Interactive Card"
+                style={{ fontSize: 18, fontWeight: 'bold' }}
+              />
+              <Text
+                text="This card ripples when tapped. Beautiful, isn't it?"
+                style={{ color: '#6B7280' }}
+              />
             </Card>
 
-            <Column style={{ backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden' }}>
+            <Column
+              style={{
+                backgroundColor: '#fff',
+                borderRadius: 8,
+                overflow: 'hidden',
+              }}
+            >
               <ListTile
                 title="John Doe"
                 subtitle="Software Engineer"
                 leading={<Avatar size={40} variant="circle" color="primary" />}
-                trailing={<Icon name="chevron-right" size={24} color="#9CA3AF" />}
+                trailing={
+                  <Icon name="chevron-right" size={24} color="#9CA3AF" />
+                }
                 onPress={() => {}}
               />
               <Divider style={{ height: 1, backgroundColor: '#E5E7EB' }} />
               <ListTile
                 title="Jane Smith"
                 subtitle="Product Designer"
-                leading={<Avatar size={40} variant="rounded" color="secondary" />}
+                leading={
+                  <Avatar size={40} variant="rounded" color="secondary" />
+                }
                 trailing={<Switch value={false} onChange={() => {}} />}
                 onPress={() => {}}
               />
@@ -179,7 +215,7 @@ function UIComponentsGallery() {
             <Row
               style={{
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                justifyContent: 'spaceBetween',
                 width: contentWidth - 32,
               }}
             >
@@ -196,7 +232,7 @@ function UIComponentsGallery() {
             <Row
               style={{
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                justifyContent: 'spaceBetween',
                 width: contentWidth - 32,
               }}
             >
@@ -247,25 +283,36 @@ function UIComponentsGallery() {
           'Navigation',
           <Column style={{ width: contentWidth - 32, gap: 16 }}>
             <TabBar
-              items={[{ label: 'Home' }, { label: 'Explore' }, { label: 'Settings' }]}
+              items={[
+                { label: 'Home' },
+                { label: 'Explore' },
+                { label: 'Settings' },
+              ]}
               activeIndex={activeTab}
               onChanged={setActiveTab}
               style={{ width: contentWidth - 32 }}
             />
             <TabBar
               variant="segment"
-              items={[{ label: 'Daily' }, { label: 'Weekly' }, { label: 'Monthly' }]}
+              items={[
+                { label: 'Daily' },
+                { label: 'Weekly' },
+                { label: 'Monthly' },
+              ]}
               activeIndex={activeTab}
               onChanged={setActiveTab}
               style={{ width: contentWidth - 32 }}
             />
             <Box style={{ height: 16 }} />
-            <Text text="Bottom Navigation" style={{ fontSize: 16, fontWeight: 'bold' }} />
+            <Text
+              text="Bottom Navigation"
+              style={{ fontSize: 16, fontWeight: 'bold' }}
+            />
             <BottomNavigationBar
               items={[
                 { label: 'Home', icon: 'home' },
                 { label: 'Search', icon: 'search' },
-                { label: 'Profile', icon: 'user' }
+                { label: 'Profile', icon: 'user' },
               ]}
               activeIndex={activeBottomNav}
               onChange={setActiveBottomNav}

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import { uiEngine } from '../core/GlobalEngine';
 import './setup';
 import type {
   HitTestBehavior,
@@ -126,43 +127,82 @@ export const useEventStore = create<EventStoreState>()(
     gestureArena: new GestureArenaManager(),
     scrollAreas: new Map<string, ScrollArea>(),
 
-    registerHit: (canvasId, widgetId, hitEntry) =>
+    registerHit: (canvasId, widgetId, hitEntry) => {
       set((state) => {
         if (!state.hitMaps.has(canvasId)) {
           state.hitMaps.set(canvasId, new Map());
         }
         state.hitMaps.get(canvasId)!.set(widgetId, hitEntry);
-      }),
+      });
+      // Sync to C++ Engine
+      let behaviorValue = 0;
+      if (hitEntry.hitTestBehavior === 'opaque') behaviorValue = 1;
+      else if (hitEntry.hitTestBehavior === 'translucent') behaviorValue = 2;
 
-    unregisterHit: (canvasId, widgetId) =>
+      const { left, top, width, height } = hitEntry.rect;
+      uiEngine.registerWidget(
+        widgetId,
+        left,
+        top,
+        width,
+        height,
+        hitEntry.zIndex,
+        behaviorValue
+      );
+    },
+
+    unregisterHit: (canvasId, widgetId) => {
       set((state) => {
         const hitMap = state.hitMaps.get(canvasId);
         if (hitMap) hitMap.delete(widgetId);
-      }),
+      });
+      // Sync to C++ Engine
+      uiEngine.unregisterWidget(widgetId);
+    },
 
-    clearHitMap: (canvasId) =>
+    clearHitMap: (canvasId) => {
       set((state) => {
         state.hitMaps.delete(canvasId);
-      }),
+      });
+      // Sync to C++ Engine
+      uiEngine.clear();
+    },
 
-    registerScrollArea: (widgetId, area) =>
+    registerScrollArea: (widgetId, area) => {
       set((state) => {
         state.scrollAreas.set(widgetId, area);
-      }),
+      });
+      // Sync to C++ Engine
+      uiEngine.registerScrollArea(
+        widgetId,
+        area.rect.left,
+        area.rect.top,
+        area.rect.width,
+        area.rect.height,
+        area.horizontal
+      );
+    },
 
-    unregisterScrollArea: (widgetId) =>
+    unregisterScrollArea: (widgetId) => {
       set((state) => {
         state.scrollAreas.delete(widgetId);
-      }),
+      });
+      // Cannot fully unregister scroll area in MVP C++ right now, but we can reset offset
+      uiEngine.updateScrollOffset(widgetId, 0);
+    },
 
-    updateScrollOffset: (widgetId, offset) =>
+    updateScrollOffset: (widgetId, offset) => {
       set((state) => {
         const area = state.scrollAreas.get(widgetId);
         if (area) area.offset = offset;
-      }),
+      });
+      // Sync to C++ Engine
+      uiEngine.updateScrollOffset(widgetId, offset);
+    },
 
     hitTest: (canvasId, x, y) => {
       const state = get();
+      // ... existing JS hitTest logic for fallback ...
       const hitMap = state.hitMaps.get(canvasId);
       if (!hitMap) return [];
 

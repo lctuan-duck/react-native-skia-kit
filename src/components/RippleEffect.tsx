@@ -65,3 +65,5 @@ export const RippleEffect = React.memo(function RippleEffect({
     </Group>
   );
 });
+
+(RippleEffect as any).skiaWidgetType = 'RippleEffect';

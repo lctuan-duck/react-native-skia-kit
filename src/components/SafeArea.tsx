@@ -103,3 +103,5 @@ export const SafeArea = React.memo(function SafeArea({
     </Group>
   );
 });
+
+(SafeArea as any).skiaWidgetType = 'SafeArea';

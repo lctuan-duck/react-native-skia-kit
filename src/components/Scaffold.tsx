@@ -85,3 +85,5 @@ export const Scaffold = React.memo(function Scaffold({
     </Group>
   );
 });
+
+(Scaffold as any).skiaWidgetType = 'Scaffold';

@@ -87,3 +87,5 @@ export const Tooltip = React.memo(function Tooltip({
     </Group>
   );
 });
+
+(Tooltip as any).skiaWidgetType = 'Tooltip';

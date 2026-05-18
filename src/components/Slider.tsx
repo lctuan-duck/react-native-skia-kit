@@ -9,16 +9,17 @@ import type {
   ColorStyle,
   FlexChildStyle,
   SemanticColor,
+  LayoutStyle,
 } from '../types/style.types';
 import { resolveSemanticColor } from '../core/colorUtils';
 
 // === Slider Types ===
 
 export type SliderStyle = ColorStyle &
-  FlexChildStyle & {
+  FlexChildStyle &
+  LayoutStyle & {
     trackColor?: string;
     thumbColor?: string;
-    width?: number;
   };
 
 export interface SliderProps extends WidgetProps {
@@ -136,3 +137,5 @@ export const Slider = React.memo(function Slider({
     </Box>
   );
 });
+
+(Slider as any).skiaWidgetType = 'Slider';

@@ -84,3 +84,5 @@ export const TabBarView = React.memo(function TabBarView({
 
   return <Group clip={{ x, y, width, height }}>{activePage}</Group>;
 });
+
+(TabBarView as any).skiaWidgetType = 'TabBarView';
