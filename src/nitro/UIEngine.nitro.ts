@@ -59,6 +59,11 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   ): void;
 
   /**
+   * Xoá một Layout Node khỏi cây Flexbox C++ khi Component Unmount.
+   */
+  removeLayoutNode(id: string): void;
+
+  /**
    * Cập nhật danh sách con của một Node.
    */
   setChildren(parentId: string, childrenIds: string[]): void;

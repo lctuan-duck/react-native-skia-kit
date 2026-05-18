@@ -26,22 +26,39 @@ export function useNativeYogaLayout(
   style?: NativeYogaStyle,
   children?: React.ReactNode
 ): NativeComputedLayout {
-  // Register node with C++ Engine SYNCHRONOUSLY
-  uiEngine.updateLayoutNode(
+  // Register node with C++ Engine
+  React.useLayoutEffect(() => {
+    uiEngine.updateLayoutNode(
+      widgetId,
+      style?.flexDirection || 'column',
+      style?.justifyContent || 'flex-start',
+      style?.alignItems || 'stretch',
+      style?.flexWrap || 'nowrap',
+      style?.width ?? -1,
+      style?.height ?? -1,
+      style?.flex ?? 0,
+      style?.gap ?? 0,
+      Array.isArray(style?.padding) ? style.padding[0] : (style?.padding ?? -1),
+      Array.isArray(style?.padding) ? style.padding[1] : (style?.padding ?? -1),
+      Array.isArray(style?.padding) ? style.padding[2] : (style?.padding ?? -1),
+      Array.isArray(style?.padding) ? style.padding[3] : (style?.padding ?? -1)
+    );
+
+    return () => {
+      uiEngine.removeLayoutNode(widgetId);
+    };
+  }, [
     widgetId,
-    style?.flexDirection || 'column',
-    style?.justifyContent || 'flex-start',
-    style?.alignItems || 'stretch',
-    style?.flexWrap || 'nowrap',
-    style?.width ?? -1,
-    style?.height ?? -1,
-    style?.flex ?? 0,
-    style?.gap ?? 0,
-    Array.isArray(style?.padding) ? style.padding[0] : style?.padding ?? -1,
-    Array.isArray(style?.padding) ? style.padding[1] : style?.padding ?? -1,
-    Array.isArray(style?.padding) ? style.padding[2] : style?.padding ?? -1,
-    Array.isArray(style?.padding) ? style.padding[3] : style?.padding ?? -1
-  );
+    style?.flexDirection,
+    style?.justifyContent,
+    style?.alignItems,
+    style?.flexWrap,
+    style?.width,
+    style?.height,
+    style?.flex,
+    style?.gap,
+    style?.padding,
+  ]);
 
   // Parse children IDs
   const childIds: string[] = [];

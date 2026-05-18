@@ -11,13 +11,20 @@ add_library(
   SHARED
   src/main/cpp/cpp-adapter.cpp
   ../cpp/HybridUIEngine.cpp
+  ../cpp/subsystems/HitTestSubsystem.cpp
+  ../cpp/subsystems/LayoutSubsystem.cpp
 )
 
 # Add Nitrogen specs :)
 include(${CMAKE_SOURCE_DIR}/../nitrogen/generated/android/skiakit+autolinking.cmake)
 
 # Set up local includes
-include_directories("src/main/cpp" "../cpp")
+include_directories(
+  "src/main/cpp"
+  "../cpp"
+  "../cpp/subsystems"
+  "../nitrogen/generated/shared/c++"
+)
 
 find_library(LOG_LIB log)
 
