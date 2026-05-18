@@ -2,7 +2,8 @@ import * as React from 'react';
 import { Circle } from '@shopify/react-native-skia';
 import { useDerivedValue } from 'react-native-reanimated';
 import { Box } from './Box';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
+import { useLayoutStore } from '../stores/layoutStore';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps, PanEvent } from '../types/widget.types';
 import type {
@@ -66,29 +67,29 @@ export const Slider = React.memo(function Slider({
   const totalHeight = thumbR * 2;
   const trackY = y + thumbR - trackH / 2;
 
+  const widgetId = useWidgetId('Slider');
+  const layout = useLayoutStore((s) => s.layoutMap.get(widgetId));
+  const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 200);
+
   const ratio = (value - min) / (max - min);
-  const fillWidth = typeof width === 'number' ? ratio * width : 0;
+  const fillWidth = ratio * finalWidth;
 
   const thumbCx = useDerivedValue(() => {
-    return typeof width === 'number' ? x + ratio * width : x;
-  }, [value, x, width, min, max]);
+    return x + ratio * finalWidth;
+  }, [value, x, finalWidth, min, max]);
 
   const handlePanUpdate = (e: PanEvent) => {
-    if (disabled || typeof width !== 'number') return;
+    if (disabled) return;
     const newValue = Math.min(
       max,
-      Math.max(min, min + (((e?.absoluteX ?? 0) - x) / width) * (max - min))
+      Math.max(min, min + (((e?.absoluteX ?? 0) - x) / finalWidth) * (max - min))
     );
     onChange?.(Math.round(newValue));
   };
 
-  useWidget({
-    type: 'Slider',
-    layout: { x, y, width: typeof width === 'number' ? width : 200, height: totalHeight },
-  });
-
   return (
     <Box
+      id={widgetId}
       x={x}
       y={y}
       style={{

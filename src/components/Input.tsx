@@ -8,7 +8,8 @@ import {
 } from 'react-native-reanimated';
 import { Box } from './Box';
 import { Text } from './Text';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
+import { useLayoutStore } from '../stores/layoutStore';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -82,7 +83,9 @@ export const Input = React.memo(function Input({
   const height = style?.height ?? 48;
   const borderR = style?.borderRadius ?? 8;
 
-  useWidget({ type: 'Input', layout: { x, y, width, height } });
+  const widgetId = useWidgetId('Input');
+  const layout = useLayoutStore((s) => s.layoutMap.get(widgetId));
+  const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 280);
 
   const placeholderColor = theme.colors.textDisabled;
   const textColor = theme.colors.textBody;
@@ -110,14 +113,14 @@ export const Input = React.memo(function Input({
     builder.addText(displayText);
     builder.pop();
     const para = builder.build();
-    para.layout(width - 28);
+    para.layout(finalWidth - 28);
     const rects = para.getRectsForRange(0, displayText.length);
     if (rects && rects.length > 0) {
       const lastRect = rects[rects.length - 1]!;
       return x + 14 + lastRect.x + lastRect.width;
     }
     return x + 14;
-  }, [displayText, x, width]);
+  }, [displayText, x, finalWidth]);
 
   return (
     <>
@@ -134,6 +137,7 @@ export const Input = React.memo(function Input({
         {variant === 'underlined' ? (
           <>
             <Box
+              id={widgetId}
               x={x}
               y={y}
               style={{
@@ -154,6 +158,7 @@ export const Input = React.memo(function Input({
           </>
         ) : (
           <Box
+            id={widgetId}
             x={x}
             y={y}
             style={{

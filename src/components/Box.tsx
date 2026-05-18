@@ -79,6 +79,7 @@ export interface BoxProps extends WidgetProps {
  * Tương đương Flutter Container/DecoratedBox.
  */
 export const Box = React.memo(function Box({
+  id,
   x = 0,
   y = 0,
   style,
@@ -146,10 +147,11 @@ export const Box = React.memo(function Box({
   const w = typeof width === 'number' ? width : 0;
   const h = typeof height === 'number' ? height : 0;
 
-  const widgetId = useWidget({
+  const defaultId = useWidget({
     type: 'Box',
     layout: { x, y, width: w, height: h },
   });
+  const widgetId = id ?? defaultId;
 
   // Interactive Animations (Hooks must be unconditional)
   const [ripples, setRipples] = useState<
