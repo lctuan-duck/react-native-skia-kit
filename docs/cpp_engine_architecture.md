@@ -25,20 +25,21 @@ Tài liệu này mô tả chi tiết kiến trúc của lõi C++ (UIEngine) dàn
 - **LayoutSubsystem:** Tách biệt toàn bộ logic Yoga (updateLayoutNode/setChildren/calculateLayout/removeLayoutNode).
 - **Shared Data Structures:** `cpp/core/Node.hpp` chứa `WidgetNode` và `ScrollArea`.
 
+### Phase 4 — Object-Based Style API & Full Flexbox ✅
+- **NativeYogaStyle struct:** Refactored `updateLayoutNode` từ 13+ flat params thành 1 object duy nhất.
+- **std::optional<T>:** Mỗi field là optional — C++ chỉ set property nào có `has_value()`.
+- **Full Flexbox:** margin (4 cạnh), position (relative/absolute), alignSelf, flexGrow/Shrink/Basis.
+- **Extra:** spaceEvenly, rowGap, baseline, wrap-reverse, row-reverse, column-reverse.
+- **JS Helper:** `buildNativeStyle()` + `expandEdges()` tự động expand shorthand padding/margin.
+
 ---
 
 ## 2. Các Tính Năng Cần Thiết Cho Tương Lai
 
-### Phase 4 — Nâng Cấp Layout & Kết Nối Hệ Thống
-- **Margin support C++:** Thêm `marginTop/Right/Bottom/Left` vào `updateLayoutNode` và C++ `LayoutSubsystem`.
-- **Position absolute/relative:** Thêm `position`, `top`, `left`, `right`, `bottom` vào C++ để hỗ trợ overlay widget.
-- **alignSelf, flexGrow, flexShrink, flexBasis:** Bổ sung các thuộc tính FlexChild còn thiếu.
-- **spaceEvenly, rowGap:** Bổ sung vào C++ parser.
-- **Kết nối Layout ↔ HitTest:** Sau khi Yoga tính xong toạ độ, tự động cập nhật lại HitTest Subsystem mà không cần JS trung gian.
-
-### Phase 5 — QuadTree & Performance
-- **QuadTree / R-Tree Spatial Query:** Nâng cấp thuật toán duyệt tuyến tính (O(N)) hiện tại lên cấu trúc dữ liệu không gian O(log N), đáp ứng hàng chục ngàn widget.
-- **Strategy Pattern:** Triển khai `IHitTestStrategy` interface → `LinearHitTest` (hiện tại) và `QuadTreeHitTest` (tương lai).
+### Phase 5 — Kết Nối Layout ↔ HitTest & QuadTree
+- **Kết nối Layout ↔ HitTest:** Sau khi Yoga tính xong toạ độ, tự động cập nhật lại HitTest Subsystem.
+- **QuadTree / R-Tree Spatial Query:** Nâng cấp thuật toán duyệt tuyến tính (O(N)) lên O(log N).
+- **Strategy Pattern:** Triển khai `IHitTestStrategy` interface → `LinearHitTest` và `QuadTreeHitTest`.
 - **Dirty Flag Layout:** Chỉ tính toán lại layout khi style thực sự thay đổi.
 
 ### Phase 6 — Render Tree & Advanced Features
