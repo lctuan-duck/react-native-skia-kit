@@ -114,32 +114,49 @@ export function useNativeYogaLayout(
   style?: ComponentYogaStyle,
   children?: React.ReactNode
 ): NativeComputedLayout {
-  // Build native style object (only includes defined properties)
-  const nativeStyle = useMemo(() => buildNativeStyle(style), [style]);
+  // Build native style — memoize via primitive fields to avoid re-registering every render
+  // (object literals like style={{width:100}} create new references each render)
+  const nativeStyle = useMemo(
+    () => buildNativeStyle(style),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      style?.width, style?.height, style?.minWidth, style?.maxWidth,
+      style?.minHeight, style?.maxHeight, style?.flex, style?.flexGrow,
+      style?.flexShrink, style?.flexBasis, style?.flexDirection,
+      style?.flexWrap, style?.justifyContent, style?.alignItems,
+      style?.alignSelf, style?.gap, style?.rowGap, style?.padding,
+      style?.margin,
+      style?.position, style?.top, style?.left, style?.right, style?.bottom,
+      style?.overflow, style?.display, style?.direction, style?.aspectRatio,
+    ]
+  );
 
-  // Register node with C++ Engine
+  // Parse children IDs for Yoga tree (must be stable for effect deps)
+  const childIds = useMemo(() => {
+    const ids: string[] = [];
+    React.Children.forEach(children, (child) => {
+      if (
+        React.isValidElement(child) &&
+        child.props &&
+        typeof child.props === 'object' &&
+        'id' in child.props
+      ) {
+        ids.push((child.props as any).id);
+      }
+    });
+    return ids;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [children]);
+
+  // Register node + children with C++ Engine (in effect, NOT render body)
   React.useLayoutEffect(() => {
     uiEngine.updateLayoutNode(widgetId, nativeStyle);
+    uiEngine.setChildren(widgetId, childIds);
 
     return () => {
       uiEngine.removeLayoutNode(widgetId);
     };
-  }, [widgetId, nativeStyle]);
-
-  // Parse children IDs
-  const childIds: string[] = [];
-  React.Children.forEach(children, (child) => {
-    if (
-      React.isValidElement(child) &&
-      child.props &&
-      typeof child.props === 'object' &&
-      'id' in child.props
-    ) {
-      childIds.push((child.props as any).id);
-    }
-  });
-
-  uiEngine.setChildren(widgetId, childIds);
+  }, [widgetId, nativeStyle, childIds]);
 
   // Read layout from Zustand store
   const layout = useLayoutStore((state) => state.layoutMap.get(widgetId));

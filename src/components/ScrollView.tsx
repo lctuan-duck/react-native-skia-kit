@@ -104,7 +104,9 @@ export const ScrollView = React.memo(function ScrollView({
     (offset) => {
       'worklet';
       uiEngine.updateScrollOffset(widgetId, offset);
-      runOnJS(useEventStore.getState().updateScrollOffset)(widgetId, offset);
+      runOnJS(() => {
+        useEventStore.getState().updateScrollOffset(widgetId, offset);
+      })();
     }
   );
 

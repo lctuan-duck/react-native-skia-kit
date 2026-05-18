@@ -97,7 +97,7 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       layoutEntries[id] = { rect };
     }
     useLayoutStore.getState().setLayouts(layoutEntries);
-  });
+  }, [canvasId, screenWidth, screenHeight, children]);
 
   // === Touch Event Dispatch ===
   // All gesture callbacks run on JS thread via .runOnJS(true)

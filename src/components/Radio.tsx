@@ -67,10 +67,9 @@ export const Radio = React.memo(function Radio({
     onPress?.();
   };
 
-  useWidget<{ selected: boolean; disabled: boolean }>({
+  useWidget({
     type: 'Radio',
     layout: { x, y, width: size, height: size },
-    props: { selected, disabled },
   });
 
   return (

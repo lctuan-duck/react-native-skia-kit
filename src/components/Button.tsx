@@ -112,10 +112,9 @@ export const Button = React.memo(function Button({
   const w = style?.width;
   const h = style?.height ?? 48;
 
-  useWidget<{ variant: string }>({
+  useWidget({
     type: 'Button',
     layout: { x, y, width: w ?? 100, height: h },
-    props: { variant },
   });
 
   // ===== Icon-only variant =====
