@@ -3,7 +3,8 @@ import { useEffect } from 'react';
 import { Circle } from '@shopify/react-native-skia';
 import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { Box } from './Box';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
+import { useLayoutStore } from '../stores/layoutStore';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -58,17 +59,19 @@ export const Switch = React.memo(function Switch({
   const inactiveTrack = style?.trackColor ?? theme.colors.border;
   const thumbClr = style?.thumbColor ?? 'white';
 
-  const w = style?.width ?? 48;
-  const h = style?.height ?? 28;
+  const widgetId = useWidgetId('Switch');
+  const layout = useLayoutStore((s) => s.layoutMap.get(widgetId));
+  const finalW = layout?.rect.width ?? (typeof style?.width === 'number' ? style.width : 48);
+  const finalH = layout?.rect.height ?? (typeof style?.height === 'number' ? style.height : 28);
 
-  const thumbR = h / 2 - 2;
-  const thumbX = useSharedValue(value ? x + w - thumbR - 4 : x + thumbR + 4);
+  const thumbR = finalH / 2 - 2;
+  const thumbX = useSharedValue(value ? x + finalW - thumbR - 4 : x + thumbR + 4);
 
   useEffect(() => {
-    thumbX.value = withTiming(value ? x + w - thumbR - 4 : x + thumbR + 4, {
+    thumbX.value = withTiming(value ? x + finalW - thumbR - 4 : x + thumbR + 4, {
       duration: 200,
     });
-  }, [value, x, w, thumbR, thumbX]);
+  }, [value, x, finalW, thumbR, thumbX]);
 
   const trackFill = value
     ? disabled
@@ -82,19 +85,15 @@ export const Switch = React.memo(function Switch({
     onPress?.();
   };
 
-  useWidget({
-    type: 'Switch',
-    layout: { x, y, width: w, height: h },
-  });
-
   return (
     <Box
+      id={widgetId}
       x={x}
       y={y}
       style={{
-        width: w,
-        height: h,
-        borderRadius: h / 2,
+        width: style?.width ?? 48,
+        height: style?.height ?? 28,
+        borderRadius: finalH / 2,
         backgroundColor: trackFill,
         opacity: disabled ? 0.5 : 1,
       }}
@@ -102,7 +101,7 @@ export const Switch = React.memo(function Switch({
       interactive={disabled ? 'none' : 'ripple'}
       onPress={handlePress}
     >
-      <Circle cx={thumbX} cy={y + h / 2} r={thumbR} color={thumbClr} />
+      <Circle cx={thumbX} cy={y + finalH / 2} r={thumbR} color={thumbClr} />
     </Box>
   );
 });

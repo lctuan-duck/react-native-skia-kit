@@ -8,13 +8,15 @@ import {
   Group,
   vec,
 } from '@shopify/react-native-skia';
+import { Box } from './Box';
 import {
   useSharedValue,
   useDerivedValue,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
+import { useLayoutStore } from '../stores/layoutStore';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -96,32 +98,29 @@ export const Progress = React.memo(function Progress({
   const size = style?.size ?? 48;
   const strokeW = style?.strokeWidth ?? 4;
 
-  const compW = variant === 'circular' ? size : width;
-  const compH = variant === 'circular' ? size : height;
-
-  useWidget({
-    type: 'Progress',
-    layout: { x, y, width: compW, height: compH },
-  });
+  const widgetId = useWidgetId('Progress');
+  const layout = useLayoutStore((s) => s.layoutMap.get(widgetId));
+  const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 200);
+  const finalHeight = layout?.rect.height ?? (typeof height === 'number' ? height : 4);
 
   // All hooks MUST be called unconditionally
-  const linearR = height / 2;
+  const linearR = finalHeight / 2;
   const linearFillWidth = isDeterminate
-    ? width * Math.min(1, Math.max(0, value!))
-    : width * 0.4;
+    ? finalWidth * Math.min(1, Math.max(0, value!))
+    : finalWidth * 0.4;
 
   // Linear animation
   const animX = useSharedValue(0);
   useEffect(() => {
     if (variant === 'linear' && !isDeterminate) {
       animX.value = withRepeat(
-        withTiming(width - linearFillWidth, { duration: 1000 }),
+        withTiming(finalWidth - linearFillWidth, { duration: 1000 }),
         -1,
         true
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variant, isDeterminate, width, linearFillWidth]);
+  }, [variant, isDeterminate, finalWidth, linearFillWidth]);
 
   // Circular animation
   const rotation = useSharedValue(0);
@@ -154,12 +153,17 @@ export const Progress = React.memo(function Progress({
     const fillColor = resolvedColors[0] ?? theme.colors.primary;
 
     return (
-      <>
+      <Box
+        id={widgetId}
+        x={x}
+        y={y}
+        style={{ width, height, backgroundColor: 'transparent' }}
+      >
         <RoundedRect
           x={x}
           y={y}
-          width={width}
-          height={height}
+          width={finalWidth}
+          height={finalHeight}
           r={linearR}
           color={trackBg}
         />
@@ -167,7 +171,7 @@ export const Progress = React.memo(function Progress({
           x={animatedFillX}
           y={y}
           width={linearFillWidth}
-          height={height}
+          height={finalHeight}
           r={linearR}
           color={useGradient ? undefined : fillColor}
         >
@@ -179,7 +183,7 @@ export const Progress = React.memo(function Progress({
             />
           )}
         </RoundedRect>
-      </>
+      </Box>
     );
   }
 
@@ -209,7 +213,12 @@ export const Progress = React.memo(function Progress({
   );
 
   return (
-    <>
+    <Box
+      id={widgetId}
+      x={x}
+      y={y}
+      style={{ width: size, height: size, backgroundColor: 'transparent' }}
+    >
       <Circle
         cx={cx}
         cy={cy}
@@ -227,7 +236,7 @@ export const Progress = React.memo(function Progress({
           strokeCap="round"
         />
       </Group>
-    </>
+    </Box>
   );
 });
 

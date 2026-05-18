@@ -78,8 +78,8 @@ export const SkiaKitImage = React.memo(function SkiaKitImage({
 
   const finalX = layoutResult?.x ?? x;
   const finalY = layoutResult?.y ?? y;
-  const finalWidth = layoutResult?.width ?? width;
-  const finalHeight = layoutResult?.height ?? height;
+  const finalWidth = layoutResult?.width ?? (typeof width === 'number' ? width : 0);
+  const finalHeight = layoutResult?.height ?? (typeof height === 'number' ? height : 0);
 
   useHitTest(widgetId, {
     rect: { left: finalX, top: finalY, width: finalWidth, height: finalHeight },
