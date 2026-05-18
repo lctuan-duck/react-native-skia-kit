@@ -138,32 +138,34 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       dispatchLongPress(e.absoluteX, e.absoluteY);
     });
 
-  const dispatchJSPan = (type: 'start' | 'update' | 'end', e: any) => {
-    // Fallback JS dispatcher if needed
-    const receivers = useEventStore
-      .getState()
-      .hitTest(canvasId, e.absoluteX, e.absoluteY);
-    for (const receiver of receivers) {
-      if (type === 'start')
-        receiver.entry.callbacks.onPanStart?.({
-          ...e,
-          localX: receiver.localX,
-          localY: receiver.localY,
-        });
-      else if (type === 'update')
-        receiver.entry.callbacks.onPanUpdate?.({
-          ...e,
-          localX: receiver.localX,
-          localY: receiver.localY,
-        });
-      else if (type === 'end')
-        receiver.entry.callbacks.onPanEnd?.({
-          ...e,
-          localX: receiver.localX,
-          localY: receiver.localY,
-        });
-    }
-  };
+  const dispatchJSPan = useCallback(
+    (type: 'start' | 'update' | 'end', e: any) => {
+      const receivers = useEventStore
+        .getState()
+        .hitTest(canvasId, e.absoluteX, e.absoluteY);
+      for (const receiver of receivers) {
+        if (type === 'start')
+          receiver.entry.callbacks.onPanStart?.({
+            ...e,
+            localX: receiver.localX,
+            localY: receiver.localY,
+          });
+        else if (type === 'update')
+          receiver.entry.callbacks.onPanUpdate?.({
+            ...e,
+            localX: receiver.localX,
+            localY: receiver.localY,
+          });
+        else if (type === 'end')
+          receiver.entry.callbacks.onPanEnd?.({
+            ...e,
+            localX: receiver.localX,
+            localY: receiver.localY,
+          });
+      }
+    },
+    [canvasId]
+  );
 
   // Pan gesture → onPanStart/onPanUpdate/onPanEnd
   const panGesture = Gesture.Pan()

@@ -13,6 +13,8 @@ import {
   useSharedValue,
   useDerivedValue,
   withDecay,
+  useAnimatedReaction,
+  runOnJS,
 } from 'react-native-reanimated';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
@@ -78,24 +80,35 @@ export const VirtualizedList = React.memo(function VirtualizedList<T>({
     behavior: 'opaque',
   });
 
-  // Render only visible items
+  // Render only visible items — recomputed when scroll changes
+  const [visibleStart, setVisibleStart] = React.useState(0);
+
+  useAnimatedReaction(
+    () => scrollOffset.value,
+    (offset) => {
+      'worklet';
+      const start = Math.max(0, Math.floor(offset / totalItemHeight) - bufferCount);
+      runOnJS(setVisibleStart)(start);
+    },
+    [totalItemHeight, bufferCount]
+  );
+
   const visibleItems = useMemo(() => {
     const items: React.ReactNode[] = [];
-    const start = Math.max(0, Math.floor(0 / totalItemHeight) - bufferCount);
     const end = Math.min(
       data.length - 1,
-      Math.ceil(height / totalItemHeight) + bufferCount
+      visibleStart + Math.ceil(height / totalItemHeight) + bufferCount * 2
     );
 
-    for (let i = start; i <= end; i++) {
+    for (let i = visibleStart; i <= end; i++) {
       const item = data[i];
       if (!item) continue;
       const key = keyExtractor ? keyExtractor(item, i) : String(i);
-
-      items.push(<Group key={key}>{renderItem(item, i)}</Group>);
+      const itemY = y + i * totalItemHeight;
+      items.push(<Group key={key} transform={[{ translateY: itemY }]}>{renderItem(item, i)}</Group>);
     }
     return items;
-  }, [data, totalItemHeight, height, bufferCount, keyExtractor, renderItem]);
+  }, [data, totalItemHeight, height, bufferCount, visibleStart, keyExtractor, renderItem, y]);
 
   const scrollTransform = useDerivedValue(() => [
     { translateY: -scrollOffset.value },

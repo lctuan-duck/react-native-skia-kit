@@ -245,10 +245,12 @@ export const Box = React.memo(function Box({
     zIndex,
   });
 
-  // Fire onLayout callback
-  if (onLayout) {
-    onLayout({ x: finalX, y: finalY, width: finalW, height: finalH });
-  }
+  // Fire onLayout callback — inside useEffect to avoid side-effect in render
+  React.useEffect(() => {
+    if (onLayout) {
+      onLayout({ x: finalX, y: finalY, width: finalW, height: finalH });
+    }
+  }, [onLayout, finalX, finalY, finalW, finalH]);
 
   const showBackground = bgColor !== 'transparent';
   const shouldClip = overflow === 'hidden';

@@ -227,13 +227,13 @@ export const GridView = React.memo(function GridView({
       x={x}
       y={y}
       style={{
+        ...style,
         width,
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: crossAxisSpacing,
         rowGap: mainAxisSpacing,
         padding,
-        ...style,
       }}
     >
       {children}
