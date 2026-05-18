@@ -77,6 +77,13 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
     behavior: number
   ): void;
   unregisterWidget(id: string): void;
+  
+  /**
+   * Đánh dấu 1 widget là dynamic (đang được kéo thả/animation).
+   * Widget sẽ được đưa ra khỏi QuadTree tĩnh và chuyển sang mảng Linear để tối ưu update.
+   */
+  setWidgetDynamic(id: string, isDynamic: boolean): void;
+
   registerScrollArea(
     id: string,
     x: number,

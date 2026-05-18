@@ -268,3 +268,38 @@ export function handleTouch(canvasId: string, x: number, y: number) {
     receiver.entry.callbacks.onPress?.(receiver.localX, receiver.localY);
   }
 }
+
+export function handlePanStart(canvasId: string, x: number, y: number): string | null {
+  const receivers = useEventStore.getState().hitTest(canvasId, x, y);
+  for (const receiver of receivers) {
+    if (receiver.entry.callbacks.onPanStart) {
+      uiEngine.setWidgetDynamic(receiver.entry.widgetId, true);
+      receiver.entry.callbacks.onPanStart({ localX: receiver.localX, localY: receiver.localY, absoluteX: x, absoluteY: y, translationX: 0, translationY: 0, velocityX: 0, velocityY: 0 });
+      return receiver.entry.widgetId; // Return active widget for subsequent pan updates
+    }
+  }
+  return null;
+}
+
+export function handlePanUpdate(canvasId: string, widgetId: string, x: number, y: number, tx: number, ty: number, vx: number, vy: number) {
+  const state = useEventStore.getState();
+  const hitMap = state.hitMaps.get(canvasId);
+  if (!hitMap) return;
+  const entry = hitMap.get(widgetId);
+  if (entry && entry.callbacks.onPanUpdate) {
+    entry.callbacks.onPanUpdate({ localX: x, localY: y, absoluteX: x, absoluteY: y, translationX: tx, translationY: ty, velocityX: vx, velocityY: vy });
+  }
+}
+
+export function handlePanEnd(canvasId: string, widgetId: string, x: number, y: number, tx: number, ty: number, vx: number, vy: number) {
+  const state = useEventStore.getState();
+  const hitMap = state.hitMaps.get(canvasId);
+  if (!hitMap) return;
+  const entry = hitMap.get(widgetId);
+  if (entry) {
+    if (entry.callbacks.onPanEnd) {
+      entry.callbacks.onPanEnd({ localX: x, localY: y, absoluteX: x, absoluteY: y, translationX: tx, translationY: ty, velocityX: vx, velocityY: vy });
+    }
+    uiEngine.setWidgetDynamic(widgetId, false);
+  }
+}
