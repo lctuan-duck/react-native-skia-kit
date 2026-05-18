@@ -1,7 +1,6 @@
 import * as React from 'react';
-import { useRef, useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Group, Rect } from '@shopify/react-native-skia';
-import { TextInput } from 'react-native';
 import {
   useSharedValue,
   withRepeat,
@@ -67,13 +66,13 @@ export const Input = React.memo(function Input({
   value = '',
   placeholder = '',
   secureTextEntry = false,
-  keyboardType = 'default',
+  keyboardType: _keyboardType = 'default',
   variant = 'outline',
   color = 'primary',
   style,
-  onChange,
-  onFocus,
-  onBlur,
+  onChange: _onChange,
+  onFocus: _onFocus,
+  onBlur: _onBlur,
 }: InputProps) {
   const theme = useTheme();
   const focusColor =
@@ -88,8 +87,7 @@ export const Input = React.memo(function Input({
   const placeholderColor = theme.colors.textDisabled;
   const textColor = theme.colors.textBody;
 
-  const inputRef = useRef<React.ElementRef<typeof TextInput>>(null);
-  const [isFocused, setIsFocused] = useState(false);
+  const isFocused = false;
   const cursorOpacity = useSharedValue(1);
 
   useEffect(() => {
@@ -123,31 +121,13 @@ export const Input = React.memo(function Input({
 
   return (
     <>
-      {/* Native TextInput (invisible) */}
-      <TextInput
-        ref={inputRef}
-        value={value}
-        onChangeText={onChange}
-        secureTextEntry={secureTextEntry}
-        keyboardType={keyboardType}
-        onFocus={() => {
-          setIsFocused(true);
-          onFocus?.();
-        }}
-        onBlur={() => {
-          setIsFocused(false);
-          onBlur?.();
-        }}
-        style={{
-          position: 'absolute',
-          left: x,
-          top: y,
-          width,
-          height,
-          opacity: 0,
-          fontSize: 16,
-        }}
-      />
+      {/* 
+        Native TextInput (invisible) was removed!
+        React Native core components (<TextInput>, <View>, etc.) CANNOT be rendered 
+        inside a Skia <Canvas> tree. It causes an Invariant Violation crash.
+        TODO (Phase 8): Implement a NativeOverlay portal system outside CanvasRoot 
+        to render native inputs over the canvas, synchronized with Skia layout coords.
+      */}
 
       {/* Skia rendering */}
       <Group>

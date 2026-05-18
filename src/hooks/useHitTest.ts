@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { useEffect } from 'react';
 import { useEventStore } from '../stores/eventStore';
 import type { HitRect, HitTestBehavior } from '../stores/eventStore';
@@ -26,6 +27,9 @@ export function useHitTest(
     canvasId = 'main',
   }: UseHitTestOptions
 ): void {
+  const callbacksRef = React.useRef(callbacks);
+  callbacksRef.current = callbacks;
+
   const hasCallbacks =
     !!callbacks.onPress ||
     !!callbacks.onLongPress ||
@@ -33,9 +37,19 @@ export function useHitTest(
     !!callbacks.onPanUpdate ||
     !!callbacks.onPanEnd;
 
-  // Register/unregister on mount/unmount, and update when rect or callbacks change
+  // Register/unregister on mount/unmount, and update when rect changes.
+  // We DO NOT depend on callback references to avoid React render churn.
   useEffect(() => {
     if (!hasCallbacks) return;
+
+    // Stable wrapper to always call the latest function reference without re-registering
+    const stableCallbacks: GestureCallbacks = {
+      onPress: (x, y) => callbacksRef.current.onPress?.(x, y),
+      onLongPress: () => callbacksRef.current.onLongPress?.(),
+      onPanStart: (e) => callbacksRef.current.onPanStart?.(e),
+      onPanUpdate: (e) => callbacksRef.current.onPanUpdate?.(e),
+      onPanEnd: (e) => callbacksRef.current.onPanEnd?.(e),
+    };
 
     useEventStore.getState().registerHit(canvasId, widgetId, {
       widgetId,
@@ -43,7 +57,7 @@ export function useHitTest(
       rect,
       zIndex,
       hitTestBehavior: behavior,
-      callbacks,
+      callbacks: stableCallbacks,
     });
 
     return () => {
@@ -59,10 +73,6 @@ export function useHitTest(
     rect.height,
     zIndex,
     behavior,
-    callbacks.onPress,
-    callbacks.onLongPress,
-    callbacks.onPanStart,
-    callbacks.onPanUpdate,
-    callbacks.onPanEnd,
+    hasCallbacks,
   ]);
 }
