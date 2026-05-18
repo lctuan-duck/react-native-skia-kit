@@ -20,6 +20,38 @@ namespace margelo::nitro::skiakit {
   void LayoutSubsystem::updateLayoutNode(const std::string& id, const NativeYogaStyle& style) {
     YGNodeRef node = static_cast<YGNodeRef>(getOrCreateYogaNode(id));
 
+    auto applyDim = [node](const std::optional<std::variant<std::string, double>>& val, auto setPt, auto setPct, auto setAuto = [](YGNodeRef){}) {
+      if (!val.has_value()) return;
+      if (std::holds_alternative<double>(val.value())) {
+        setPt(node, std::get<double>(val.value()));
+      } else {
+        std::string s = std::get<std::string>(val.value());
+        if (s == "auto") {
+          setAuto(node);
+        } else if (!s.empty() && s.back() == '%') {
+          try {
+            float pct = std::stof(s.substr(0, s.length() - 1));
+            setPct(node, pct);
+          } catch(...) {}
+        }
+      }
+    };
+
+    auto applyEdge = [node](const std::optional<std::variant<std::string, double>>& val, YGEdge edge, auto setPt, auto setPct) {
+      if (!val.has_value()) return;
+      if (std::holds_alternative<double>(val.value())) {
+        setPt(node, edge, std::get<double>(val.value()));
+      } else {
+        std::string s = std::get<std::string>(val.value());
+        if (!s.empty() && s.back() == '%') {
+          try {
+            float pct = std::stof(s.substr(0, s.length() - 1));
+            setPct(node, edge, pct);
+          } catch(...) {}
+        }
+      }
+    };
+
     // === Flex Direction ===
     if (style.flexDirection.has_value()) {
       const auto& v = style.flexDirection.value();
@@ -50,6 +82,18 @@ namespace margelo::nitro::skiakit {
       else YGNodeStyleSetAlignItems(node, YGAlignFlexStart);
     }
 
+    // === Align Content ===
+    if (style.alignContent.has_value()) {
+      const auto& v = style.alignContent.value();
+      if (v == "center") YGNodeStyleSetAlignContent(node, YGAlignCenter);
+      else if (v == "flex-end" || v == "end") YGNodeStyleSetAlignContent(node, YGAlignFlexEnd);
+      else if (v == "stretch") YGNodeStyleSetAlignContent(node, YGAlignStretch);
+      else if (v == "baseline") YGNodeStyleSetAlignContent(node, YGAlignBaseline);
+      else if (v == "space-between" || v == "spaceBetween") YGNodeStyleSetAlignContent(node, YGSpaceBetween);
+      else if (v == "space-around" || v == "spaceAround") YGNodeStyleSetAlignContent(node, YGSpaceAround);
+      else YGNodeStyleSetAlignContent(node, YGAlignFlexStart);
+    }
+
     // === Flex Wrap ===
     if (style.flexWrap.has_value()) {
       const auto& v = style.flexWrap.value();
@@ -59,12 +103,12 @@ namespace margelo::nitro::skiakit {
     }
 
     // === Dimensions ===
-    if (style.width.has_value()) YGNodeStyleSetWidth(node, style.width.value());
-    if (style.height.has_value()) YGNodeStyleSetHeight(node, style.height.value());
-    if (style.minWidth.has_value()) YGNodeStyleSetMinWidth(node, style.minWidth.value());
-    if (style.maxWidth.has_value()) YGNodeStyleSetMaxWidth(node, style.maxWidth.value());
-    if (style.minHeight.has_value()) YGNodeStyleSetMinHeight(node, style.minHeight.value());
-    if (style.maxHeight.has_value()) YGNodeStyleSetMaxHeight(node, style.maxHeight.value());
+    applyDim(style.width, YGNodeStyleSetWidth, YGNodeStyleSetWidthPercent, YGNodeStyleSetWidthAuto);
+    applyDim(style.height, YGNodeStyleSetHeight, YGNodeStyleSetHeightPercent, YGNodeStyleSetHeightAuto);
+    applyDim(style.minWidth, YGNodeStyleSetMinWidth, YGNodeStyleSetMinWidthPercent);
+    applyDim(style.maxWidth, YGNodeStyleSetMaxWidth, YGNodeStyleSetMaxWidthPercent);
+    applyDim(style.minHeight, YGNodeStyleSetMinHeight, YGNodeStyleSetMinHeightPercent);
+    applyDim(style.maxHeight, YGNodeStyleSetMaxHeight, YGNodeStyleSetMaxHeightPercent);
     if (style.aspectRatio.has_value()) YGNodeStyleSetAspectRatio(node, style.aspectRatio.value());
 
     // === Layout Rules ===
@@ -92,7 +136,7 @@ namespace margelo::nitro::skiakit {
     if (style.flex.has_value()) YGNodeStyleSetFlex(node, style.flex.value());
     if (style.flexGrow.has_value()) YGNodeStyleSetFlexGrow(node, style.flexGrow.value());
     if (style.flexShrink.has_value()) YGNodeStyleSetFlexShrink(node, style.flexShrink.value());
-    if (style.flexBasis.has_value()) YGNodeStyleSetFlexBasis(node, style.flexBasis.value());
+    applyDim(style.flexBasis, YGNodeStyleSetFlexBasis, YGNodeStyleSetFlexBasisPercent, YGNodeStyleSetFlexBasisAuto);
 
     // === Align Self ===
     if (style.alignSelf.has_value()) {
@@ -108,18 +152,19 @@ namespace margelo::nitro::skiakit {
     // === Gap ===
     if (style.gap.has_value()) YGNodeStyleSetGap(node, YGGutterAll, style.gap.value());
     if (style.rowGap.has_value()) YGNodeStyleSetGap(node, YGGutterRow, style.rowGap.value());
+    if (style.columnGap.has_value()) YGNodeStyleSetGap(node, YGGutterColumn, style.columnGap.value());
 
     // === Padding ===
-    if (style.paddingTop.has_value()) YGNodeStyleSetPadding(node, YGEdgeTop, style.paddingTop.value());
-    if (style.paddingRight.has_value()) YGNodeStyleSetPadding(node, YGEdgeRight, style.paddingRight.value());
-    if (style.paddingBottom.has_value()) YGNodeStyleSetPadding(node, YGEdgeBottom, style.paddingBottom.value());
-    if (style.paddingLeft.has_value()) YGNodeStyleSetPadding(node, YGEdgeLeft, style.paddingLeft.value());
+    applyEdge(style.paddingTop, YGEdgeTop, YGNodeStyleSetPadding, YGNodeStyleSetPaddingPercent);
+    applyEdge(style.paddingRight, YGEdgeRight, YGNodeStyleSetPadding, YGNodeStyleSetPaddingPercent);
+    applyEdge(style.paddingBottom, YGEdgeBottom, YGNodeStyleSetPadding, YGNodeStyleSetPaddingPercent);
+    applyEdge(style.paddingLeft, YGEdgeLeft, YGNodeStyleSetPadding, YGNodeStyleSetPaddingPercent);
 
     // === Margin ===
-    if (style.marginTop.has_value()) YGNodeStyleSetMargin(node, YGEdgeTop, style.marginTop.value());
-    if (style.marginRight.has_value()) YGNodeStyleSetMargin(node, YGEdgeRight, style.marginRight.value());
-    if (style.marginBottom.has_value()) YGNodeStyleSetMargin(node, YGEdgeBottom, style.marginBottom.value());
-    if (style.marginLeft.has_value()) YGNodeStyleSetMargin(node, YGEdgeLeft, style.marginLeft.value());
+    applyEdge(style.marginTop, YGEdgeTop, YGNodeStyleSetMargin, YGNodeStyleSetMarginPercent);
+    applyEdge(style.marginRight, YGEdgeRight, YGNodeStyleSetMargin, YGNodeStyleSetMarginPercent);
+    applyEdge(style.marginBottom, YGEdgeBottom, YGNodeStyleSetMargin, YGNodeStyleSetMarginPercent);
+    applyEdge(style.marginLeft, YGEdgeLeft, YGNodeStyleSetMargin, YGNodeStyleSetMarginPercent);
 
     // === Position ===
     if (style.position.has_value()) {
@@ -127,10 +172,10 @@ namespace margelo::nitro::skiakit {
       if (v == "absolute") YGNodeStyleSetPositionType(node, YGPositionTypeAbsolute);
       else YGNodeStyleSetPositionType(node, YGPositionTypeRelative);
     }
-    if (style.top.has_value()) YGNodeStyleSetPosition(node, YGEdgeTop, style.top.value());
-    if (style.left.has_value()) YGNodeStyleSetPosition(node, YGEdgeLeft, style.left.value());
-    if (style.right.has_value()) YGNodeStyleSetPosition(node, YGEdgeRight, style.right.value());
-    if (style.bottom.has_value()) YGNodeStyleSetPosition(node, YGEdgeBottom, style.bottom.value());
+    applyEdge(style.top, YGEdgeTop, YGNodeStyleSetPosition, YGNodeStyleSetPositionPercent);
+    applyEdge(style.left, YGEdgeLeft, YGNodeStyleSetPosition, YGNodeStyleSetPositionPercent);
+    applyEdge(style.right, YGEdgeRight, YGNodeStyleSetPosition, YGNodeStyleSetPositionPercent);
+    applyEdge(style.bottom, YGEdgeBottom, YGNodeStyleSetPosition, YGNodeStyleSetPositionPercent);
   }
 
   void LayoutSubsystem::removeLayoutNode(const std::string& id) {

@@ -25,15 +25,15 @@ const TRANSACTIONS = Array.from({ length: 50 }).map((_, i) => ({
 }));
 
 export function HomeScreen() {
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const nav = useNav();
   const theme = useTheme();
 
   return (
     <Column
       style={{
-        width,
-        height,
+        width: '100%',
+        height: '100%',
         backgroundColor: theme.colors.background,
         padding: 60, // approximate top padding
       }}
@@ -41,7 +41,7 @@ export function HomeScreen() {
       {/* Header */}
       <Row
         style={{
-          width,
+          width: '100%',
           padding: 24,
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -122,7 +122,7 @@ export function HomeScreen() {
       </Hero>
 
       {/* Quick Actions */}
-      <Row style={{ width, padding: 24, justifyContent: 'space-between' }}>
+      <Row style={{ width: '100%', padding: 24, justifyContent: 'space-between' }}>
         {['Send', 'Receive', 'Scan', 'More'].map((action, i) => (
           <Column key={action} style={{ alignItems: 'center', gap: 8 }}>
             <Box
@@ -157,7 +157,7 @@ export function HomeScreen() {
       {/* Transactions */}
       <Box
         style={{
-          width,
+          width: '100%',
           flex: 1,
           backgroundColor: theme.colors.surface,
           borderRadius: 32,
@@ -174,14 +174,14 @@ export function HomeScreen() {
             }}
           />
         </Box>
-        <Box style={{ width, flex: 1 }}>
+        <Box style={{ width: '100%', flex: 1 }}>
         <VirtualizedList
           data={TRANSACTIONS}
           itemHeight={76}
           renderItem={(item) => (
             <Row
               style={{
-                width,
+                width: '100%',
                 height: 76,
                 padding: 24,
                 alignItems: 'center',

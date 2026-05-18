@@ -72,7 +72,7 @@ export const Card = React.memo(function Card({
 
   useWidget({
     type: 'Card',
-    layout: { x, y, width: w ?? 0, height: h ?? 0 },
+    layout: { x, y, width: typeof w === 'number' ? w : 0, height: typeof h === 'number' ? h : 0 },
   });
 
   return (

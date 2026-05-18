@@ -143,8 +143,8 @@ export const Box = React.memo(function Box({
 
   // Resolve width/height: undefined means "auto-sized by parent flex layout"
   // Fallback to 0 for standalone usage (renders nothing until parent injects size)
-  const w = width ?? 0;
-  const h = height ?? 0;
+  const w = typeof width === 'number' ? width : 0;
+  const h = typeof height === 'number' ? height : 0;
 
   const widgetId = useWidget({
     type: 'Box',

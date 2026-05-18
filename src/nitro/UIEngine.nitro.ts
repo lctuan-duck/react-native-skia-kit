@@ -22,24 +22,26 @@ export interface NativeYogaStyle {
   flexDirection?: string;
   justifyContent?: string;
   alignItems?: string;
+  alignContent?: string;
   flexWrap?: string;
   gap?: number;
   rowGap?: number;
+  columnGap?: number;
 
   // === Child ===
   flex?: number;
   flexGrow?: number;
   flexShrink?: number;
-  flexBasis?: number;
+  flexBasis?: number | string;
   alignSelf?: string;
 
   // === Dimensions & Constraints ===
-  width?: number;
-  height?: number;
-  minWidth?: number;
-  maxWidth?: number;
-  minHeight?: number;
-  maxHeight?: number;
+  width?: number | string;
+  height?: number | string;
+  minWidth?: number | string;
+  maxWidth?: number | string;
+  minHeight?: number | string;
+  maxHeight?: number | string;
   aspectRatio?: number;
 
   // === Layout Rules ===
@@ -48,23 +50,23 @@ export interface NativeYogaStyle {
   direction?: string;        // 'inherit' | 'ltr' | 'rtl'
 
   // === Padding ===
-  paddingTop?: number;
-  paddingRight?: number;
-  paddingBottom?: number;
-  paddingLeft?: number;
+  paddingTop?: number | string;
+  paddingRight?: number | string;
+  paddingBottom?: number | string;
+  paddingLeft?: number | string;
 
   // === Margin ===
-  marginTop?: number;
-  marginRight?: number;
-  marginBottom?: number;
-  marginLeft?: number;
+  marginTop?: number | string;
+  marginRight?: number | string;
+  marginBottom?: number | string;
+  marginLeft?: number | string;
 
   // === Position ===
   position?: string;
-  top?: number;
-  left?: number;
-  right?: number;
-  bottom?: number;
+  top?: number | string;
+  left?: number | string;
+  right?: number | string;
+  bottom?: number | string;
 }
 
 export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {

@@ -11,12 +11,12 @@
 // === Layout (dimensions & overflow) ===
 
 export interface LayoutStyle {
-  width?: number;
-  height?: number;
-  minWidth?: number;
-  maxWidth?: number;
-  minHeight?: number;
-  maxHeight?: number;
+  width?: number | string;
+  height?: number | string;
+  minWidth?: number | string;
+  maxWidth?: number | string;
+  minHeight?: number | string;
+  maxHeight?: number | string;
   aspectRatio?: number;
   display?: 'flex' | 'none';
   overflow?: 'visible' | 'hidden' | 'scroll';
@@ -26,8 +26,20 @@ export interface LayoutStyle {
 // === Spacing (padding & margin — supports shorthand or per-edge) ===
 
 export interface SpacingStyle {
-  padding?: number | [number, number, number, number];
-  margin?: number | [number, number, number, number];
+  padding?: number | string | [number | string, number | string, number | string, number | string];
+  paddingHorizontal?: number | string;
+  paddingVertical?: number | string;
+  paddingTop?: number | string;
+  paddingBottom?: number | string;
+  paddingLeft?: number | string;
+  paddingRight?: number | string;
+  margin?: number | string | [number | string, number | string, number | string, number | string];
+  marginHorizontal?: number | string;
+  marginVertical?: number | string;
+  marginTop?: number | string;
+  marginBottom?: number | string;
+  marginLeft?: number | string;
+  marginRight?: number | string;
 }
 
 // === Color ===
@@ -58,7 +70,7 @@ export interface FlexChildStyle {
   flex?: number;
   flexGrow?: number;
   flexShrink?: number;
-  flexBasis?: number | 'auto';
+  flexBasis?: number | string | 'auto';
   alignSelf?:
     | 'auto'
     | 'start'
@@ -69,10 +81,10 @@ export interface FlexChildStyle {
     | 'flex-start'
     | 'flex-end';
   position?: 'relative' | 'absolute';
-  top?: number;
-  left?: number;
-  right?: number;
-  bottom?: number;
+  top?: number | string;
+  left?: number | string;
+  right?: number | string;
+  bottom?: number | string;
 }
 
 // === Flex Container (khi widget chứa children cần flex layout) ===
@@ -100,8 +112,20 @@ export interface FlexContainerStyle {
     | 'baseline'
     | 'flex-start'
     | 'flex-end';
+  alignContent?:
+    | 'start'
+    | 'center'
+    | 'end'
+    | 'stretch'
+    | 'baseline'
+    | 'flex-start'
+    | 'flex-end'
+    | 'space-between'
+    | 'space-around'
+    | 'space-evenly';
   gap?: number;
   rowGap?: number;
+  columnGap?: number;
 }
 
 // === Text ===

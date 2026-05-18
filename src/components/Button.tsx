@@ -114,7 +114,7 @@ export const Button = React.memo(function Button({
 
   useWidget({
     type: 'Button',
-    layout: { x, y, width: w ?? 100, height: h },
+    layout: { x, y, width: typeof w === 'number' ? w : 100, height: typeof h === 'number' ? h : 48 },
   });
 
   // ===== Icon-only variant =====

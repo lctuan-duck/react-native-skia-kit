@@ -29,19 +29,52 @@ export interface NativeComputedLayout {
 /**
  * Expand shorthand padding/margin into per-edge values for C++.
  */
+type EdgeValue = number | string;
 function expandEdges(
-  value?: number | [number, number, number, number]
+  value?: EdgeValue | [EdgeValue, EdgeValue, EdgeValue, EdgeValue],
+  horizontal?: EdgeValue,
+  vertical?: EdgeValue,
+  top?: EdgeValue,
+  bottom?: EdgeValue,
+  left?: EdgeValue,
+  right?: EdgeValue
 ): {
-  top?: number;
-  right?: number;
-  bottom?: number;
-  left?: number;
+  top?: EdgeValue;
+  right?: EdgeValue;
+  bottom?: EdgeValue;
+  left?: EdgeValue;
 } {
-  if (value == null) return {};
-  if (Array.isArray(value)) {
-    return { top: value[0], right: value[1], bottom: value[2], left: value[3] };
+  const result: { top?: EdgeValue; right?: EdgeValue; bottom?: EdgeValue; left?: EdgeValue } = {};
+  
+  if (value != null) {
+    if (Array.isArray(value)) {
+      result.top = value[0];
+      result.right = value[1];
+      result.bottom = value[2];
+      result.left = value[3];
+    } else {
+      result.top = value;
+      result.right = value;
+      result.bottom = value;
+      result.left = value;
+    }
   }
-  return { top: value, right: value, bottom: value, left: value };
+
+  if (vertical != null) {
+    result.top = vertical;
+    result.bottom = vertical;
+  }
+  if (horizontal != null) {
+    result.right = horizontal;
+    result.left = horizontal;
+  }
+  
+  if (top != null) result.top = top;
+  if (bottom != null) result.bottom = bottom;
+  if (left != null) result.left = left;
+  if (right != null) result.right = right;
+
+  return result;
 }
 
 /**
@@ -51,8 +84,8 @@ function expandEdges(
 function buildNativeStyle(style?: ComponentYogaStyle): NativeYogaStyle {
   if (!style) return {};
 
-  const pad = expandEdges(style.padding);
-  const mar = expandEdges(style.margin);
+  const pad = expandEdges(style.padding, style.paddingHorizontal, style.paddingVertical, style.paddingTop, style.paddingBottom, style.paddingLeft, style.paddingRight);
+  const mar = expandEdges(style.margin, style.marginHorizontal, style.marginVertical, style.marginTop, style.marginBottom, style.marginLeft, style.marginRight);
 
   const result: NativeYogaStyle = {};
 
@@ -60,17 +93,17 @@ function buildNativeStyle(style?: ComponentYogaStyle): NativeYogaStyle {
   if (style.flexDirection != null) result.flexDirection = style.flexDirection;
   if (style.justifyContent != null) result.justifyContent = style.justifyContent;
   if (style.alignItems != null) result.alignItems = style.alignItems;
+  if (style.alignContent != null) result.alignContent = style.alignContent;
   if (style.flexWrap != null) result.flexWrap = style.flexWrap;
   if (style.gap != null) result.gap = style.gap;
   if (style.rowGap != null) result.rowGap = style.rowGap;
+  if (style.columnGap != null) result.columnGap = style.columnGap;
 
   // Child
   if (style.flex != null) result.flex = style.flex;
   if (style.flexGrow != null) result.flexGrow = style.flexGrow;
   if (style.flexShrink != null) result.flexShrink = style.flexShrink;
-  if (style.flexBasis != null && style.flexBasis !== 'auto') {
-    result.flexBasis = style.flexBasis as number;
-  }
+  if (style.flexBasis != null) result.flexBasis = style.flexBasis;
   if (style.alignSelf != null) result.alignSelf = style.alignSelf;
 
   // Dimensions

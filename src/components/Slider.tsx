@@ -67,14 +67,14 @@ export const Slider = React.memo(function Slider({
   const trackY = y + thumbR - trackH / 2;
 
   const ratio = (value - min) / (max - min);
-  const fillWidth = ratio * width;
+  const fillWidth = typeof width === 'number' ? ratio * width : 0;
 
   const thumbCx = useDerivedValue(() => {
-    return x + ratio * width;
+    return typeof width === 'number' ? x + ratio * width : x;
   }, [value, x, width, min, max]);
 
   const handlePanUpdate = (e: PanEvent) => {
-    if (disabled) return;
+    if (disabled || typeof width !== 'number') return;
     const newValue = Math.min(
       max,
       Math.max(min, min + (((e?.absoluteX ?? 0) - x) / width) * (max - min))
@@ -84,7 +84,7 @@ export const Slider = React.memo(function Slider({
 
   useWidget({
     type: 'Slider',
-    layout: { x, y, width, height: totalHeight },
+    layout: { x, y, width: typeof width === 'number' ? width : 200, height: totalHeight },
   });
 
   return (

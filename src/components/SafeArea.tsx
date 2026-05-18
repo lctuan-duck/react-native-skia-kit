@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Platform, StatusBar } from 'react-native';
-import { Group } from '@shopify/react-native-skia';
+
 import { Box } from './Box';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -73,34 +73,23 @@ export const SafeArea = React.memo(function SafeArea({
   const safeLeft = edges.includes('left') ? insets.left : 0;
   const safeRight = edges.includes('right') ? insets.right : 0;
 
-  const safeX = x + safeLeft;
-  const safeY = y + safeTop;
-  const safeWidth = width - safeLeft - safeRight;
-  const safeHeight = height - safeTop - safeBottom;
-
   return (
-    <Group>
-      {/* Background fill for entire area */}
-      {bgColor !== 'transparent' && (
-        <Box x={x} y={y} style={{ width, height, backgroundColor: bgColor }} />
-      )}
-      {/* Content in safe area */}
-      <Box
-        x={safeX}
-        y={safeY}
-        style={{
-          width: safeWidth,
-          height: safeHeight,
-          flexDirection: style?.flexDirection,
-          justifyContent: style?.justifyContent,
-          alignItems: style?.alignItems,
-          gap: style?.gap,
-          padding: style?.padding,
-        }}
-      >
-        {children}
-      </Box>
-    </Group>
+    <Box
+      x={x}
+      y={y}
+      style={{
+        ...style,
+        width,
+        height,
+        backgroundColor: bgColor,
+        paddingTop: safeTop,
+        paddingBottom: safeBottom,
+        paddingLeft: safeLeft,
+        paddingRight: safeRight,
+      }}
+    >
+      {children}
+    </Box>
   );
 });
 

@@ -54,11 +54,12 @@ export const BottomNavigationBar = React.memo(function BottomNavigationBar({
   const elev = style?.elevation ?? 8;
   const width = style?.width ?? 360;
   const height = style?.height ?? 64;
-  const barY = y ?? 800 - height;
+  const numHeight = typeof height === 'number' ? height : 64;
+  const barY = y ?? 800 - numHeight;
 
   useWidget({
     type: 'BottomNavigationBar',
-    layout: { x, y: barY, width, height },
+    layout: { x, y: barY, width: typeof width === 'number' ? width : 360, height: numHeight },
   });
 
   return (

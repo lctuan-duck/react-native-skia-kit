@@ -16,7 +16,7 @@ import {
 import { useWindowDimensions } from 'react-native';
 
 export function CardDetailScreen() {
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const nav = useNav();
   const theme = useTheme();
 
@@ -27,21 +27,21 @@ export function CardDetailScreen() {
   return (
     <Column
       style={{
-        width,
-        height,
+        width: '100%',
+        height: '100%',
         backgroundColor: theme.colors.background,
         padding: 60,
       }}
     >
       {/* Header */}
-      <Row style={{ width, padding: 24, alignItems: 'center' }}>
+      <Row style={{ width: '100%', padding: 24, alignItems: 'center' }}>
         <Button icon="arrow-back" variant="icon" color="primary" onPress={() => nav.pop()} />
         <Box style={{ width: 16 }} />
         <Text text="Card Details" style={{ fontSize: 20, fontWeight: 'bold', color: theme.colors.textBody }} />
       </Row>
 
-      <ScrollView x={0} y={132} style={{ width, flex: 1 }} contentSize={800}>
-        <Column style={{ width, alignItems: 'center', gap: 32, padding: 64 }}>
+      <ScrollView x={0} y={132} style={{ width: '100%', flex: 1 }} contentSize={800}>
+        <Column style={{ width: '100%', alignItems: 'center', gap: 32, padding: 64 }}>
           {/* Credit Card Hero (Rotated/Expanded style) */}
           <Hero tag="credit-card" x={(width - 320) / 2} y={0} width={320} height={480}>
             <Box

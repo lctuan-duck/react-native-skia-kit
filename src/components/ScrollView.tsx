@@ -27,8 +27,8 @@ import type { FlexChildStyle, SpacingStyle } from '../types/style.types';
 
 export type ScrollViewStyle = FlexChildStyle &
   SpacingStyle & {
-    width?: number;
-    height?: number;
+    width?: number | string;
+    height?: number | string;
     gap?: number;
   };
 
@@ -54,12 +54,19 @@ export const ScrollView = React.memo(function ScrollView({
 }: ScrollViewProps) {
   const width = style?.width ?? 360;
   const height = style?.height ?? 600;
+  const numWidth = typeof width === 'number' ? width : 360;
+  const numHeight = typeof height === 'number' ? height : 600;
   const padding = style?.padding ?? 0;
   const gap = style?.gap ?? 0;
 
   const widgetId = useWidget({
     type: 'ScrollView',
-    layout: { x, y, width, height },
+    layout: { 
+      x, 
+      y, 
+      width: typeof width === 'number' ? width : 360, 
+      height: typeof height === 'number' ? height : 600 
+    },
   });
 
   const contentContainerId = `${widgetId}-content`;
@@ -72,21 +79,21 @@ export const ScrollView = React.memo(function ScrollView({
     estimatedContentSize = contentSize;
   } else {
     estimatedContentSize = horizontal
-      ? contentLayout?.rect.width ?? width
-      : contentLayout?.rect.height ?? height;
+      ? contentLayout?.rect.width ?? numWidth
+      : contentLayout?.rect.height ?? numHeight;
   }
 
   const { scrollOffset, handlePanUpdate, handlePanEnd } = useScrollPhysics(
     physics === 'clamped' ? 'clamping' : 'bouncing',
     {
-      viewportSize: horizontal ? width : height,
+      viewportSize: horizontal ? numWidth : numHeight,
       contentSize: estimatedContentSize,
     }
   );
 
   useEffect(() => {
     useEventStore.getState().registerScrollArea(widgetId, {
-      rect: { left: x, top: y, width, height },
+      rect: { left: x, top: y, width: numWidth, height: numHeight },
       offset: 0,
       horizontal,
     });
@@ -142,7 +149,7 @@ export const ScrollView = React.memo(function ScrollView({
   const hitCallbacks = React.useMemo(() => ({}), []);
 
   useHitTest(widgetId, {
-    rect: { left: x, top: y, width, height },
+    rect: { left: x, top: y, width: numWidth, height: numHeight },
     callbacks: hitCallbacks,
     behavior: 'translucent',
   });
@@ -153,13 +160,13 @@ export const ScrollView = React.memo(function ScrollView({
       : [{ translateY: -scrollOffset.value }]
   );
 
-  const indicatorSize = (height * height) / estimatedContentSize;
+  const indicatorSize = (numHeight * numHeight) / estimatedContentSize;
   const indicatorTransform = useDerivedValue(() => [
-    { translateY: scrollOffset.value * (height / estimatedContentSize) },
+    { translateY: scrollOffset.value * (numHeight / estimatedContentSize) },
   ]);
 
   return (
-    <Group clip={{ x, y, width, height }}>
+    <Group clip={{ x, y, width: numWidth, height: numHeight }}>
       <Group transform={transform}>
         {horizontal ? (
           <Box
@@ -187,10 +194,10 @@ export const ScrollView = React.memo(function ScrollView({
           </Column>
         )}
       </Group>
-      {!horizontal && height < estimatedContentSize && (
+      {!horizontal && numHeight < estimatedContentSize && (
         <Group transform={indicatorTransform}>
           <Rect
-            x={x + width - 3}
+            x={x + numWidth - 3}
             y={y}
             width={3}
             height={indicatorSize}
