@@ -99,14 +99,16 @@ export const ScrollView = React.memo(function ScrollView({
 
   // Sync scroll offset to C++ engine
 
+  const updateScrollStore = React.useCallback((id: string, off: number) => {
+    useEventStore.getState().updateScrollOffset(id, off);
+  }, []);
+
   useAnimatedReaction(
     () => scrollOffset.value,
     (offset) => {
       'worklet';
       uiEngine.updateScrollOffset(widgetId, offset);
-      runOnJS(() => {
-        useEventStore.getState().updateScrollOffset(widgetId, offset);
-      })();
+      runOnJS(updateScrollStore)(widgetId, offset);
     }
   );
 
