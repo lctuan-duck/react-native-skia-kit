@@ -13,6 +13,7 @@ import type {
 } from '../types/style.types';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 
 // === Image Types ===
 
@@ -66,8 +67,22 @@ export const SkiaKitImage = React.memo(function SkiaKitImage({
     layout: { x, y, width, height },
   });
 
+  const layoutResult = useNativeYogaLayout(
+    widgetId,
+    {
+      ...style,
+      width,
+      height,
+    }
+  );
+
+  const finalX = layoutResult?.x ?? x;
+  const finalY = layoutResult?.y ?? y;
+  const finalWidth = layoutResult?.width ?? width;
+  const finalHeight = layoutResult?.height ?? height;
+
   useHitTest(widgetId, {
-    rect: { left: x, top: y, width, height },
+    rect: { left: finalX, top: finalY, width: finalWidth, height: finalHeight },
     callbacks: { onPress },
     behavior: onPress ? 'opaque' : 'deferToChild',
   });
@@ -82,10 +97,10 @@ export const SkiaKitImage = React.memo(function SkiaKitImage({
     return (
       (placeholder as React.ReactElement) ?? (
         <RoundedRect
-          x={x}
-          y={y}
-          width={width}
-          height={height}
+          x={finalX}
+          y={finalY}
+          width={finalWidth}
+          height={finalHeight}
           r={borderRadius}
           color="rgba(200,200,200,0.5)"
         />
@@ -97,14 +112,14 @@ export const SkiaKitImage = React.memo(function SkiaKitImage({
     return (
       <Group
         opacity={opacity}
-        clip={{ x, y, width, height, rx: borderRadius, ry: borderRadius }}
+        clip={{ x: finalX, y: finalY, width: finalWidth, height: finalHeight, rx: borderRadius, ry: borderRadius }}
       >
         <SkiaImage
           image={image}
-          x={x}
-          y={y}
-          width={width}
-          height={height}
+          x={finalX}
+          y={finalY}
+          width={finalWidth}
+          height={finalHeight}
           fit={fit}
         />
       </Group>
@@ -114,10 +129,10 @@ export const SkiaKitImage = React.memo(function SkiaKitImage({
   return (
     <SkiaImage
       image={image}
-      x={x}
-      y={y}
-      width={width}
-      height={height}
+      x={finalX}
+      y={finalY}
+      width={finalWidth}
+      height={finalHeight}
       fit={fit}
       opacity={opacity}
     />

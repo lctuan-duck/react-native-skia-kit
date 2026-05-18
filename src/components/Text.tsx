@@ -7,6 +7,7 @@ import type { SkiaTextStyle, FlexChildStyle } from '../types/style.types';
 import { useTheme } from '../hooks/useTheme';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 
 // === Ellipsis mode ===
 
@@ -196,16 +197,31 @@ export const Text = React.memo(function SkiaText({
     layout: { x, y, width, height: actualHeight },
   });
 
+  const layoutResult = useNativeYogaLayout(
+    widgetId,
+    {
+      ...style,
+      // Provide intrinsic content size to Yoga
+      width: style?.width ?? paragraph.getMaxIntrinsicWidth(),
+      height: actualHeight,
+    },
+    children
+  );
+
+  const finalX = layoutResult?.x ?? x;
+  const finalY = layoutResult?.y ?? y;
+  const finalWidth = layoutResult?.width ?? width;
+
   // Register hit test only if there are callbacks
   useHitTest(widgetId, {
-    rect: { left: x, top: y, width, height: actualHeight },
+    rect: { left: finalX, top: finalY, width: finalWidth, height: actualHeight },
     callbacks: { onPress, onLongPress },
     behavior: hitTestBehavior,
   });
 
   return (
     <Group opacity={opacity}>
-      <Paragraph paragraph={paragraph} x={x} y={y + yOffset} width={width} />
+      <Paragraph paragraph={paragraph} x={finalX} y={finalY + yOffset} width={finalWidth} />
     </Group>
   );
 });
