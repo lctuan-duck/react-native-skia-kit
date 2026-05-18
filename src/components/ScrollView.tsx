@@ -13,6 +13,7 @@ import {
   globalPanState,
   uiEngine,
 } from '../core/GlobalEngine';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import { Box } from './Box';
 import { Column } from './Column';
 import { useWidget } from '../hooks/useWidget';
@@ -54,22 +55,25 @@ export const ScrollView = React.memo(function ScrollView({
 }: ScrollViewProps) {
   const width = style?.width ?? 360;
   const height = style?.height ?? 600;
-  const numWidth = typeof width === 'number' ? width : 360;
-  const numHeight = typeof height === 'number' ? height : 600;
+  const fallbackW = typeof width === 'number' ? width : 360;
+  const fallbackH = typeof height === 'number' ? height : 600;
   const padding = style?.padding ?? 0;
   const gap = style?.gap ?? 0;
 
   const widgetId = useWidget({
     type: 'ScrollView',
-    layout: { 
-      x, 
-      y, 
-      width: typeof width === 'number' ? width : 360, 
-      height: typeof height === 'number' ? height : 600 
-    },
+    layout: { x, y, width: fallbackW, height: fallbackH },
   });
 
   const contentContainerId = `${widgetId}-content`;
+
+  const layoutResult = useNativeYogaLayout(widgetId, style, [contentContainerId]);
+  
+  const finalX = layoutResult?.x ?? x;
+  const finalY = layoutResult?.y ?? y;
+  const numWidth = layoutResult?.width ?? fallbackW;
+  const numHeight = layoutResult?.height ?? fallbackH;
+
   const contentLayout = useLayoutStore((s) =>
     s.layoutMap.get(contentContainerId)
   );
@@ -93,14 +97,14 @@ export const ScrollView = React.memo(function ScrollView({
 
   useEffect(() => {
     useEventStore.getState().registerScrollArea(widgetId, {
-      rect: { left: x, top: y, width: numWidth, height: numHeight },
+      rect: { left: finalX, top: finalY, width: numWidth, height: numHeight },
       offset: 0,
       horizontal,
     });
     return () => {
       useEventStore.getState().unregisterScrollArea(widgetId);
     };
-  }, [widgetId, x, y, width, height, horizontal]);
+  }, [widgetId, finalX, finalY, numWidth, numHeight, horizontal]);
 
   const lastTranslation = useSharedValue(0);
 
@@ -149,7 +153,7 @@ export const ScrollView = React.memo(function ScrollView({
   const hitCallbacks = React.useMemo(() => ({}), []);
 
   useHitTest(widgetId, {
-    rect: { left: x, top: y, width: numWidth, height: numHeight },
+    rect: { left: finalX, top: finalY, width: numWidth, height: numHeight },
     callbacks: hitCallbacks,
     behavior: 'translucent',
   });
@@ -166,16 +170,16 @@ export const ScrollView = React.memo(function ScrollView({
   ]);
 
   return (
-    <Group clip={{ x, y, width: numWidth, height: numHeight }}>
+    <Group clip={{ x: finalX, y: finalY, width: numWidth, height: numHeight }}>
       <Group transform={transform}>
         {horizontal ? (
           <Box
             id={contentContainerId}
-            x={x}
-            y={y}
+            x={finalX}
+            y={finalY}
             style={{
               width: estimatedContentSize,
-              height,
+              height: numHeight,
               flexDirection: 'row',
               padding,
               gap,
@@ -186,9 +190,9 @@ export const ScrollView = React.memo(function ScrollView({
         ) : (
           <Column
             id={contentContainerId}
-            x={x}
-            y={y}
-            style={{ width, padding, gap }}
+            x={finalX}
+            y={finalY}
+            style={{ width: numWidth, padding, gap }}
           >
             {children}
           </Column>
@@ -197,8 +201,8 @@ export const ScrollView = React.memo(function ScrollView({
       {!horizontal && numHeight < estimatedContentSize && (
         <Group transform={indicatorTransform}>
           <Rect
-            x={x + numWidth - 3}
-            y={y}
+            x={finalX + numWidth - 3}
+            y={finalY}
             width={3}
             height={indicatorSize}
             color="rgba(0,0,0,0.15)"

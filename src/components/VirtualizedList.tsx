@@ -18,15 +18,15 @@ import {
 } from 'react-native-reanimated';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import type { WidgetProps } from '../types/widget.types';
+import type { LayoutStyle, SpacingStyle, FlexChildStyle } from '../types/style.types';
 
 export interface VirtualizedListProps<T> extends WidgetProps {
   /** Data array */
   data: T[];
-  /** Width of viewport */
-  width?: number;
-  /** Height of viewport */
-  height?: number;
+  /** Optional layout styles (width, height, flex, etc.) */
+  style?: LayoutStyle & SpacingStyle & FlexChildStyle;
   /** Fixed item height (required for virtualization) */
   itemHeight: number;
   /** Render function for each item */
@@ -42,8 +42,7 @@ export interface VirtualizedListProps<T> extends WidgetProps {
 export const VirtualizedList = React.memo(function VirtualizedList<T>({
   x = 0,
   y = 0,
-  width = 360,
-  height = 400,
+  style,
   data,
   itemHeight,
   renderItem,
@@ -51,19 +50,31 @@ export const VirtualizedList = React.memo(function VirtualizedList<T>({
   bufferCount = 5,
   separatorHeight = 0,
 }: VirtualizedListProps<T>) {
-  const scrollOffset = useSharedValue(0);
-  const totalItemHeight = itemHeight + separatorHeight;
-  const contentHeight = data.length * totalItemHeight;
-  const maxScroll = Math.max(0, contentHeight - height);
+  const width = style?.width;
+  const height = style?.height;
+  const fallbackW = typeof width === 'number' ? width : 360;
+  const fallbackH = typeof height === 'number' ? height : 400;
 
   const widgetId = useWidget({
     type: 'VirtualizedList',
-    layout: { x, y, width, height },
+    layout: { x, y, width: fallbackW, height: fallbackH },
   });
+
+  const layoutResult = useNativeYogaLayout(widgetId, style, []);
+  
+  const finalX = layoutResult?.x ?? x;
+  const finalY = layoutResult?.y ?? y;
+  const numWidth = layoutResult?.width ?? fallbackW;
+  const numHeight = layoutResult?.height ?? fallbackH;
+
+  const scrollOffset = useSharedValue(0);
+  const totalItemHeight = itemHeight + separatorHeight;
+  const contentHeight = data.length * totalItemHeight;
+  const maxScroll = Math.max(0, contentHeight - numHeight);
 
   // Pan gesture for scrolling
   useHitTest(widgetId, {
-    rect: { left: x, top: y, width, height },
+    rect: { left: finalX, top: finalY, width: numWidth, height: numHeight },
     callbacks: {
       onPanUpdate: (e) => {
         const newOffset = scrollOffset.value - e.translationY;
@@ -97,25 +108,25 @@ export const VirtualizedList = React.memo(function VirtualizedList<T>({
     const items: React.ReactNode[] = [];
     const end = Math.min(
       data.length - 1,
-      visibleStart + Math.ceil(height / totalItemHeight) + bufferCount * 2
+      visibleStart + Math.ceil(numHeight / totalItemHeight) + bufferCount * 2
     );
 
     for (let i = visibleStart; i <= end; i++) {
       const item = data[i];
       if (!item) continue;
       const key = keyExtractor ? keyExtractor(item, i) : String(i);
-      const itemY = y + i * totalItemHeight;
+      const itemY = finalY + i * totalItemHeight;
       items.push(<Group key={key} transform={[{ translateY: itemY }]}>{renderItem(item, i)}</Group>);
     }
     return items;
-  }, [data, totalItemHeight, height, bufferCount, visibleStart, keyExtractor, renderItem, y]);
+  }, [data, totalItemHeight, numHeight, bufferCount, visibleStart, keyExtractor, renderItem, finalY]);
 
   const scrollTransform = useDerivedValue(() => [
     { translateY: -scrollOffset.value },
   ]);
 
   return (
-    <Group clip={{ x, y, width, height }}>
+    <Group clip={{ x: finalX, y: finalY, width: numWidth, height: numHeight }}>
       <Group transform={scrollTransform}>{visibleItems}</Group>
     </Group>
   );
