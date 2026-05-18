@@ -76,6 +76,16 @@ function buildNativeStyle(style?: ComponentYogaStyle): NativeYogaStyle {
   // Dimensions
   if (style.width != null) result.width = style.width;
   if (style.height != null) result.height = style.height;
+  if (style.minWidth != null) result.minWidth = style.minWidth;
+  if (style.maxWidth != null) result.maxWidth = style.maxWidth;
+  if (style.minHeight != null) result.minHeight = style.minHeight;
+  if (style.maxHeight != null) result.maxHeight = style.maxHeight;
+  if (style.aspectRatio != null) result.aspectRatio = style.aspectRatio;
+
+  // Layout Rules
+  if (style.display != null) result.display = style.display;
+  if (style.overflow != null) result.overflow = style.overflow;
+  if (style.direction != null) result.direction = style.direction;
 
   // Padding
   if (pad.top != null) result.paddingTop = pad.top;

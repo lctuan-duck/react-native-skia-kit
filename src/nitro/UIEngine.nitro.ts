@@ -27,9 +27,19 @@ export interface NativeYogaStyle {
   flexBasis?: number;
   alignSelf?: string;
 
-  // === Dimensions ===
+  // === Dimensions & Constraints ===
   width?: number;
   height?: number;
+  minWidth?: number;
+  maxWidth?: number;
+  minHeight?: number;
+  maxHeight?: number;
+  aspectRatio?: number;
+
+  // === Layout Rules ===
+  display?: string;          // 'flex' | 'none'
+  overflow?: string;         // 'visible' | 'hidden' | 'scroll'
+  direction?: string;        // 'inherit' | 'ltr' | 'rtl'
 
   // === Padding ===
   paddingTop?: number;

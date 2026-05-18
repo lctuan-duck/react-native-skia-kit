@@ -1,19 +1,29 @@
 /**
  * Base style group types for react-native-skia-kit.
  *
- * Chỉ chứa base types — component-specific types (BoxStyle, ButtonStyle…)
- * được define trực tiếp trong file component tương ứng.
+ * Types are organized into small, composable groups.
+ * Components pick only the groups they need (e.g. BoxStyle = LayoutStyle & ColorStyle & ...).
+ *
+ * NativeYogaStyle in UIEngine.nitro.ts is a separate, internal bridge type
+ * used for C++ communication only — components should NOT import it.
  */
 
-// === Layout ===
+// === Layout (dimensions & overflow) ===
 
 export interface LayoutStyle {
   width?: number;
   height?: number;
-  overflow?: 'visible' | 'hidden';
+  minWidth?: number;
+  maxWidth?: number;
+  minHeight?: number;
+  maxHeight?: number;
+  aspectRatio?: number;
+  display?: 'flex' | 'none';
+  overflow?: 'visible' | 'hidden' | 'scroll';
+  direction?: 'inherit' | 'ltr' | 'rtl';
 }
 
-// === Spacing ===
+// === Spacing (padding & margin — supports shorthand or per-edge) ===
 
 export interface SpacingStyle {
   padding?: number | [number, number, number, number];
@@ -49,7 +59,15 @@ export interface FlexChildStyle {
   flexGrow?: number;
   flexShrink?: number;
   flexBasis?: number | 'auto';
-  alignSelf?: 'auto' | 'start' | 'center' | 'end' | 'stretch';
+  alignSelf?:
+    | 'auto'
+    | 'start'
+    | 'center'
+    | 'end'
+    | 'stretch'
+    | 'baseline'
+    | 'flex-start'
+    | 'flex-end';
   position?: 'relative' | 'absolute';
   top?: number;
   left?: number;
@@ -57,19 +75,31 @@ export interface FlexChildStyle {
   bottom?: number;
 }
 
-// === Flex Container ===
+// === Flex Container (khi widget chứa children cần flex layout) ===
 
 export interface FlexContainerStyle {
-  flexDirection?: 'row' | 'column';
-  flexWrap?: 'nowrap' | 'wrap';
+  flexDirection?: 'row' | 'column' | 'row-reverse' | 'column-reverse';
+  flexWrap?: 'nowrap' | 'wrap' | 'wrap-reverse';
   justifyContent?:
     | 'start'
     | 'center'
     | 'end'
     | 'spaceBetween'
     | 'spaceAround'
-    | 'spaceEvenly';
-  alignItems?: 'start' | 'center' | 'end' | 'stretch';
+    | 'spaceEvenly'
+    | 'flex-start'
+    | 'flex-end'
+    | 'space-between'
+    | 'space-around'
+    | 'space-evenly';
+  alignItems?:
+    | 'start'
+    | 'center'
+    | 'end'
+    | 'stretch'
+    | 'baseline'
+    | 'flex-start'
+    | 'flex-end';
   gap?: number;
   rowGap?: number;
 }

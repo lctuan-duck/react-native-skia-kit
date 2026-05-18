@@ -61,6 +61,32 @@ namespace margelo::nitro::skiakit {
     // === Dimensions ===
     if (style.width.has_value()) YGNodeStyleSetWidth(node, style.width.value());
     if (style.height.has_value()) YGNodeStyleSetHeight(node, style.height.value());
+    if (style.minWidth.has_value()) YGNodeStyleSetMinWidth(node, style.minWidth.value());
+    if (style.maxWidth.has_value()) YGNodeStyleSetMaxWidth(node, style.maxWidth.value());
+    if (style.minHeight.has_value()) YGNodeStyleSetMinHeight(node, style.minHeight.value());
+    if (style.maxHeight.has_value()) YGNodeStyleSetMaxHeight(node, style.maxHeight.value());
+    if (style.aspectRatio.has_value()) YGNodeStyleSetAspectRatio(node, style.aspectRatio.value());
+
+    // === Layout Rules ===
+    if (style.display.has_value()) {
+      const auto& v = style.display.value();
+      if (v == "none") YGNodeStyleSetDisplay(node, YGDisplayNone);
+      else YGNodeStyleSetDisplay(node, YGDisplayFlex);
+    }
+    
+    if (style.overflow.has_value()) {
+      const auto& v = style.overflow.value();
+      if (v == "hidden") YGNodeStyleSetOverflow(node, YGOverflowHidden);
+      else if (v == "scroll") YGNodeStyleSetOverflow(node, YGOverflowScroll);
+      else YGNodeStyleSetOverflow(node, YGOverflowVisible);
+    }
+
+    if (style.direction.has_value()) {
+      const auto& v = style.direction.value();
+      if (v == "rtl") YGNodeStyleSetDirection(node, YGDirectionRTL);
+      else if (v == "ltr") YGNodeStyleSetDirection(node, YGDirectionLTR);
+      else YGNodeStyleSetDirection(node, YGDirectionInherit);
+    }
 
     // === Flex Child ===
     if (style.flex.has_value()) YGNodeStyleSetFlex(node, style.flex.value());
