@@ -137,6 +137,10 @@ namespace margelo::nitro::skiakit {
     auto it = _yogaNodes.find(id);
     if (it != _yogaNodes.end()) {
       YGNodeRef node = static_cast<YGNodeRef>(it->second);
+      YGNodeRef parent = YGNodeGetParent(node);
+      if (parent) {
+        YGNodeRemoveChild(parent, node);
+      }
       YGNodeFree(node);
       _yogaNodes.erase(it);
     }
@@ -163,13 +167,33 @@ namespace margelo::nitro::skiakit {
     }
   }
 
+  static float getAbsoluteLeft(YGNodeRef node) {
+    float left = YGNodeLayoutGetLeft(node);
+    YGNodeRef parent = YGNodeGetParent(node);
+    while (parent != nullptr) {
+      left += YGNodeLayoutGetLeft(parent);
+      parent = YGNodeGetParent(parent);
+    }
+    return left;
+  }
+
+  static float getAbsoluteTop(YGNodeRef node) {
+    float top = YGNodeLayoutGetTop(node);
+    YGNodeRef parent = YGNodeGetParent(node);
+    while (parent != nullptr) {
+      top += YGNodeLayoutGetTop(parent);
+      parent = YGNodeGetParent(parent);
+    }
+    return top;
+  }
+
   NativeLayoutRect LayoutSubsystem::getNodeLayout(const std::string& id) {
     auto it = _yogaNodes.find(id);
     if (it != _yogaNodes.end()) {
       YGNodeRef node = static_cast<YGNodeRef>(it->second);
       return {
-        (double)YGNodeLayoutGetLeft(node),
-        (double)YGNodeLayoutGetTop(node),
+        (double)getAbsoluteLeft(node),
+        (double)getAbsoluteTop(node),
         (double)YGNodeLayoutGetWidth(node),
         (double)YGNodeLayoutGetHeight(node)
       };
@@ -182,8 +206,8 @@ namespace margelo::nitro::skiakit {
     for (const auto& pair : _yogaNodes) {
       YGNodeRef node = static_cast<YGNodeRef>(pair.second);
       result[pair.first] = {
-        (double)YGNodeLayoutGetLeft(node),
-        (double)YGNodeLayoutGetTop(node),
+        (double)getAbsoluteLeft(node),
+        (double)getAbsoluteTop(node),
         (double)YGNodeLayoutGetWidth(node),
         (double)YGNodeLayoutGetHeight(node)
       };
