@@ -222,8 +222,8 @@ export const Box = React.memo(function Box({
       gap,
       rowGap,
       padding,
-      width: w,
-      height: h,
+      width: width !== undefined ? width : w,
+      height: height !== undefined ? height : h,
     },
     children
   );

@@ -166,18 +166,20 @@ export function useNativeYogaLayout(
 
   // Parse children IDs for Yoga tree (must be stable for effect deps)
   const childIds = useMemo(() => {
-    const ids: string[] = [];
-    React.Children.forEach(children, (child) => {
-      if (
-        React.isValidElement(child) &&
-        child.props &&
-        typeof child.props === 'object' &&
-        'id' in child.props
-      ) {
-        ids.push((child.props as any).id);
-      }
-    });
-    return ids;
+    const getYogaChildIds = (nodes: React.ReactNode): string[] => {
+      const ids: string[] = [];
+      React.Children.forEach(nodes, (child) => {
+        if (React.isValidElement(child)) {
+          if (child.props && typeof child.props === 'object' && 'id' in child.props && (child.props as any).id) {
+            ids.push((child.props as any).id);
+          } else if (child.props && typeof child.props === 'object' && 'children' in child.props) {
+            ids.push(...getYogaChildIds((child.props as any).children));
+          }
+        }
+      });
+      return ids;
+    };
+    return getYogaChildIds(children);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [children]);
 

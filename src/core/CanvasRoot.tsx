@@ -70,18 +70,21 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       height: screenHeight > 0 ? screenHeight : undefined,
     });
 
-    // Parse children IDs
-    const childIds: string[] = [];
-    React.Children.forEach(children, (child) => {
-      if (
-        React.isValidElement(child) &&
-        child.props &&
-        typeof child.props === 'object' &&
-        'id' in child.props
-      ) {
-        childIds.push((child.props as any).id);
-      }
-    });
+    // Recursively find child IDs, piercing through non-Yoga wrappers (e.g. Nav, Screen, Group)
+    const getYogaChildIds = (nodes: React.ReactNode): string[] => {
+      const ids: string[] = [];
+      React.Children.forEach(nodes, (child) => {
+        if (React.isValidElement(child)) {
+          if (child.props && typeof child.props === 'object' && 'id' in child.props && (child.props as any).id) {
+            ids.push((child.props as any).id);
+          } else if (child.props && typeof child.props === 'object' && 'children' in child.props) {
+            ids.push(...getYogaChildIds((child.props as any).children));
+          }
+        }
+      });
+      return ids;
+    };
+    const childIds = getYogaChildIds(children);
     uiEngine.setChildren(canvasId, childIds);
 
     // 2. Trigger Yoga calculation
