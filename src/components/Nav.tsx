@@ -11,6 +11,7 @@ import {
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { useNavStore } from '../stores/navStore';
+import { useHeroStore } from '../stores/heroStore';
 import { useWidget } from '../hooks/useWidget';
 import type { WidgetProps } from '../types/widget.types';
 
@@ -96,6 +97,7 @@ export const Nav = React.memo(function Nav({
       });
 
       if (transition !== 'none') {
+        useHeroStore.getState().startTransition();
         progress.value = 0;
         progress.value = withTiming(
           1,
