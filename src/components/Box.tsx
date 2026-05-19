@@ -27,6 +27,7 @@ import { useHitTest } from '../hooks/useHitTest';
 import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import { RippleEffect } from './RippleEffect';
 import { contrastColor, withOpacity } from '../core/colorUtils';
+import { WidgetContext } from '../core/WidgetContext';
 
 // === Box Style (component-specific, extends base groups) ===
 
@@ -142,14 +143,14 @@ export const Box = React.memo(function Box({
 
   const bgColor = backgroundColor;
 
-  // Resolve width/height: undefined means "auto-sized by parent flex layout"
-  // Fallback to 0 for standalone usage (renders nothing until parent injects size)
-  const w = typeof width === 'number' ? width : 0;
-  const h = typeof height === 'number' ? height : 0;
+  // Resolve width/height: strings like '100%' are handled by Yoga C++ engine.
+  // Only use number values as JS fallback; for strings, let Yoga compute the final value.
+  const w = typeof width === 'number' ? width : undefined;
+  const h = typeof height === 'number' ? height : undefined;
 
   const defaultId = useWidget({
     type: 'Box',
-    layout: { x, y, width: w, height: h },
+    layout: { x, y, width: w ?? 0, height: h ?? 0 },
   });
   const widgetId = id ?? defaultId;
 
@@ -222,8 +223,8 @@ export const Box = React.memo(function Box({
       gap,
       rowGap,
       padding,
-      width: width !== undefined ? width : w,
-      height: height !== undefined ? height : h,
+      width: width ?? w,
+      height: height ?? h,
     },
     children
   );
@@ -402,7 +403,9 @@ export const Box = React.memo(function Box({
       )}
 
       {/* Children */}
-      {children}
+      <WidgetContext.Provider value={widgetId}>
+        {children}
+      </WidgetContext.Provider>
     </Group>
   );
 });

@@ -64,7 +64,7 @@ export const TabBar = React.memo(function TabBar({
   const width = style?.width ?? 360;
   const height = style?.height ?? 48;
   const widgetId = useWidgetId('TabBar');
-  const layout = useLayoutStore((s) => s.layoutMap.get(widgetId));
+  const layout = useLayoutStore((s) => s.layoutMap[widgetId]);
   const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 360);
   const tabWidth = finalWidth / items.length;
 

@@ -1,8 +1,10 @@
 import * as React from 'react';
-import { Group } from '@shopify/react-native-skia';
 import { Box } from './Box';
+import { Expanded } from './Expanded';
 import { useWidget } from '../hooks/useWidget';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import { useTheme } from '../hooks/useTheme';
+import { useWindowDimensions } from 'react-native';
 import type { WidgetProps } from '../types/widget.types';
 import type { ColorStyle, FlexChildStyle } from '../types/style.types';
 
@@ -10,8 +12,8 @@ import type { ColorStyle, FlexChildStyle } from '../types/style.types';
 
 export type ScaffoldStyle = ColorStyle &
   FlexChildStyle & {
-    width?: number;
-    height?: number;
+    width?: number | string;
+    height?: number | string;
   };
 
 export interface ScaffoldProps extends WidgetProps {
@@ -26,6 +28,8 @@ export interface ScaffoldProps extends WidgetProps {
 }
 
 export const Scaffold = React.memo(function Scaffold({
+  x = 0,
+  y = 0,
   style,
   appBar,
   body,
@@ -35,54 +39,78 @@ export const Scaffold = React.memo(function Scaffold({
   fabPosition = 'bottomRight',
 }: ScaffoldProps) {
   const theme = useTheme();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const bgColor = style?.backgroundColor ?? theme.colors.background;
-  const width = style?.width ?? 360;
-  const height = style?.height ?? 800;
+  const width = style?.width ?? '100%';
+  const height = style?.height ?? '100%';
 
-  useWidget({ type: 'Scaffold', layout: { x: 0, y: 0, width, height } });
+  const widgetId = useWidget({ 
+    type: 'Scaffold', 
+    layout: { 
+      x, 
+      y, 
+      width: typeof width === 'number' ? width : screenWidth, 
+      height: typeof height === 'number' ? height : screenHeight 
+    } 
+  });
 
-  const appBarHeight = appBar ? 56 : 0;
-  const bottomNavHeight = bottomNavigationBar ? 64 : 0;
-  const bodyY = appBarHeight;
-  const bodyHeight = height - appBarHeight - bottomNavHeight;
+  const layoutResult = useNativeYogaLayout(
+    widgetId,
+    { ...style, width, height },
+    undefined
+  );
 
-  const fabPositions = {
-    bottomRight: { x: width - 72, y: height - bottomNavHeight - 72 },
-    bottomCenter: { x: width / 2 - 28, y: height - bottomNavHeight - 72 },
-    bottomLeft: { x: 16, y: height - bottomNavHeight - 72 },
+  const finalX = layoutResult?.x ?? x;
+  const finalY = layoutResult?.y ?? y;
+  
+  // Resolve FAB positioning
+  // Using absolute positioning inside Yoga layout
+  const bottomNavGap = bottomNavigationBar ? 64 : 0;
+  
+  const fabStyle: any = {
+    position: 'absolute',
+    bottom: bottomNavGap + 16,
+    zIndex: 10, // Ensure FAB sits on top
   };
-  const fabPos = fabPositions[fabPosition];
+  
+  if (fabPosition === 'bottomRight') {
+    fabStyle.right = 16;
+  } else if (fabPosition === 'bottomLeft') {
+    fabStyle.left = 16;
+  } else {
+    // bottomCenter - manual centering since Yoga absolute positioning alignSelf isn't perfect for this
+    fabStyle.alignSelf = 'center';
+  }
 
   return (
-    <Group>
-      <Box x={0} y={0} style={{ width, height, backgroundColor: bgColor }} />
-      {appBar && (
-        <Group>
-          {React.cloneElement(appBar as React.ReactElement<WidgetProps>, {
-            x: 0,
-            y: 0,
-          })}
-        </Group>
-      )}
-      <Group clip={{ x: 0, y: bodyY, width, height: bodyHeight }}>{body}</Group>
-      {bottomNavigationBar && (
-        <Group>
-          {React.cloneElement(
-            bottomNavigationBar as React.ReactElement<WidgetProps>,
-            { x: 0, y: height - bottomNavHeight }
-          )}
-        </Group>
-      )}
+    <Box
+      x={finalX}
+      y={finalY}
+      style={{
+        width,
+        height,
+        backgroundColor: bgColor,
+        flexDirection: 'column',
+      }}
+    >
+      {appBar}
+      
+      <Expanded>
+        <Box style={{ flex: 1, overflow: 'hidden' }}>
+          {body}
+        </Box>
+      </Expanded>
+
+      {bottomNavigationBar}
+
       {floatingActionButton && (
-        <Group>
-          {React.cloneElement(
-            floatingActionButton as React.ReactElement<WidgetProps>,
-            { x: fabPos.x, y: fabPos.y }
-          )}
-        </Group>
+        <Box style={fabStyle}>
+          {floatingActionButton}
+        </Box>
       )}
+
       {drawer}
-    </Group>
+    </Box>
   );
 });
 

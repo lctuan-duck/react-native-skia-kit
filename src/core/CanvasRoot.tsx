@@ -17,6 +17,7 @@ import {
   globalPanEvent,
   globalPanState,
 } from './GlobalEngine';
+import { WidgetContext } from './WidgetContext';
 
 interface CanvasRootProps {
   /** Style cho Canvas container */
@@ -70,37 +71,12 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       height: screenHeight > 0 ? screenHeight : undefined,
     });
 
-    // Recursively find child IDs, piercing through non-Yoga wrappers (e.g. Nav, Screen, Group)
-    const getYogaChildIds = (nodes: React.ReactNode): string[] => {
-      const ids: string[] = [];
-      React.Children.forEach(nodes, (child) => {
-        if (React.isValidElement(child)) {
-          if (child.props && typeof child.props === 'object' && 'id' in child.props && (child.props as any).id) {
-            ids.push((child.props as any).id);
-          } else if (child.props && typeof child.props === 'object' && 'children' in child.props) {
-            ids.push(...getYogaChildIds((child.props as any).children));
-          }
-        }
-      });
-      return ids;
-    };
-    const childIds = getYogaChildIds(children);
-    uiEngine.setChildren(canvasId, childIds);
+    // 2. Cache root configuration
+    useLayoutStore.getState().setRoot(canvasId, screenWidth, screenHeight);
 
-    // 2. Trigger Yoga calculation
-    uiEngine.calculateLayout(canvasId, screenWidth, screenHeight);
-
-    // 3. Fetch all computed layouts and update JS store for rendering
-    const allLayouts = uiEngine.getAllLayouts();
-    const layoutEntries: Record<
-      string,
-      { rect: { x: number; y: number; width: number; height: number } }
-    > = {};
-    for (const [id, rect] of Object.entries(allLayouts)) {
-      layoutEntries[id] = { rect };
-    }
-    useLayoutStore.getState().setLayouts(layoutEntries);
-  }, [canvasId, screenWidth, screenHeight, children]);
+    // 3. Trigger Yoga calculation
+    useLayoutStore.getState().triggerLayout();
+  }, [canvasId, screenWidth, screenHeight]);
 
   // === Touch Event Dispatch ===
   // All gesture callbacks run on JS thread via .runOnJS(true)
@@ -154,9 +130,15 @@ export const CanvasRoot = React.memo(function CanvasRoot({
     });
 
   const dispatchJSPan = useCallback(
-    (type: 'start' | 'update' | 'end', e: any, hits: { id: string; localX: number; localY: number }[]) => {
+    (type: 'start' | 'update' | 'end', e: any) => {
       const hitMap = useEventStore.getState().hitMaps.get(canvasId);
       if (!hitMap) return;
+
+      const hits = uiEngine.hitTest(e.absoluteX, e.absoluteY);
+
+      if (type === 'start') {
+        globalActiveWidgetId.value = (hits && hits.length > 0) ? (hits[0]?.id || null) : null;
+      }
 
       for (const hit of hits) {
         const entry = hitMap.get(hit.id);
@@ -189,30 +171,22 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   const panGesture = Gesture.Pan()
     .onStart((e) => {
       'worklet';
-      const hits = uiEngine.hitTest(e.absoluteX, e.absoluteY);
-      if (hits && hits.length > 0) {
-        globalActiveWidgetId.value = hits[0]?.id || null;
-      } else {
-        globalActiveWidgetId.value = null;
-      }
       globalPanEvent.value = e as any;
       globalPanState.value = 'start';
-      runOnJS(dispatchJSPan)('start', e, hits);
+      runOnJS(dispatchJSPan)('start', e);
     })
     .onUpdate((e) => {
       'worklet';
-      const hits = uiEngine.hitTest(e.absoluteX, e.absoluteY);
       globalPanEvent.value = e as any;
       globalPanState.value = 'update';
-      runOnJS(dispatchJSPan)('update', e, hits);
+      runOnJS(dispatchJSPan)('update', e);
     })
     .onEnd((e) => {
       'worklet';
-      const hits = uiEngine.hitTest(e.absoluteX, e.absoluteY);
       globalPanEvent.value = e as any;
       globalPanState.value = 'end';
       globalActiveWidgetId.value = null;
-      runOnJS(dispatchJSPan)('end', e, hits);
+      runOnJS(dispatchJSPan)('end', e);
     });
 
   // Combine gestures: tap and long press are exclusive, pan is simultaneous
@@ -224,13 +198,15 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   return (
     <RNGestureDetector gesture={composedGesture}>
       <Canvas style={[{ width: screenWidth, height: screenHeight }, style]}>
-        {/* 1. Main application UI */}
-        {children}
+        <WidgetContext.Provider value={canvasId}>
+          {/* 1. Main application UI */}
+          {children}
 
-        {/* 2. Overlay layer — always drawn on top */}
-        {sortedOverlays.map((overlay) => (
-          <Group key={overlay.id}>{overlay.node}</Group>
-        ))}
+          {/* 2. Overlay layer — always drawn on top */}
+          {sortedOverlays.map((overlay) => (
+            <Group key={overlay.id}>{overlay.node}</Group>
+          ))}
+        </WidgetContext.Provider>
       </Canvas>
     </RNGestureDetector>
   );

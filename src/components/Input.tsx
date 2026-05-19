@@ -84,7 +84,7 @@ export const Input = React.memo(function Input({
   const borderR = style?.borderRadius ?? 8;
 
   const widgetId = useWidgetId('Input');
-  const layout = useLayoutStore((s) => s.layoutMap.get(widgetId));
+  const layout = useLayoutStore((s) => s.layoutMap[widgetId]);
   const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 280);
 
   const placeholderColor = theme.colors.textDisabled;

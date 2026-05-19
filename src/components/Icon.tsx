@@ -4,6 +4,7 @@ import type { WidgetProps } from '../types/widget.types';
 import { useWidget } from '../hooks/useWidget';
 import { useHitTest } from '../hooks/useHitTest';
 import { useTheme } from '../hooks/useTheme';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 
 /** Built-in SVG path based icons (24x24 viewBox) */
 const iconMap: Record<string, { path: string; style: 'stroke' | 'fill' }> = {
@@ -126,8 +127,18 @@ export const Icon = React.memo(function Icon({
     layout: { x, y, width: size, height: size },
   });
 
+  // Participate in Yoga layout tree — get position from parent container
+  const layoutResult = useNativeYogaLayout(
+    widgetId,
+    { width: size, height: size },
+    undefined
+  );
+
+  const finalX = layoutResult?.x ?? x;
+  const finalY = layoutResult?.y ?? y;
+
   useHitTest(widgetId, {
-    rect: { left: x, top: y, width: size, height: size },
+    rect: { left: finalX, top: finalY, width: size, height: size },
     callbacks: { onPress },
     behavior: 'opaque',
   });
@@ -136,8 +147,8 @@ export const Icon = React.memo(function Icon({
     <Group
       opacity={opacity}
       transform={[
-        { translateX: x },
-        { translateY: y },
+        { translateX: finalX },
+        { translateY: finalY },
         { scaleX: scale },
         { scaleY: scale },
       ]}
@@ -174,3 +185,4 @@ export function getIconNames(): string[] {
 }
 
 (Icon as any).skiaWidgetType = 'Icon';
+

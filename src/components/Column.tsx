@@ -41,6 +41,7 @@ export interface ColumnProps extends WidgetProps {
 export const Column = React.memo(function Column({
   x = 0,
   y = 0,
+  id,
   style,
   mainAxisAlignment = 'start',
   crossAxisAlignment = 'start',
@@ -48,6 +49,7 @@ export const Column = React.memo(function Column({
 }: ColumnProps) {
   return (
     <Box
+      id={id}
       x={x}
       y={y}
       style={{

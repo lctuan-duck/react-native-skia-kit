@@ -20,7 +20,7 @@ namespace margelo::nitro::skiakit {
   void LayoutSubsystem::updateLayoutNode(const std::string& id, const NativeYogaStyle& style) {
     YGNodeRef node = static_cast<YGNodeRef>(getOrCreateYogaNode(id));
 
-    auto applyDim = [node](const std::optional<std::variant<std::string, double>>& val, auto setPt, auto setPct, auto setAuto = [](YGNodeRef){}) {
+    auto applyDim = [node](const std::optional<std::variant<std::string, double>>& val, auto setPt, auto setPct, auto setAuto) {
       if (!val.has_value()) return;
       if (std::holds_alternative<double>(val.value())) {
         setPt(node, std::get<double>(val.value()));
@@ -89,8 +89,8 @@ namespace margelo::nitro::skiakit {
       else if (v == "flex-end" || v == "end") YGNodeStyleSetAlignContent(node, YGAlignFlexEnd);
       else if (v == "stretch") YGNodeStyleSetAlignContent(node, YGAlignStretch);
       else if (v == "baseline") YGNodeStyleSetAlignContent(node, YGAlignBaseline);
-      else if (v == "space-between" || v == "spaceBetween") YGNodeStyleSetAlignContent(node, YGSpaceBetween);
-      else if (v == "space-around" || v == "spaceAround") YGNodeStyleSetAlignContent(node, YGSpaceAround);
+      else if (v == "space-between" || v == "spaceBetween") YGNodeStyleSetAlignContent(node, YGAlignSpaceBetween);
+      else if (v == "space-around" || v == "spaceAround") YGNodeStyleSetAlignContent(node, YGAlignSpaceAround);
       else YGNodeStyleSetAlignContent(node, YGAlignFlexStart);
     }
 
@@ -105,10 +105,10 @@ namespace margelo::nitro::skiakit {
     // === Dimensions ===
     applyDim(style.width, YGNodeStyleSetWidth, YGNodeStyleSetWidthPercent, YGNodeStyleSetWidthAuto);
     applyDim(style.height, YGNodeStyleSetHeight, YGNodeStyleSetHeightPercent, YGNodeStyleSetHeightAuto);
-    applyDim(style.minWidth, YGNodeStyleSetMinWidth, YGNodeStyleSetMinWidthPercent);
-    applyDim(style.maxWidth, YGNodeStyleSetMaxWidth, YGNodeStyleSetMaxWidthPercent);
-    applyDim(style.minHeight, YGNodeStyleSetMinHeight, YGNodeStyleSetMinHeightPercent);
-    applyDim(style.maxHeight, YGNodeStyleSetMaxHeight, YGNodeStyleSetMaxHeightPercent);
+    applyDim(style.minWidth, YGNodeStyleSetMinWidth, YGNodeStyleSetMinWidthPercent, [](YGNodeRef){});
+    applyDim(style.maxWidth, YGNodeStyleSetMaxWidth, YGNodeStyleSetMaxWidthPercent, [](YGNodeRef){});
+    applyDim(style.minHeight, YGNodeStyleSetMinHeight, YGNodeStyleSetMinHeightPercent, [](YGNodeRef){});
+    applyDim(style.maxHeight, YGNodeStyleSetMaxHeight, YGNodeStyleSetMaxHeightPercent, [](YGNodeRef){});
     if (style.aspectRatio.has_value()) YGNodeStyleSetAspectRatio(node, style.aspectRatio.value());
 
     // === Layout Rules ===
@@ -236,26 +236,26 @@ namespace margelo::nitro::skiakit {
     auto it = _yogaNodes.find(id);
     if (it != _yogaNodes.end()) {
       YGNodeRef node = static_cast<YGNodeRef>(it->second);
-      return {
+      return NativeLayoutRect(
         (double)getAbsoluteLeft(node),
         (double)getAbsoluteTop(node),
         (double)YGNodeLayoutGetWidth(node),
         (double)YGNodeLayoutGetHeight(node)
-      };
+      );
     }
-    return {0, 0, 0, 0};
+    return NativeLayoutRect(0, 0, 0, 0);
   }
 
   std::unordered_map<std::string, NativeLayoutRect> LayoutSubsystem::getAllLayouts() {
     std::unordered_map<std::string, NativeLayoutRect> result;
     for (const auto& pair : _yogaNodes) {
       YGNodeRef node = static_cast<YGNodeRef>(pair.second);
-      result[pair.first] = {
+      result[pair.first] = NativeLayoutRect(
         (double)getAbsoluteLeft(node),
         (double)getAbsoluteTop(node),
         (double)YGNodeLayoutGetWidth(node),
         (double)YGNodeLayoutGetHeight(node)
-      };
+      );
     }
     return result;
   }

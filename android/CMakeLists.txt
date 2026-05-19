@@ -35,5 +35,4 @@ target_link_libraries(
         ${PACKAGE_NAME}
         ${LOG_LIB}
         android # <-- Android core
-        ReactAndroid::yoga # <-- Facebook Yoga Layout Engine
 )

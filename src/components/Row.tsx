@@ -41,6 +41,7 @@ export interface RowProps extends WidgetProps {
 export const Row = React.memo(function Row({
   x = 0,
   y = 0,
+  id,
   style,
   mainAxisAlignment = 'start',
   crossAxisAlignment = 'center',
@@ -48,6 +49,7 @@ export const Row = React.memo(function Row({
 }: RowProps) {
   return (
     <Box
+      id={id}
       x={x}
       y={y}
       style={{

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useMemo } from 'react';
 import { useLayoutStore } from '../stores/layoutStore';
+import { WidgetContext } from '../core/WidgetContext';
 import { uiEngine } from '../core/GlobalEngine';
 import type { NativeYogaStyle } from '../nitro/UIEngine.nitro';
 import type {
@@ -145,7 +146,7 @@ function buildNativeStyle(style?: ComponentYogaStyle): NativeYogaStyle {
 export function useNativeYogaLayout(
   widgetId: string,
   style?: ComponentYogaStyle,
-  children?: React.ReactNode
+  _children?: React.ReactNode
 ): NativeComputedLayout {
   // Build native style — memoize via primitive fields to avoid re-registering every render
   // (object literals like style={{width:100}} create new references each render)
@@ -164,37 +165,33 @@ export function useNativeYogaLayout(
     ]
   );
 
-  // Parse children IDs for Yoga tree (must be stable for effect deps)
-  const childIds = useMemo(() => {
-    const getYogaChildIds = (nodes: React.ReactNode): string[] => {
-      const ids: string[] = [];
-      React.Children.forEach(nodes, (child) => {
-        if (React.isValidElement(child)) {
-          if (child.props && typeof child.props === 'object' && 'id' in child.props && (child.props as any).id) {
-            ids.push((child.props as any).id);
-          } else if (child.props && typeof child.props === 'object' && 'children' in child.props) {
-            ids.push(...getYogaChildIds((child.props as any).children));
-          }
-        }
-      });
-      return ids;
-    };
-    return getYogaChildIds(children);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [children]);
+  // Get parent ID from context
+  const parentId = React.useContext(WidgetContext);
 
-  // Register node + children with C++ Engine (in effect, NOT render body)
+  // Register node with C++ Engine
   React.useLayoutEffect(() => {
     uiEngine.updateLayoutNode(widgetId, nativeStyle);
-    uiEngine.setChildren(widgetId, childIds);
+
+    // If we have a parent, append ourselves to its tree!
+    if (parentId) {
+      useLayoutStore.getState().appendChild(parentId, widgetId);
+    }
+
+    // Recalculate whole layout with new/updated node
+    useLayoutStore.getState().triggerLayout();
 
     return () => {
       uiEngine.removeLayoutNode(widgetId);
+      if (parentId) {
+        useLayoutStore.getState().removeChild(parentId, widgetId);
+      }
+      // Recalculate layout after removal
+      useLayoutStore.getState().triggerLayout();
     };
-  }, [widgetId, nativeStyle, childIds]);
+  }, [widgetId, nativeStyle, parentId]);
 
   // Read layout from Zustand store
-  const layout = useLayoutStore((state) => state.layoutMap.get(widgetId));
+  const layout = useLayoutStore((state) => state.layoutMap[widgetId]);
 
   return useMemo(() => {
     if (layout && layout.rect) {

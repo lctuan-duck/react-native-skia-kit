@@ -39,7 +39,7 @@ export interface SafeAreaProps extends WidgetProps {
  * Uses Platform defaults for insets. Pass custom `insets` prop to override.
  *
  * @example
- * <SafeArea x={0} y={0} style={{ width: 360, height: 800 }}>
+ * <SafeArea x={0} y={0} style={{ width: '100%', height: '100%' }}>
  *   <Box ...>
  *     <Text text="Content below status bar" />
  *   </Box>
@@ -53,8 +53,8 @@ export const SafeArea = React.memo(function SafeArea({
   insets: customInsets,
   style,
 }: SafeAreaProps) {
-  const width = style?.width ?? 360;
-  const height = style?.height ?? 800;
+  const width = style?.width ?? '100%';
+  const height = style?.height ?? '100%';
   const bgColor = style?.backgroundColor ?? 'transparent';
 
   // Platform-based defaults

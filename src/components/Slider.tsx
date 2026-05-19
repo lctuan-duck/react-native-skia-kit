@@ -68,7 +68,7 @@ export const Slider = React.memo(function Slider({
   const trackY = y + thumbR - trackH / 2;
 
   const widgetId = useWidgetId('Slider');
-  const layout = useLayoutStore((s) => s.layoutMap.get(widgetId));
+  const layout = useLayoutStore((s) => s.layoutMap[widgetId]);
   const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 200);
 
   const ratio = (value - min) / (max - min);

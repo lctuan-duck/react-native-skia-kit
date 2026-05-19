@@ -9,6 +9,8 @@ import type {
 } from '../types/style.types';
 import { useTheme } from '../hooks/useTheme';
 import { resolveSemanticColor } from '../core/colorUtils';
+import { useWidget } from '../hooks/useWidget';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 
 // === Divider Types ===
 
@@ -44,14 +46,39 @@ export const Divider = React.memo(function Divider({
     style?.backgroundColor ??
     (color ? resolveSemanticColor(color, theme.colors) : theme.colors.divider);
 
-  const length = style?.length ?? 300;
+  const length = style?.length ?? style?.width;
   const thickness = style?.thickness ?? 1;
+
+  // Yoga layout dimensions: horizontal divider stretches width, vertical stretches height
+  const yogaWidth = orientation === 'horizontal' ? (length ?? '100%') : thickness;
+  const yogaHeight = orientation === 'vertical' ? (length ?? '100%') : thickness;
+
+  const widgetId = useWidget({
+    type: 'Divider',
+    layout: {
+      x,
+      y,
+      width: typeof yogaWidth === 'number' ? yogaWidth : 0,
+      height: typeof yogaHeight === 'number' ? yogaHeight : 0,
+    },
+  });
+
+  const layoutResult = useNativeYogaLayout(
+    widgetId,
+    { ...style, width: yogaWidth, height: yogaHeight },
+    undefined
+  );
+
+  const finalX = layoutResult?.x ?? x;
+  const finalY = layoutResult?.y ?? y;
+  const finalW = layoutResult?.width ?? (typeof yogaWidth === 'number' ? yogaWidth : 300);
+  const finalH = layoutResult?.height ?? (typeof yogaHeight === 'number' ? yogaHeight : 300);
 
   if (orientation === 'horizontal') {
     return (
       <Line
-        p1={{ x, y }}
-        p2={{ x: x + length, y }}
+        p1={{ x: finalX, y: finalY }}
+        p2={{ x: finalX + finalW, y: finalY }}
         strokeWidth={thickness}
         color={lineColor}
       />
@@ -59,8 +86,8 @@ export const Divider = React.memo(function Divider({
   }
   return (
     <Line
-      p1={{ x, y }}
-      p2={{ x, y: y + length }}
+      p1={{ x: finalX, y: finalY }}
+      p2={{ x: finalX, y: finalY + finalH }}
       strokeWidth={thickness}
       color={lineColor}
     />

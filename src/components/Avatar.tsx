@@ -3,6 +3,7 @@ import { Box } from './Box';
 import { Image } from './Image';
 import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
@@ -60,19 +61,29 @@ export const Avatar = React.memo(function Avatar({
     style?.borderRadius ??
     (variant === 'circle' ? size / 2 : variant === 'rounded' ? size / 4 : 0);
 
-  const dotSize = size * 0.28;
-  const dotX = x + size - dotSize;
-  const dotY = y + size - dotSize;
-
-  useWidget({
+  const widgetId = useWidget({
     type: 'Avatar',
     layout: { x, y, width: size, height: size },
   });
 
+  // Participate in Yoga layout tree
+  const layoutResult = useNativeYogaLayout(
+    widgetId,
+    { width: size, height: size },
+    undefined
+  );
+
+  const finalX = layoutResult?.x ?? x;
+  const finalY = layoutResult?.y ?? y;
+
+  const dotSize = size * 0.28;
+  const dotX = finalX + size - dotSize;
+  const dotY = finalY + size - dotSize;
+
   return (
     <Box
-      x={x}
-      y={y}
+      x={finalX}
+      y={finalY}
       style={{
         width: size,
         height: size,
@@ -86,8 +97,8 @@ export const Avatar = React.memo(function Avatar({
     >
       {src && (
         <Image
-          x={x + 2}
-          y={y + 2}
+          x={finalX + 2}
+          y={finalY + 2}
           style={{
             width: size - 4,
             height: size - 4,

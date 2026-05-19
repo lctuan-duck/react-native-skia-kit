@@ -1,9 +1,11 @@
 import * as React from 'react';
+import { useWindowDimensions } from 'react-native';
 import { Box } from './Box';
 import { Text } from './Text';
 import { Icon } from './Icon';
 import { Expanded } from './Expanded';
 import { useWidget } from '../hooks/useWidget';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -48,24 +50,36 @@ export const BottomNavigationBar = React.memo(function BottomNavigationBar({
   onChange,
 }: BottomNavigationBarProps) {
   const theme = useTheme();
+  const { height: screenHeight } = useWindowDimensions();
   const bgColor = style?.backgroundColor ?? theme.colors.surface;
   const active = style?.activeColor ?? theme.colors.primary;
   const inactive = style?.inactiveColor ?? theme.colors.textSecondary;
   const elev = style?.elevation ?? 8;
-  const width = style?.width ?? 360;
+  const width = style?.width ?? '100%';
   const height = style?.height ?? 64;
   const numHeight = typeof height === 'number' ? height : 64;
-  const barY = y ?? 800 - numHeight;
+  // Use screen height instead of hardcoded 800
+  const barY = y ?? screenHeight - numHeight;
 
-  useWidget({
+  const widgetId = useWidget({
     type: 'BottomNavigationBar',
-    layout: { x, y: barY, width: typeof width === 'number' ? width : 360, height: numHeight },
+    layout: { x, y: barY, width: typeof width === 'number' ? width : 0, height: numHeight },
   });
+
+  // Participate in Yoga layout tree
+  const layoutResult = useNativeYogaLayout(
+    widgetId,
+    { ...style, width, height },
+    undefined
+  );
+
+  const finalX = layoutResult?.x ?? x;
+  const finalY = layoutResult?.y ?? barY;
 
   return (
     <Box
-      x={x}
-      y={barY}
+      x={finalX}
+      y={finalY}
       style={{
         width,
         height,

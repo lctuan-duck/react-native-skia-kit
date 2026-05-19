@@ -70,7 +70,7 @@ export const DropdownButton = React.memo(function DropdownButton<
   const selectedItem = items.find((i) => i.value === value);
 
   const widgetId = useWidgetId('DropdownButton');
-  const layout = useLayoutStore((s) => s.layoutMap.get(widgetId));
+  const layout = useLayoutStore((s) => s.layoutMap[widgetId]);
   const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 200);
   const finalHeight = layout?.rect.height ?? (typeof height === 'number' ? height : 48);
 

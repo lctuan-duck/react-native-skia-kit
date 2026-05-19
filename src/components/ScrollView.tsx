@@ -75,7 +75,7 @@ export const ScrollView = React.memo(function ScrollView({
   const numHeight = layoutResult?.height ?? fallbackH;
 
   const contentLayout = useLayoutStore((s) =>
-    s.layoutMap.get(contentContainerId)
+    s.layoutMap[contentContainerId]
   );
 
   let estimatedContentSize: number;

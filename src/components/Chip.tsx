@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Box } from './Box';
 import { Text } from './Text';
 import { useWidget } from '../hooks/useWidget';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -67,15 +68,25 @@ export const Chip = React.memo(function Chip({
   const bgColor = style?.backgroundColor ?? variantStyles.background;
   const fgColor = style?.textColor ?? variantStyles.textColor;
 
-  useWidget({
+  const widgetId = useWidget({
     type: 'Chip',
     layout: { x, y, width, height },
   });
 
+  // Participate in Yoga layout tree
+  const layoutResult = useNativeYogaLayout(
+    widgetId,
+    { width, height },
+    undefined
+  );
+
+  const finalX = layoutResult?.x ?? x;
+  const finalY = layoutResult?.y ?? y;
+
   return (
     <Box
-      x={x}
-      y={y}
+      x={finalX}
+      y={finalY}
       style={{
         width,
         height,

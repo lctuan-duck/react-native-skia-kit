@@ -8,6 +8,7 @@ import {
 } from 'react-native-reanimated';
 import { useHeroStore } from '../stores/heroStore';
 import { useWidget } from '../hooks/useWidget';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import type { WidgetProps } from '../types/widget.types';
 
 // ===== Hero =====
@@ -52,22 +53,32 @@ export const Hero = React.memo(function Hero({
   const w = width ?? 0;
   const h = height ?? 0;
 
-  useWidget({
+  const widgetId = useWidget({
     type: 'Hero',
     layout: { x, y, width: w, height: h },
   });
 
-  // Register hero data in store
+  // Participate in Yoga layout tree — get position from parent container
+  const layoutResult = useNativeYogaLayout(
+    widgetId,
+    { width: w, height: h },
+    undefined
+  );
+
+  const finalX = layoutResult?.x ?? x;
+  const finalY = layoutResult?.y ?? y;
+
+  // Register hero data in store with Yoga-computed positions
   useEffect(() => {
     useHeroStore.getState().registerHero(tag, {
       tag,
-      rect: { x, y, width: w, height: h },
+      rect: { x: finalX, y: finalY, width: w, height: h },
     });
 
     return () => {
       useHeroStore.getState().unregisterHero(tag);
     };
-  }, [tag, x, y, w, h]);
+  }, [tag, finalX, finalY, w, h]);
 
   const isTransitioning = useHeroStore((s) => s.isTransitioning);
 

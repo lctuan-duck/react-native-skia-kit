@@ -60,7 +60,7 @@ export const Switch = React.memo(function Switch({
   const thumbClr = style?.thumbColor ?? 'white';
 
   const widgetId = useWidgetId('Switch');
-  const layout = useLayoutStore((s) => s.layoutMap.get(widgetId));
+  const layout = useLayoutStore((s) => s.layoutMap[widgetId]);
   const finalW = layout?.rect.width ?? (typeof style?.width === 'number' ? style.width : 48);
   const finalH = layout?.rect.height ?? (typeof style?.height === 'number' ? style.height : 28);
 

@@ -13,6 +13,7 @@ import type { SharedValue } from 'react-native-reanimated';
 import { useNavStore } from '../stores/navStore';
 import { useHeroStore } from '../stores/heroStore';
 import { useWidget } from '../hooks/useWidget';
+import { Box } from './Box';
 import type { WidgetProps } from '../types/widget.types';
 
 export type TransitionType = 'slide' | 'fade' | 'none' | 'custom';
@@ -195,8 +196,19 @@ export const Nav = React.memo(function Nav({
   return <Group>{currentScreenNode}</Group>;
 });
 
-export const Screen = React.memo(function Screen({ children }: ScreenProps) {
-  return <Group>{children}</Group>;
+export const Screen = React.memo(function Screen({ name, children }: ScreenProps) {
+  return (
+    <Box
+      id={`screen-${name}`}
+      style={{
+        width: '100%',
+        height: '100%',
+        flexDirection: 'column',
+      }}
+    >
+      {children}
+    </Box>
+  );
 });
 
 (Nav as any).skiaWidgetType = 'Nav';

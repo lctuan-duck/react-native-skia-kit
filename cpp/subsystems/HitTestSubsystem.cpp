@@ -137,7 +137,7 @@ namespace margelo::nitro::skiakit {
 
     std::vector<NativeHitResult> result;
     for (const auto& node : hits) {
-      result.push_back({node.id, adjustedX - node.x, adjustedY - node.y});
+      result.push_back(NativeHitResult(node.id, adjustedX - node.x, adjustedY - node.y));
       // behavior 1 = opaque, stops propagation
       if (node.behavior == 1.0) {
         break;
