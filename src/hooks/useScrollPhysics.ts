@@ -39,6 +39,7 @@ export function useScrollPhysics(
 
   const handlePanUpdate = useCallback(
     (translationDelta: number) => {
+      'worklet';
       if (type === 'clamping') {
         scrollOffset.value = clamp(scrollOffset.value - translationDelta);
       } else {
@@ -58,6 +59,7 @@ export function useScrollPhysics(
 
   const handlePanEnd = useCallback(
     (velocity: number) => {
+      'worklet';
       if (type === 'clamping') {
         // Decay with clamping
         scrollOffset.value = withDecay({

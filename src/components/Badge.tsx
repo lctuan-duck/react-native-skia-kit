@@ -1,8 +1,6 @@
 import * as React from 'react';
 import { Box } from './Box';
 import { Text } from './Text';
-import { useWidget } from '../hooks/useWidget';
-import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -45,8 +43,8 @@ export interface BadgeProps extends WidgetProps {
  * Equivalent to Flutter Badge / Badge.count.
  */
 export const Badge = React.memo(function Badge({
-  x = 0,
-  y = 0,
+  x: _x = 0,
+  y: _y = 0,
   variant = 'standard',
   value = 1,
   size,
@@ -62,28 +60,11 @@ export const Badge = React.memo(function Badge({
   const fgColor = style?.textColor ?? resolvedOnColor;
   const badgeSize = variant === 'dot' ? size ?? 10 : size ?? 20;
 
-  const widgetId = useWidget({
-    type: 'Badge',
-    layout: { x, y, width: badgeSize, height: badgeSize },
-  });
-
-  // Participate in Yoga layout tree
-  const layoutResult = useNativeYogaLayout(
-    widgetId,
-    { width: badgeSize, height: badgeSize },
-    undefined
-  );
-
-  const finalX = layoutResult?.x ?? x;
-  const finalY = layoutResult?.y ?? y;
-
   // Dot variant
   if (variant === 'dot') {
     const dotSize = size ?? 10;
     return (
       <Box
-        x={finalX}
-        y={finalY}
         style={{
           width: dotSize,
           height: dotSize,
@@ -101,8 +82,6 @@ export const Badge = React.memo(function Badge({
 
   return (
     <Box
-      x={finalX}
-      y={finalY}
       style={{
         width: badgeSize,
         height: badgeSize,

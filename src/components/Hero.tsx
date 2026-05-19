@@ -7,8 +7,7 @@ import {
   useDerivedValue,
 } from 'react-native-reanimated';
 import { useHeroStore } from '../stores/heroStore';
-import { useWidget } from '../hooks/useWidget';
-import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
+import { Box } from './Box';
 import type { WidgetProps } from '../types/widget.types';
 
 // ===== Hero =====
@@ -17,9 +16,9 @@ export interface HeroProps extends WidgetProps {
   /** Unique tag to match hero widgets across screens */
   tag: string;
   /** Width of hero bounding box */
-  width?: number;
+  width?: number | string;
   /** Height of hero bounding box */
-  height?: number;
+  height?: number | string;
   children: React.ReactNode;
 }
 
@@ -44,50 +43,28 @@ export interface HeroProps extends WidgetProps {
  */
 export const Hero = React.memo(function Hero({
   tag,
-  x = 0,
-  y = 0,
+  x: _x = 0,
+  y: _y = 0,
   width,
   height,
   children,
 }: HeroProps) {
-  const w = width ?? 0;
-  const h = height ?? 0;
-
-  const widgetId = useWidget({
-    type: 'Hero',
-    layout: { x, y, width: w, height: h },
-  });
-
-  // Participate in Yoga layout tree — get position from parent container
-  const layoutResult = useNativeYogaLayout(
-    widgetId,
-    { width: w, height: h },
-    undefined
-  );
-
-  const finalX = layoutResult?.x ?? x;
-  const finalY = layoutResult?.y ?? y;
-
-  // Register hero data in store with Yoga-computed positions
-  useEffect(() => {
-    useHeroStore.getState().registerHero(tag, {
-      tag,
-      rect: { x: finalX, y: finalY, width: w, height: h },
-    });
-
-    return () => {
-      useHeroStore.getState().unregisterHero(tag);
-    };
-  }, [tag, finalX, finalY, w, h]);
-
   const isTransitioning = useHeroStore((s) => s.isTransitioning);
 
-  // Hide during transition (HeroOverlay renders the animated version)
-  if (isTransitioning) {
-    return null;
-  }
-
-  return <Group>{children}</Group>;
+  console.log(`[Hero] ${tag} rendering with size ${width}x${height}, isTransitioning: ${isTransitioning}`);
+  return (
+    <Box
+      style={{ width, height, overflow: 'hidden', opacity: isTransitioning ? 0 : 1 }}
+      onLayout={(layout) => {
+        useHeroStore.getState().registerHero(tag, {
+          tag,
+          rect: layout,
+        });
+      }}
+    >
+      {children}
+    </Box>
+  );
 });
 
 // ===== HeroOverlay =====

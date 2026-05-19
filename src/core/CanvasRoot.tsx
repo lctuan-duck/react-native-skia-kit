@@ -9,7 +9,7 @@ import {
 } from 'react-native-gesture-handler';
 import { useOverlayStore } from '../stores/overlayStore';
 import { useEventStore } from '../stores/eventStore';
-import { useLayoutStore } from '../stores/layoutStore';
+import { useLayoutStore, registerLiveNode, unregisterLiveNode } from '../stores/layoutStore';
 import { runOnJS } from 'react-native-reanimated';
 import {
   uiEngine,
@@ -70,12 +70,17 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       width: screenWidth > 0 ? screenWidth : undefined,
       height: screenHeight > 0 ? screenHeight : undefined,
     });
+    registerLiveNode(canvasId);
 
     // 2. Cache root configuration
     useLayoutStore.getState().setRoot(canvasId, screenWidth, screenHeight);
 
     // 3. Trigger Yoga calculation
     useLayoutStore.getState().triggerLayout();
+
+    return () => {
+      unregisterLiveNode(canvasId);
+    };
   }, [canvasId, screenWidth, screenHeight]);
 
   // === Touch Event Dispatch ===
@@ -117,8 +122,32 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   // Tap gesture → onPress
   const tapGesture = Gesture.Tap()
     .runOnJS(true)
+    .onBegin((e) => {
+      const hits = uiEngine.hitTest(e.absoluteX, e.absoluteY);
+      const hitMap = useEventStore.getState().hitMaps.get(canvasId);
+      if (!hitMap) return;
+
+      for (const hit of hits) {
+        const entry = hitMap.get(hit.id);
+        if (entry) {
+          entry.callbacks.onPressIn?.(hit.localX, hit.localY);
+        }
+      }
+    })
     .onEnd((e) => {
       dispatchPress(e.absoluteX, e.absoluteY);
+    })
+    .onFinalize((e) => {
+      const hits = uiEngine.hitTest(e.absoluteX, e.absoluteY);
+      const hitMap = useEventStore.getState().hitMaps.get(canvasId);
+      if (!hitMap) return;
+
+      for (const hit of hits) {
+        const entry = hitMap.get(hit.id);
+        if (entry) {
+          entry.callbacks.onPressOut?.(hit.localX, hit.localY);
+        }
+      }
     });
 
   // Long press gesture → onLongPress
@@ -137,7 +166,17 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       const hits = uiEngine.hitTest(e.absoluteX, e.absoluteY);
 
       if (type === 'start') {
-        globalActiveWidgetId.value = (hits && hits.length > 0) ? (hits[0]?.id || null) : null;
+        const scrollAreas = useEventStore.getState().scrollAreas;
+        let activeScrollId: string | null = null;
+        if (hits) {
+          for (const hit of hits) {
+            if (scrollAreas.has(hit.id)) {
+              activeScrollId = hit.id;
+              break;
+            }
+          }
+        }
+        globalActiveWidgetId.value = activeScrollId ? activeScrollId : (hits && hits.length > 0) ? (hits[0]?.id || null) : null;
       }
 
       for (const hit of hits) {
@@ -168,7 +207,10 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   );
 
   // Pan gesture → onPanStart/onPanUpdate/onPanEnd
+  // minDistance(10) prevents Pan from activating on simple taps,
+  // allowing Tap gesture to complete and fire onPress callbacks.
   const panGesture = Gesture.Pan()
+    .minDistance(10)
     .onStart((e) => {
       'worklet';
       globalPanEvent.value = e as any;
@@ -189,8 +231,9 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       runOnJS(dispatchJSPan)('end', e);
     });
 
-  // Combine gestures: tap and long press are exclusive, pan is simultaneous
-  const composedGesture = Gesture.Race(
+  // Combine gestures: Tap and LongPress are exclusive (only one fires),
+  // Pan runs simultaneously so scrolling works alongside taps.
+  const composedGesture = Gesture.Simultaneous(
     panGesture,
     Gesture.Exclusive(longPressGesture, tapGesture)
   );

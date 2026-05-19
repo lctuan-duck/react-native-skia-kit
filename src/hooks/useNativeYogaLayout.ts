@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useMemo } from 'react';
-import { useLayoutStore } from '../stores/layoutStore';
+import { useLayoutStore, registerLiveNode, unregisterLiveNode } from '../stores/layoutStore';
 import { WidgetContext } from '../core/WidgetContext';
 import { uiEngine } from '../core/GlobalEngine';
 import type { NativeYogaStyle } from '../nitro/UIEngine.nitro';
@@ -168,19 +168,17 @@ export function useNativeYogaLayout(
   // Get parent ID from context
   const parentId = React.useContext(WidgetContext);
 
-  // Register node with C++ Engine
+  // 1. Register Tree Node Structure (mount/unmount)
   React.useLayoutEffect(() => {
-    uiEngine.updateLayoutNode(widgetId, nativeStyle);
+    registerLiveNode(widgetId);
 
     // If we have a parent, append ourselves to its tree!
     if (parentId) {
       useLayoutStore.getState().appendChild(parentId, widgetId);
     }
 
-    // Recalculate whole layout with new/updated node
-    useLayoutStore.getState().triggerLayout();
-
     return () => {
+      unregisterLiveNode(widgetId);
       uiEngine.removeLayoutNode(widgetId);
       if (parentId) {
         useLayoutStore.getState().removeChild(parentId, widgetId);
@@ -188,15 +186,24 @@ export function useNativeYogaLayout(
       // Recalculate layout after removal
       useLayoutStore.getState().triggerLayout();
     };
-  }, [widgetId, nativeStyle, parentId]);
+  }, [widgetId, parentId]);
+
+  // 2. Update Yoga Node Style
+  React.useLayoutEffect(() => {
+    uiEngine.updateLayoutNode(widgetId, nativeStyle);
+    // Recalculate whole layout with updated node styles
+    useLayoutStore.getState().triggerLayout();
+  }, [widgetId, nativeStyle]);
 
   // Read layout from Zustand store
   const layout = useLayoutStore((state) => state.layoutMap[widgetId]);
+
+const DEFAULT_RECT = { x: 0, y: 0, width: 0, height: 0 };
 
   return useMemo(() => {
     if (layout && layout.rect) {
       return layout.rect;
     }
-    return { x: 0, y: 0, width: 0, height: 0 };
+    return DEFAULT_RECT;
   }, [layout]);
 }

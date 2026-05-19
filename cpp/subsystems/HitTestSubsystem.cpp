@@ -130,6 +130,28 @@ namespace margelo::nitro::skiakit {
       }
     }
 
+    // 3. Re-inject ScrollAreas that intersect the ORIGINAL unadjusted x, y
+    // Because adjustedX/Y will miss the ScrollView's own static bounds!
+    for (auto& pair : _scrollAreas) {
+      auto& area = pair.second;
+      if (x >= area.x && x <= area.x + area.w && y >= area.y && y <= area.y + area.h) {
+        auto it = _allWidgets.find(area.id);
+        if (it != _allWidgets.end()) {
+          // Check if it's already in hits (unlikely, but just in case offset is 0)
+          bool exists = false;
+          for (const auto& n : hits) {
+            if (n.id == area.id) {
+              exists = true;
+              break;
+            }
+          }
+          if (!exists) {
+            hits.push_back(it->second);
+          }
+        }
+      }
+    }
+
     // Sort by zIndex descending
     std::sort(hits.begin(), hits.end(), [](const WidgetNode& a, const WidgetNode& b) {
       return a.zIndex > b.zIndex;

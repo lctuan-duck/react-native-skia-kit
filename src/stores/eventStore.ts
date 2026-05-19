@@ -82,6 +82,7 @@ export const useEventStore = create<EventStoreState>()(
       else if (hitEntry.hitTestBehavior === 'translucent') behaviorValue = 2;
 
       const { left, top, width, height } = hitEntry.rect;
+      uiEngine.unregisterWidget(widgetId);
       uiEngine.registerWidget(
         widgetId,
         left,

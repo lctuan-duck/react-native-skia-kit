@@ -53,6 +53,8 @@ export interface GestureCallbacks {
    * x, y are the local coordinates of the touch relative to the widget's bounding box.
    */
   onPress?: (localX?: number, localY?: number) => void;
+  onPressIn?: (localX?: number, localY?: number) => void;
+  onPressOut?: (localX?: number, localY?: number) => void;
   onLongPress?: () => void;
   onPanStart?: (e: PanEvent) => void;
   onPanUpdate?: (e: PanEvent) => void;

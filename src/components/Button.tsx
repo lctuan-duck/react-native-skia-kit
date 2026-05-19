@@ -2,7 +2,6 @@ import * as React from 'react';
 import { Box } from './Box';
 import { Text } from './Text';
 import { Icon } from './Icon';
-import { useWidget } from '../hooks/useWidget';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -75,8 +74,8 @@ export interface ButtonProps extends WidgetProps {
  * → 2 trục độc lập, kết hợp tự do.
  */
 export const Button = React.memo(function Button({
-  x = 0,
-  y = 0,
+  x: _x = 0,
+  y: _y = 0,
   text,
   icon,
   variant = 'solid',
@@ -112,17 +111,10 @@ export const Button = React.memo(function Button({
   const w = style?.width;
   const h = style?.height ?? 48;
 
-  useWidget({
-    type: 'Button',
-    layout: { x, y, width: typeof w === 'number' ? w : 100, height: typeof h === 'number' ? h : 48 },
-  });
-
   // ===== Icon-only variant =====
   if (variant === 'icon') {
     return (
       <Box
-        x={x}
-        y={y}
         style={{
           width: tapSz,
           height: tapSz,
@@ -148,8 +140,6 @@ export const Button = React.memo(function Button({
     const fabWidth = extended ? w ?? 140 : 56;
     return (
       <Box
-        x={x}
-        y={y}
         style={{
           width: fabWidth,
           height: 56,
@@ -183,8 +173,6 @@ export const Button = React.memo(function Button({
   const btnWidth = w ?? Math.max(80, (text?.length ?? 0) * 9 + 32);
   return (
     <Box
-      x={x}
-      y={y}
       style={{
         width: btnWidth,
         height: h,

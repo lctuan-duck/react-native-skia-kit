@@ -12,8 +12,14 @@ const iconMap: Record<string, { path: string; style: 'stroke' | 'fill' }> = {
     path: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
     style: 'fill',
   },
+  'credit-card': {
+    path: 'M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zm0 4v8h16V8H4zm0-2h16v-1H4v1z',
+    style: 'fill',
+  },
   'arrow-right': { path: 'M10 6l6 6-6 6', style: 'stroke' },
   'arrow-left': { path: 'M14 6l-6 6 6 6', style: 'stroke' },
+  'arrow-up': { path: 'M12 4l-6 6h4v10h4V10h4l-6-6z', style: 'fill' },
+  'arrow-down': { path: 'M12 20l6-6h-4V4h-4v10H6l6 6z', style: 'fill' },
   'chevron-down': { path: 'M6 9l6 6 6-6', style: 'stroke' },
   'chevron-up': { path: 'M6 15l6-6 6 6', style: 'stroke' },
   'user': {

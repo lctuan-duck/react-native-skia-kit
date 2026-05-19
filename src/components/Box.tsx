@@ -177,23 +177,39 @@ export const Box = React.memo(function Box({
     }
   }, [interactive, tapScale, pressOpacity]);
 
-  const handlePanStart = useCallback(
-    (e: PanEvent) => {
+  const handlePressIn = useCallback(
+    (localX?: number, localY?: number) => {
       if (interactive === 'bounce') {
         tapScale.value = withSpring(0.95, { stiffness: 400, damping: 20 });
       } else if (interactive === 'opacity') {
         pressOpacity.value = withTiming(0.6, { duration: 100 });
-      } else if (interactive === 'ripple') {
+      } else if (
+        interactive === 'ripple' &&
+        localX !== undefined &&
+        localY !== undefined
+      ) {
         const newRipple = {
           id: Date.now().toString() + Math.random(),
-          x: e.localX,
-          y: e.localY,
+          x: localX,
+          y: localY,
         };
         setRipples((prev) => [...prev, newRipple]);
       }
+    },
+    [interactive, tapScale, pressOpacity]
+  );
+
+  const handlePressOut = useCallback(() => {
+    restoreInteraction();
+  }, [restoreInteraction]);
+
+  const handlePanStart = useCallback(
+    (e: PanEvent) => {
+      // Cancel interaction visual state when panning starts
+      restoreInteraction();
       onPanStart?.(e);
     },
-    [interactive, tapScale, pressOpacity, onPanStart]
+    [restoreInteraction, onPanStart]
   );
 
   const handlePanEnd = useCallback(
@@ -238,6 +254,8 @@ export const Box = React.memo(function Box({
   useHitTest(widgetId, {
     rect: { left: finalX, top: finalY, width: finalW, height: finalH },
     callbacks: {
+      onPressIn: handlePressIn,
+      onPressOut: handlePressOut,
       onPress: handlePress,
       onLongPress,
       onPanStart: handlePanStart,

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Circle } from '@shopify/react-native-skia';
+import { Circle, RoundedRect } from '@shopify/react-native-skia';
 import { useDerivedValue } from 'react-native-reanimated';
 import { Box } from './Box';
 import { useWidgetId } from '../hooks/useWidgetId';
@@ -65,18 +65,19 @@ export const Slider = React.memo(function Slider({
   const trackH = 6;
   const thumbR = 12;
   const totalHeight = thumbR * 2;
-  const trackY = y + thumbR - trackH / 2;
-
   const widgetId = useWidgetId('Slider');
   const layout = useLayoutStore((s) => s.layoutMap[widgetId]);
+  const finalX = layout?.rect.x ?? x;
+  const finalY = layout?.rect.y ?? y;
   const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 200);
 
   const ratio = (value - min) / (max - min);
   const fillWidth = ratio * finalWidth;
+  const trackY = finalY + thumbR - trackH / 2;
 
   const thumbCx = useDerivedValue(() => {
-    return x + ratio * finalWidth;
-  }, [value, x, finalWidth, min, max]);
+    return finalX + ratio * finalWidth;
+  }, [value, finalX, finalWidth, min, max]);
 
   const handlePanUpdate = (e: PanEvent) => {
     if (disabled) return;
@@ -102,34 +103,30 @@ export const Slider = React.memo(function Slider({
       onPanUpdate={handlePanUpdate}
     >
       {/* Track background */}
-      <Box
-        x={x}
+      <RoundedRect
+        x={finalX}
         y={trackY}
-        style={{
-          width,
-          height: trackH,
-          borderRadius: trackH / 2,
-          backgroundColor: trackBg,
-        }}
+        width={finalWidth}
+        height={trackH}
+        r={trackH / 2}
+        color={trackBg}
       />
 
       {/* Active fill */}
-      <Box
-        x={x}
+      <RoundedRect
+        x={finalX}
         y={trackY}
-        style={{
-          width: Math.max(0, fillWidth),
-          height: trackH,
-          borderRadius: trackH / 2,
-          backgroundColor: activeColor,
-        }}
+        width={Math.max(0, fillWidth)}
+        height={trackH}
+        r={trackH / 2}
+        color={activeColor}
       />
 
       {/* Thumb */}
-      <Circle cx={thumbCx} cy={y + thumbR} r={thumbR} color={thumbClr} />
+      <Circle cx={thumbCx} cy={finalY + thumbR} r={thumbR} color={thumbClr} />
       <Circle
         cx={thumbCx}
-        cy={y + thumbR}
+        cy={finalY + thumbR}
         r={thumbR}
         color={activeColor}
         style="stroke"

@@ -57,8 +57,8 @@ export const Column = React.memo(function Column({
         backgroundColor: style?.backgroundColor ?? 'transparent',
         borderRadius: style?.borderRadius ?? 0,
         flexDirection: 'column',
-        justifyContent: mainAxisAlignment,
-        alignItems: crossAxisAlignment,
+        justifyContent: style?.justifyContent ?? mainAxisAlignment,
+        alignItems: style?.alignItems ?? crossAxisAlignment,
       }}
     >
       {children}

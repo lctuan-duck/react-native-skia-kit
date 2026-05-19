@@ -238,6 +238,8 @@ export const Text = React.memo(function SkiaText({
   const finalY = layoutResult?.y ?? y;
   const finalWidth = layoutResult?.width ?? (typeof styleWidth === 'number' ? styleWidth : intrinsicWidth);
 
+
+
   // === PASS 2: Build final paragraph with Yoga-computed width ===
   // This ensures text wraps correctly within the container width.
   const finalParagraph = useMemo(() => {
@@ -267,8 +269,8 @@ export const Text = React.memo(function SkiaText({
   });
 
   return (
-    <Group opacity={opacity}>
-      <Paragraph paragraph={finalParagraph} x={finalX} y={finalY + yOffset} width={finalWidth} />
+    <Group opacity={opacity} transform={[{ translateX: finalX }, { translateY: finalY + yOffset }]}>
+      <Paragraph paragraph={finalParagraph} width={Math.ceil(finalWidth) + 1} x={0} y={0} />
     </Group>
   );
 });

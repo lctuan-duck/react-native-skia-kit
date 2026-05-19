@@ -64,14 +64,18 @@ export const Switch = React.memo(function Switch({
   const finalW = layout?.rect.width ?? (typeof style?.width === 'number' ? style.width : 48);
   const finalH = layout?.rect.height ?? (typeof style?.height === 'number' ? style.height : 28);
 
+  const finalX = layout?.rect.x ?? x;
+  const finalY = layout?.rect.y ?? y;
+
   const thumbR = finalH / 2 - 2;
-  const thumbX = useSharedValue(value ? x + finalW - thumbR - 4 : x + thumbR + 4);
+  const targetX = value ? finalX + finalW - thumbR - 2 : finalX + thumbR + 2;
+  const thumbX = useSharedValue(targetX);
 
   useEffect(() => {
-    thumbX.value = withTiming(value ? x + finalW - thumbR - 4 : x + thumbR + 4, {
+    thumbX.value = withTiming(targetX, {
       duration: 200,
     });
-  }, [value, x, finalW, thumbR, thumbX]);
+  }, [targetX, thumbX]);
 
   const trackFill = value
     ? disabled
@@ -101,7 +105,7 @@ export const Switch = React.memo(function Switch({
       interactive={disabled ? 'none' : 'ripple'}
       onPress={handlePress}
     >
-      <Circle cx={thumbX} cy={y + finalH / 2} r={thumbR} color={thumbClr} />
+      <Circle cx={thumbX} cy={finalY + finalH / 2} r={thumbR} color={thumbClr} />
     </Box>
   );
 });

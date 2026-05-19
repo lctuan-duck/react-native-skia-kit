@@ -15,6 +15,8 @@ import { useHeroStore } from '../stores/heroStore';
 import { useWidget } from '../hooks/useWidget';
 import { Box } from './Box';
 import type { WidgetProps } from '../types/widget.types';
+import { WidgetContext } from '../core/WidgetContext';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 
 export type TransitionType = 'slide' | 'fade' | 'none' | 'custom';
 
@@ -59,15 +61,21 @@ export const Nav = React.memo(function Nav({
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const navWidth = propWidth ?? screenWidth;
   const navHeight = propHeight ?? screenHeight;
-  const getCurrentScreenName = useNavStore((s) => s.getCurrentScreenName);
+  const storeScreenName = useNavStore((s) => s.getCurrentScreenName('main')) ?? initial;
   const setCurrentScreen = useNavStore((s) => s.setCurrentScreen);
 
-  useWidget({
+  const widgetId = useWidget({
     type: 'Nav',
     layout: { x: 0, y: 0, width: navWidth, height: navHeight },
   });
 
-  const storeScreenName = getCurrentScreenName('main') ?? initial;
+  // Register Nav as a real Yoga node so Screen children
+  // are positioned relative to Nav, not the root.
+  useNativeYogaLayout(widgetId, {
+    width: navWidth,
+    height: navHeight,
+    flexDirection: 'column',
+  });
 
   const [navState, setNavState] = useState<{
     currentScreen: string;
@@ -158,42 +166,52 @@ export const Nav = React.memo(function Nav({
 
   if (transition === 'custom' && customTransition) {
     return (
-      <Group clip={{ x: 0, y: 0, width: navWidth, height: navHeight }}>
-        {customTransition({
-          currentScreen: currentScreenNode,
-          prevScreen: prevScreenNode,
-          progress,
-          width: navWidth,
-          height: navHeight,
-        })}
-      </Group>
+      <WidgetContext.Provider value={widgetId}>
+        <Group clip={{ x: 0, y: 0, width: navWidth, height: navHeight }}>
+          {customTransition({
+            currentScreen: currentScreenNode,
+            prevScreen: prevScreenNode,
+            progress,
+            width: navWidth,
+            height: navHeight,
+          })}
+        </Group>
+      </WidgetContext.Provider>
     );
   }
 
   if (transition === 'slide') {
     return (
-      <Group clip={{ x: 0, y: 0, width: navWidth, height: navHeight }}>
-        {prevScreenNode && (
-          <Group transform={prevSlideTransform}>{prevScreenNode}</Group>
-        )}
-        <Group transform={currentSlideTransform}>{currentScreenNode}</Group>
-      </Group>
+      <WidgetContext.Provider value={widgetId}>
+        <Group clip={{ x: 0, y: 0, width: navWidth, height: navHeight }}>
+          {prevScreenNode && (
+            <Group transform={prevSlideTransform}>{prevScreenNode}</Group>
+          )}
+          <Group transform={currentSlideTransform}>{currentScreenNode}</Group>
+        </Group>
+      </WidgetContext.Provider>
     );
   }
 
   if (transition === 'fade') {
     return (
-      <Group clip={{ x: 0, y: 0, width: navWidth, height: navHeight }}>
-        {prevScreenNode && (
-          <Group opacity={prevFadeOpacity}>{prevScreenNode}</Group>
-        )}
-        <Group opacity={currentFadeOpacity}>{currentScreenNode}</Group>
-      </Group>
+      <WidgetContext.Provider value={widgetId}>
+        <Group clip={{ x: 0, y: 0, width: navWidth, height: navHeight }}>
+          {prevScreenNode && (
+            <Group opacity={prevFadeOpacity}>{prevScreenNode}</Group>
+          )}
+          <Group opacity={currentFadeOpacity}>{currentScreenNode}</Group>
+        </Group>
+      </WidgetContext.Provider>
     );
   }
 
   // No transition
-  return <Group>{currentScreenNode}</Group>;
+  return (
+    <WidgetContext.Provider value={widgetId}>
+      <Group>{currentScreenNode}</Group>
+    </WidgetContext.Provider>
+  );
 });
 
 export const Screen = React.memo(function Screen({ name, children }: ScreenProps) {
@@ -204,6 +222,9 @@ export const Screen = React.memo(function Screen({ name, children }: ScreenProps
         width: '100%',
         height: '100%',
         flexDirection: 'column',
+        position: 'absolute',
+        top: 0,
+        left: 0,
       }}
     >
       {children}

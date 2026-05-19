@@ -1,9 +1,8 @@
 import * as React from 'react';
 import { Box } from './Box';
 import { Image } from './Image';
-import { useWidget } from '../hooks/useWidget';
+
 import { useTheme } from '../hooks/useTheme';
-import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
@@ -43,8 +42,8 @@ export interface AvatarProps extends WidgetProps {
  * Equivalent to Flutter CircleAvatar.
  */
 export const Avatar = React.memo(function Avatar({
-  x = 0,
-  y = 0,
+  x: _x = 0,
+  y: _y = 0,
   size = 48,
   variant = 'circle',
   src,
@@ -61,29 +60,10 @@ export const Avatar = React.memo(function Avatar({
     style?.borderRadius ??
     (variant === 'circle' ? size / 2 : variant === 'rounded' ? size / 4 : 0);
 
-  const widgetId = useWidget({
-    type: 'Avatar',
-    layout: { x, y, width: size, height: size },
-  });
-
-  // Participate in Yoga layout tree
-  const layoutResult = useNativeYogaLayout(
-    widgetId,
-    { width: size, height: size },
-    undefined
-  );
-
-  const finalX = layoutResult?.x ?? x;
-  const finalY = layoutResult?.y ?? y;
-
   const dotSize = size * 0.28;
-  const dotX = finalX + size - dotSize;
-  const dotY = finalY + size - dotSize;
 
   return (
     <Box
-      x={finalX}
-      y={finalY}
       style={{
         width: size,
         height: size,
@@ -97,9 +77,10 @@ export const Avatar = React.memo(function Avatar({
     >
       {src && (
         <Image
-          x={finalX + 2}
-          y={finalY + 2}
           style={{
+            position: 'absolute',
+            left: 2,
+            top: 2,
             width: size - 4,
             height: size - 4,
             borderRadius,
@@ -111,9 +92,10 @@ export const Avatar = React.memo(function Avatar({
 
       {status === 'online' && (
         <Box
-          x={dotX}
-          y={dotY}
           style={{
+            position: 'absolute',
+            left: size - dotSize,
+            top: size - dotSize,
             width: dotSize,
             height: dotSize,
             borderRadius: dotSize / 2,
@@ -125,9 +107,10 @@ export const Avatar = React.memo(function Avatar({
       )}
       {status === 'offline' && (
         <Box
-          x={dotX}
-          y={dotY}
           style={{
+            position: 'absolute',
+            left: size - dotSize,
+            top: size - dotSize,
             width: dotSize,
             height: dotSize,
             borderRadius: dotSize / 2,

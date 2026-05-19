@@ -56,8 +56,8 @@ export const Row = React.memo(function Row({
         ...style,
         backgroundColor: style?.backgroundColor ?? 'transparent',
         flexDirection: 'row',
-        justifyContent: mainAxisAlignment,
-        alignItems: crossAxisAlignment,
+        justifyContent: style?.justifyContent ?? mainAxisAlignment,
+        alignItems: style?.alignItems ?? crossAxisAlignment,
       }}
     >
       {children}

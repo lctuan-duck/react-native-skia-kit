@@ -11,7 +11,6 @@ import {
   globalActiveWidgetId,
   globalPanEvent,
   globalPanState,
-  uiEngine,
 } from '../core/GlobalEngine';
 import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import { Box } from './Box';
@@ -21,6 +20,7 @@ import { useHitTest } from '../hooks/useHitTest';
 import { useScrollPhysics } from '../hooks/useScrollPhysics';
 import { useEventStore } from '../stores/eventStore';
 import { useLayoutStore } from '../stores/layoutStore';
+import { WidgetContext } from '../core/WidgetContext';
 import type { WidgetProps, PanEvent } from '../types/widget.types';
 import type { FlexChildStyle, SpacingStyle } from '../types/style.types';
 
@@ -67,16 +67,16 @@ export const ScrollView = React.memo(function ScrollView({
 
   const contentContainerId = `${widgetId}-content`;
 
-  const layoutResult = useNativeYogaLayout(widgetId, style, [contentContainerId]);
-  
+  const layoutResult = useNativeYogaLayout(widgetId, style, [
+    contentContainerId,
+  ]);
+
   const finalX = layoutResult?.x ?? x;
   const finalY = layoutResult?.y ?? y;
   const numWidth = layoutResult?.width ?? fallbackW;
   const numHeight = layoutResult?.height ?? fallbackH;
 
-  const contentLayout = useLayoutStore((s) =>
-    s.layoutMap[contentContainerId]
-  );
+  const contentLayout = useLayoutStore((s) => s.layoutMap[contentContainerId]);
 
   let estimatedContentSize: number;
   if (contentSize != null) {
@@ -118,8 +118,18 @@ export const ScrollView = React.memo(function ScrollView({
     () => scrollOffset.value,
     (offset) => {
       'worklet';
-      uiEngine.updateScrollOffset(widgetId, offset);
       runOnJS(updateScrollStore)(widgetId, offset);
+    }
+  );
+
+  useAnimatedReaction(
+    () => globalActiveWidgetId.value === widgetId,
+    (isActive, wasActive) => {
+      if (isActive && !wasActive && globalPanEvent.value) {
+        lastTranslation.value = horizontal
+          ? globalPanEvent.value.translationX
+          : globalPanEvent.value.translationY;
+      }
     }
   );
 
@@ -150,12 +160,19 @@ export const ScrollView = React.memo(function ScrollView({
     }
   );
 
-  const hitCallbacks = React.useMemo(() => ({}), []);
+  const hitCallbacks = React.useMemo(() => ({
+    // Add dummy callback so useHitTest actually registers the widget
+    onPanStart: () => {},
+  }), []);
+
+  React.useEffect(() => {
+    console.log(`[ScrollView] ID: ${widgetId}, Layout: ${finalX},${finalY} ${numWidth}x${numHeight}, ContentSize: ${estimatedContentSize}`);
+  }, [widgetId, finalX, finalY, numWidth, numHeight, estimatedContentSize]);
 
   useHitTest(widgetId, {
     rect: { left: finalX, top: finalY, width: numWidth, height: numHeight },
     callbacks: hitCallbacks,
-    behavior: 'translucent',
+    behavior: 'opaque',
   });
 
   const transform = useDerivedValue(() =>
@@ -169,47 +186,52 @@ export const ScrollView = React.memo(function ScrollView({
     { translateY: scrollOffset.value * (numHeight / estimatedContentSize) },
   ]);
 
+
+
   return (
-    <Group clip={{ x: finalX, y: finalY, width: numWidth, height: numHeight }}>
-      <Group transform={transform}>
-        {horizontal ? (
-          <Box
-            id={contentContainerId}
-            x={finalX}
-            y={finalY}
-            style={{
-              width: estimatedContentSize,
-              height: numHeight,
-              flexDirection: 'row',
-              padding,
-              gap,
-            }}
-          >
-            {children}
-          </Box>
-        ) : (
-          <Column
-            id={contentContainerId}
-            x={finalX}
-            y={finalY}
-            style={{ width: numWidth, padding, gap }}
-          >
-            {children}
-          </Column>
+    <WidgetContext.Provider value={widgetId}>
+      <Group
+        clip={{ x: finalX, y: finalY, width: numWidth, height: numHeight }}
+      >
+        <Group transform={transform}>
+          {horizontal ? (
+            <Box
+              id={contentContainerId}
+              style={{
+                height: numHeight,
+                flexDirection: 'row',
+                padding,
+                gap,
+              }}
+            >
+              {children}
+            </Box>
+          ) : (
+            <Column
+              id={contentContainerId}
+              style={{
+                width: numWidth,
+                padding,
+                gap,
+              }}
+            >
+              {children}
+            </Column>
+          )}
+        </Group>
+        {!horizontal && numHeight < estimatedContentSize && (
+          <Group transform={indicatorTransform}>
+            <Rect
+              x={finalX + numWidth - 3}
+              y={finalY}
+              width={3}
+              height={indicatorSize}
+              color="rgba(0,0,0,0.15)"
+            />
+          </Group>
         )}
       </Group>
-      {!horizontal && numHeight < estimatedContentSize && (
-        <Group transform={indicatorTransform}>
-          <Rect
-            x={finalX + numWidth - 3}
-            y={finalY}
-            width={3}
-            height={indicatorSize}
-            color="rgba(0,0,0,0.15)"
-          />
-        </Group>
-      )}
-    </Group>
+    </WidgetContext.Provider>
   );
 });
 
