@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useSharedValue, withDecay, withSpring } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -27,12 +27,17 @@ export function useScrollPhysics(
   config: ScrollPhysicsConfig
 ): ScrollPhysicsResult {
   const scrollOffset = useSharedValue(0);
-  const maxScroll = Math.max(0, config.contentSize - config.viewportSize);
+  const maxScroll = useSharedValue(Math.max(0, config.contentSize - config.viewportSize));
+
+  // Sync config updates to shared value
+  useEffect(() => {
+    maxScroll.value = Math.max(0, config.contentSize - config.viewportSize);
+  }, [config.contentSize, config.viewportSize, maxScroll]);
 
   const clamp = useCallback(
     (value: number) => {
       'worklet';
-      return Math.max(0, Math.min(maxScroll, value));
+      return Math.max(0, Math.min(maxScroll.value, value));
     },
     [maxScroll]
   );
@@ -45,7 +50,7 @@ export function useScrollPhysics(
       } else {
         // Bouncing: allow overscroll with rubber-band effect
         const newVal = scrollOffset.value - translationDelta;
-        if (newVal < 0 || newVal > maxScroll) {
+        if (newVal < 0 || newVal > maxScroll.value) {
           // Dampen overscroll
           scrollOffset.value = scrollOffset.value - translationDelta * 0.3;
         } else {
@@ -54,7 +59,7 @@ export function useScrollPhysics(
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [type, maxScroll]
+    [type, clamp]
   );
 
   const handlePanEnd = useCallback(
@@ -64,7 +69,7 @@ export function useScrollPhysics(
         // Decay with clamping
         scrollOffset.value = withDecay({
           velocity: -velocity,
-          clamp: [0, maxScroll],
+          clamp: [0, maxScroll.value],
         });
       } else {
         // Bouncing: decay then spring back if overscrolled
@@ -74,15 +79,17 @@ export function useScrollPhysics(
             damping: 20,
             stiffness: 200,
           });
-        } else if (currentVal > maxScroll) {
-          scrollOffset.value = withSpring(maxScroll, {
+        } else if (currentVal > maxScroll.value) {
+          scrollOffset.value = withSpring(maxScroll.value, {
             damping: 20,
             stiffness: 200,
           });
         } else {
           scrollOffset.value = withDecay({
             velocity: -velocity,
-            clamp: [0, maxScroll],
+            clamp: [0, maxScroll.value],
+            rubberBandEffect: true,
+            rubberBandFactor: 0.6,
           });
         }
       }

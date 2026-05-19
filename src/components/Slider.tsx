@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Circle, RoundedRect } from '@shopify/react-native-skia';
-import { useDerivedValue } from 'react-native-reanimated';
+import { useDerivedValue, useSharedValue } from 'react-native-reanimated';
 import { Box } from './Box';
 import { useWidgetId } from '../hooks/useWidgetId';
 import { useLayoutStore } from '../stores/layoutStore';
@@ -13,6 +13,7 @@ import type {
   LayoutStyle,
 } from '../types/style.types';
 import { resolveSemanticColor } from '../core/colorUtils';
+import { runOnJS } from 'react-native-reanimated';
 
 // === Slider Types ===
 
@@ -36,8 +37,12 @@ export interface SliderProps extends WidgetProps {
   color?: SemanticColor;
   /** Style override */
   style?: SliderStyle;
+  /** Step value for snapping (default is 1) */
+  step?: number;
   /** Change callback */
   onChange?: (value: number) => void;
+  /** Callback fired when the user releases the slider */
+  onSlidingComplete?: (value: number) => void;
 }
 
 /**
@@ -50,10 +55,12 @@ export const Slider = React.memo(function Slider({
   min = 0,
   max = 100,
   value = 0,
+  step = 1,
   color = 'primary',
   disabled = false,
   style,
   onChange,
+  onSlidingComplete,
 }: SliderProps) {
   const theme = useTheme();
   const activeColor =
@@ -71,21 +78,50 @@ export const Slider = React.memo(function Slider({
   const finalY = layout?.rect.y ?? y;
   const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 200);
 
-  const ratio = (value - min) / (max - min);
-  const fillWidth = ratio * finalWidth;
+  const isDragging = React.useRef(false);
+  const internalValue = useSharedValue(value);
+
+  React.useEffect(() => {
+    if (!isDragging.current) {
+      internalValue.value = value;
+    }
+  }, [value, internalValue]);
+
+  const ratio = useDerivedValue(() => (internalValue.value - min) / (max - min), [min, max]);
+  const fillWidth = useDerivedValue(() => ratio.value * finalWidth, [finalWidth]);
   const trackY = finalY + thumbR - trackH / 2;
 
   const thumbCx = useDerivedValue(() => {
-    return finalX + ratio * finalWidth;
-  }, [value, finalX, finalWidth, min, max]);
+    return finalX + ratio.value * finalWidth;
+  }, [finalX, finalWidth]);
+
+  const calculateValue = (localX: number) => {
+    const rawValue = min + (localX / finalWidth) * (max - min);
+    let newValue = Math.max(min, Math.min(max, rawValue));
+    if (step > 0) {
+      newValue = Math.round((newValue - min) / step) * step + min;
+    }
+    return newValue;
+  };
+
+  const handlePanStart = (e: PanEvent) => {
+    if (disabled) return;
+    isDragging.current = true;
+    const newValue = calculateValue(e?.localX ?? 0);
+    internalValue.value = newValue;
+    onChange?.(newValue);
+  };
 
   const handlePanUpdate = (e: PanEvent) => {
     if (disabled) return;
-    const newValue = Math.min(
-      max,
-      Math.max(min, min + (((e?.absoluteX ?? 0) - x) / finalWidth) * (max - min))
-    );
-    onChange?.(Math.round(newValue));
+    const newValue = calculateValue(e?.localX ?? 0);
+    internalValue.value = newValue;
+    onChange?.(newValue);
+  };
+
+  const handlePanEnd = () => {
+    isDragging.current = false;
+    onSlidingComplete?.(internalValue.value);
   };
 
   return (
@@ -100,7 +136,9 @@ export const Slider = React.memo(function Slider({
         opacity: disabled ? 0.5 : 1,
       }}
       hitTestBehavior="opaque"
+      onPanStart={handlePanStart}
       onPanUpdate={handlePanUpdate}
+      onPanEnd={handlePanEnd}
     >
       {/* Track background */}
       <RoundedRect
@@ -116,7 +154,7 @@ export const Slider = React.memo(function Slider({
       <RoundedRect
         x={finalX}
         y={trackY}
-        width={Math.max(0, fillWidth)}
+        width={fillWidth}
         height={trackH}
         r={trackH / 2}
         color={activeColor}

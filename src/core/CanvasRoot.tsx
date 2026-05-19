@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useCallback, useLayoutEffect } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 import { Canvas, Group } from '@shopify/react-native-skia';
 import { useWindowDimensions } from 'react-native';
 import type { ViewStyle } from 'react-native';
@@ -158,14 +158,17 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       dispatchLongPress(e.absoluteX, e.absoluteY);
     });
 
+  const capturedHitsRef = useRef<any[]>([]);
+
   const dispatchJSPan = useCallback(
     (type: 'start' | 'update' | 'end', e: any) => {
       const hitMap = useEventStore.getState().hitMaps.get(canvasId);
       if (!hitMap) return;
 
-      const hits = uiEngine.hitTest(e.absoluteX, e.absoluteY);
+      let hits = type === 'start' ? uiEngine.hitTest(e.absoluteX, e.absoluteY) : capturedHitsRef.current;
 
       if (type === 'start') {
+        capturedHitsRef.current = hits;
         const scrollAreas = useEventStore.getState().scrollAreas;
         let activeScrollId: string | null = null;
         if (hits) {
@@ -192,14 +195,14 @@ export const CanvasRoot = React.memo(function CanvasRoot({
         else if (type === 'update')
           entry.callbacks.onPanUpdate?.({
             ...e,
-            localX: hit.localX,
-            localY: hit.localY,
+            localX: hit.localX + e.translationX,
+            localY: hit.localY + e.translationY,
           });
         else if (type === 'end')
           entry.callbacks.onPanEnd?.({
             ...e,
-            localX: hit.localX,
-            localY: hit.localY,
+            localX: hit.localX + e.translationX,
+            localY: hit.localY + e.translationY,
           });
       }
     },
@@ -213,21 +216,20 @@ export const CanvasRoot = React.memo(function CanvasRoot({
     .minDistance(10)
     .onStart((e) => {
       'worklet';
-      globalPanEvent.value = e as any;
       globalPanState.value = 'start';
+      globalPanEvent.value = e as any;
       runOnJS(dispatchJSPan)('start', e);
     })
     .onUpdate((e) => {
       'worklet';
-      globalPanEvent.value = e as any;
       globalPanState.value = 'update';
+      globalPanEvent.value = e as any;
       runOnJS(dispatchJSPan)('update', e);
     })
     .onEnd((e) => {
       'worklet';
-      globalPanEvent.value = e as any;
       globalPanState.value = 'end';
-      globalActiveWidgetId.value = null;
+      globalPanEvent.value = e as any;
       runOnJS(dispatchJSPan)('end', e);
     });
 

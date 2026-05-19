@@ -214,8 +214,9 @@ export function CardDetailScreen() {
 
             <Button
               text="Freeze Card"
-              variant="outline"
+              variant="ghost"
               color="error"
+              onPress={() => console.log('Freeze Card')}
               style={{ margin: 24, height: 56, borderRadius: 16 }}
             />
           </Column>
