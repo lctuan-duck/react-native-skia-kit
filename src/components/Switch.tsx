@@ -8,7 +8,9 @@ import type {
   FlexChildStyle,
   SemanticColor,
 } from '../types/style.types';
-import { resolveSemanticColor } from '../core/colorUtils';
+import { resolveSemanticColor, parseColor } from '../core/colorUtils';
+import { uiEngine } from '../core/GlobalEngine';
+import { useSharedValue, withTiming, useAnimatedReaction, interpolateColor } from 'react-native-reanimated';
 
 // === Switch Types ===
 
@@ -51,17 +53,14 @@ export const Switch = React.memo(function Switch({
   const activeColor =
     style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
   const inactiveTrack = style?.trackColor ?? theme.colors.border;
-  const thumbClr = style?.thumbColor ?? 'white';
+  const thumbClr = style?.thumbColor ?? theme.colors.background;
 
-  const widgetId = useWidgetId('Switch');
+  const trackId = useWidgetId('SwitchTrack');
+  const thumbId = useWidgetId('SwitchThumb');
   const finalW = style?.width ?? 48;
   const finalH = style?.height ?? 28;
 
-  const trackFill = value
-    ? disabled
-      ? theme.colors.textDisabled
-      : activeColor
-    : inactiveTrack;
+  const disabledColor = theme.colors.textDisabled;
 
   const handlePress = () => {
     if (disabled) return;
@@ -70,31 +69,76 @@ export const Switch = React.memo(function Switch({
   };
 
   const thumbSize = finalH - 4;
+  const maxTravel = finalW - 4 - thumbSize; // padding = 2 => total padding = 4
+
+  const progress = useSharedValue(value ? 1 : 0);
+
+  React.useEffect(() => {
+    progress.value = withTiming(value ? 1 : 0, { duration: 200 });
+  }, [value, progress]);
+
+  // Use Worklet to directly update UIEngine for smooth 60fps animations
+  useAnimatedReaction(
+    () => progress.value,
+    (p) => {
+      const currentTrackColor = interpolateColor(
+        p,
+        [0, 1],
+        [inactiveTrack, disabled ? disabledColor : activeColor]
+      );
+      
+      const currentLeft = p * maxTravel;
+
+      // Update C++ Render Tree for color
+      uiEngine.updateBoxNode(
+        trackId, 
+        {}, 
+        { 
+          backgroundColor: parseColor(currentTrackColor),
+          borderRadius: finalH / 2,
+        }
+      );
+      
+      // Update C++ Layout Tree for thumb position
+      uiEngine.updateLayoutNode(
+        thumbId, 
+        { paddingLeft: currentLeft }
+      );
+    },
+    [inactiveTrack, activeColor, disabled, disabledColor, maxTravel, trackId, thumbId, finalH]
+  );
 
   return (
     <Box
-      id={widgetId}
+      id={trackId}
       style={{
         width: finalW,
         height: finalH,
         borderRadius: finalH / 2,
-        backgroundColor: trackFill,
+        // Start with the correct color
+        backgroundColor: value ? (disabled ? disabledColor : activeColor) : inactiveTrack,
         opacity: disabled ? 0.5 : 1,
         justifyContent: 'center',
-        alignItems: value ? 'end' : 'start',
         padding: 2,
       }}
       hitTestBehavior="translucent"
       onPress={handlePress}
     >
-      <Box 
+      <Box
+        id={thumbId}
         style={{
-          width: thumbSize,
-          height: thumbSize,
-          borderRadius: thumbSize / 2,
-          backgroundColor: thumbClr,
+          paddingLeft: value ? maxTravel : 0, // start correctly
         }}
-      />
+      >
+        <Box
+          style={{
+            width: thumbSize,
+            height: thumbSize,
+            borderRadius: thumbSize / 2,
+            backgroundColor: thumbClr,
+          }}
+        />
+      </Box>
     </Box>
   );
 });

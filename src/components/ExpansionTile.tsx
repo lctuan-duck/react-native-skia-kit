@@ -47,8 +47,6 @@ export const ExpansionTile = React.memo(function ExpansionTile({
   const tilePadding = style?.tilePadding ?? 16;
   const childrenPadding = style?.childrenPadding ?? 16;
   const width = style?.width;
-  const w = width ?? 0;
-
   useWidgetId('ExpansionTile');
 
   const toggle = () => {

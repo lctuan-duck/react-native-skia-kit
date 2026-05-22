@@ -50,7 +50,7 @@ export const Avatar = React.memo(function Avatar({
   color = 'neutral',
   status,
   style,
-  interactive,
+  
   onPress,
 }: AvatarProps) {
   const theme = useTheme();

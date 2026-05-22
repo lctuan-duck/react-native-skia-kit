@@ -10,6 +10,8 @@ import type {
   SemanticColor,
 } from '../types/style.types';
 import { resolveSemanticColor } from '../core/colorUtils';
+import { uiEngine } from '../core/GlobalEngine';
+import { useSharedValue, withTiming, withRepeat, withSequence, useAnimatedReaction } from 'react-native-reanimated';
 
 // === Progress Types ===
 
@@ -61,6 +63,7 @@ export const Progress = React.memo(function Progress({
   const strokeW = style?.strokeWidth ?? 4;
 
   const widgetId = useWidgetId('Progress');
+  const fillId = useWidgetId('ProgressFill');
   const layout = useNativeYogaLayout(widgetId, { 
     width: variant === 'linear' ? width : size, 
     height: variant === 'linear' ? height : size 
@@ -68,9 +71,49 @@ export const Progress = React.memo(function Progress({
   
   const finalWidth = layout?.width > 0 ? layout.width : (typeof width === 'number' ? width : 200);
 
+  const safeValue = isDeterminate ? Math.max(0, Math.min(1, value)) : 0;
+  const progress = useSharedValue(safeValue);
+  const indetProgress = useSharedValue(0);
+
+  React.useEffect(() => {
+    if (isDeterminate) {
+      progress.value = withTiming(safeValue, { duration: 250 });
+    } else {
+      // Indeterminate animation
+      indetProgress.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 1000 }),
+          withTiming(0, { duration: 1000 })
+        ),
+        -1, // infinite
+        false
+      );
+    }
+  }, [isDeterminate, safeValue, progress, indetProgress]);
+
+  useAnimatedReaction(
+    () => isDeterminate ? progress.value : indetProgress.value,
+    (p) => {
+      if (variant !== 'linear') return;
+      
+      if (isDeterminate) {
+        uiEngine.updateLayoutNode(fillId, { width: p * finalWidth });
+      } else {
+        // Indeterminate: fixed width, animate left position
+        const fillW = finalWidth * 0.4;
+        const maxLeft = finalWidth - fillW;
+        uiEngine.updateLayoutNode(fillId, { 
+          width: fillW,
+          left: p * maxLeft
+        });
+      }
+    },
+    [isDeterminate, finalWidth, fillId, variant]
+  );
+
   if (variant === 'linear') {
-    const fillWidth = isDeterminate
-      ? finalWidth * Math.min(1, Math.max(0, value!))
+    const initialFillWidth = isDeterminate
+      ? finalWidth * safeValue
       : finalWidth * 0.4;
 
     return (
@@ -85,11 +128,14 @@ export const Progress = React.memo(function Progress({
         }}
       >
         <Box
+          id={fillId}
           style={{
-            width: fillWidth,
+            width: initialFillWidth,
             height: '100%',
             backgroundColor: resolvedColor,
             borderRadius: height / 2,
+            position: 'absolute',
+            left: 0,
           }}
         />
       </Box>
@@ -98,6 +144,7 @@ export const Progress = React.memo(function Progress({
 
   // === CIRCULAR ===
   // In V2 without Skia primitives, we simulate circular progress with a styled Box
+  // Without transform: rotate, indeterminate circular animation is static for now.
   return (
     <Box
       id={widgetId}

@@ -13,7 +13,7 @@ import {
 import { useOverlayStore } from '../stores/overlayStore';
 import { uiEngine } from './GlobalEngine';
 import { WidgetContext } from './WidgetContext';
-import { useSharedValue } from 'react-native-reanimated';
+
 import { createSkiaKitHostConfig } from './SkiaKitReconciler';
 import { updateLayoutSVs } from '../stores/layoutRegistry';
 

@@ -54,7 +54,7 @@ export const ListTile = React.memo(function ListTile({
   leading,
   trailing,
   dense = false,
-  interactive,
+  
   style,
   onPress,
   onLongPress,
@@ -67,8 +67,6 @@ export const ListTile = React.memo(function ListTile({
 
   const width = style?.width;
   const tileHeight = style?.height ?? (dense ? 48 : subtitle ? 72 : 56);
-
-  const w = width ?? 0;
 
   useWidgetId('ListTile');
 

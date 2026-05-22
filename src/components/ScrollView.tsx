@@ -3,7 +3,6 @@ import type { WidgetProps } from '../types/widget.types';
 import type { FlexChildStyle, SpacingStyle } from '../types/style.types';
 
 import { useScrollPhysics } from '../hooks/useScrollPhysics';
-import { useSharedValue } from 'react-native-reanimated';
 import { uiEngine } from '../core/GlobalEngine';
 import { useWidgetId } from '../hooks/useWidgetId';
 import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';

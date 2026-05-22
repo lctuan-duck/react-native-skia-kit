@@ -170,9 +170,7 @@ interface HeroAnimatedRectProps {
 }
 
 const HeroAnimatedRect = React.memo(function HeroAnimatedRect({
-  from,
   to,
-  progress,
 }: HeroAnimatedRectProps) {
   // TODO: V2 Engine currently does not support animated transform/width/height 
   // via Reanimated SharedValues directly to BoxNode.

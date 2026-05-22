@@ -206,7 +206,7 @@ export type { HeroProps } from './components/Hero';
 // ===== Hooks =====
 export { useTheme } from './hooks/useTheme';
 export { useWidgetId } from './hooks/useWidgetId';
-export { useHitTest } from './hooks/useHitTest';
+
 export { useNativeYogaLayout } from './hooks/useNativeYogaLayout';
 export { useNav } from './hooks/useNav';
 export { useAnimation } from './hooks/useAnimation';

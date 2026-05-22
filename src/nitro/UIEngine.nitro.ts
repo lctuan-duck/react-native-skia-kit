@@ -142,7 +142,18 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   updateTextNode(id: string, yogaStyle: NativeYogaStyle, props: NativeTextProps): void;
 
   // Image — load async ngay khi create
-  createImageNode(id: string, uri: string): void;
+  createImageNode(
+    id: string,
+    uri: string,
+    fit: string,
+    borderRadius: number
+  ): void;
+  updateImageNode(
+    id: string,
+    uri: string,
+    fit: string,
+    borderRadius: number
+  ): void;
   startImageLoad(id: string): void;
 
   // Icon — SVG path string
@@ -164,7 +175,8 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   ): void;
 
   // Scroll
-  createScrollNode(id: string, horizontal: boolean): void;
+  createScrollNode(id: string, horizontal: boolean, contentPadding: number): void;
+  updateScrollNode(id: string, horizontal: boolean, contentPadding: number): void;
 
   // Tree structure
   addRenderChild(parentId: string, childId: string): void;

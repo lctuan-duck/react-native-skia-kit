@@ -10,7 +10,6 @@ import * as React from 'react';
 import { useMemo, useState } from 'react';
 import { Box } from './Box';
 import { ScrollView } from './ScrollView';
-import { useWidgetId } from '../hooks/useWidgetId';
 import type { WidgetProps } from '../types/widget.types';
 import type { LayoutStyle, SpacingStyle, FlexChildStyle } from '../types/style.types';
 

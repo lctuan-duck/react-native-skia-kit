@@ -67,3 +67,47 @@ export function contrastColor(hex: string): string {
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   return luminance > 0.5 ? '#000000' : '#ffffff';
 }
+
+/**
+ * parseColor — Chuyển CSS color string → SkColor (ARGB packed uint32).
+ * Hỗ trợ: #RGB, #RRGGBB, #RRGGBBAA, rgba(), transparent.
+ * Luôn trả về number (không trả về undefined) — SkColor 0x00000000 = transparent.
+ */
+export function parseColor(color?: string): number {
+  'worklet';
+  if (!color || color === 'transparent') return 0x00000000;
+  if (color === 'white') return 0xFFFFFFFF;
+  if (color === 'black') return 0xFF000000;
+  
+  if (color.startsWith('#')) {
+    const hex = color.slice(1);
+    if (hex.length === 3) {
+      const r = parseInt(hex[0]! + hex[0]!, 16);
+      const g = parseInt(hex[1]! + hex[1]!, 16);
+      const b = parseInt(hex[2]! + hex[2]!, 16);
+      return (0xFF000000 | (r << 16) | (g << 8) | b) >>> 0;
+    }
+    if (hex.length === 6) {
+      const n = parseInt(hex, 16);
+      return (0xFF000000 | n) >>> 0;
+    }
+    if (hex.length === 8) {
+      // #RRGGBBAA → AARRGGBB (SkColor is ARGB)
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      const a = parseInt(hex.slice(6, 8), 16);
+      return ((a << 24) | (r << 16) | (g << 8) | b) >>> 0;
+    }
+  }
+  if (color.startsWith('rgb')) {
+    const m = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (m) {
+      const r = parseInt(m[1]!), g = parseInt(m[2]!), b = parseInt(m[3]!);
+      const a = Math.round((parseFloat(m[4] ?? '1')) * 255);
+      return ((a << 24) | (r << 16) | (g << 8) | b) >>> 0;
+    }
+  }
+  // Fallback — không parse được → transparent
+  return 0x00000000;
+}

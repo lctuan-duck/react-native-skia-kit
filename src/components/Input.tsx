@@ -61,7 +61,7 @@ export const Input = React.memo(function Input({
   color = 'primary',
   style,
   onFocus,
-  onBlur,
+
 }: InputProps) {
   const theme = useTheme();
   const focusColor =

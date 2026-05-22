@@ -3,6 +3,7 @@ import { DefaultEventPriority } from 'react-reconciler/constants';
 import { uiEngine } from './GlobalEngine';
 import type { NativeYogaStyle } from '../nitro/UIEngine.nitro';
 import type { ViewStyle } from 'react-native';
+import { parseColor } from './colorUtils';
 
 // ── Callback registry (JS thread) ────────────────────────────────────────────
 // Lưu trữ gesture/event callbacks riêng biệt với render tree.
@@ -100,47 +101,8 @@ function isInteractive(props: any): boolean {
   );
 }
 
-// ── Style converters ──────────────────────────────────────────────────────────
 
-/**
- * parseColor — Chuyển CSS color string → SkColor (ARGB packed uint32).
- * Hỗ trợ: #RGB, #RRGGBB, #RRGGBBAA, rgba(), transparent.
- * Luôn trả về number (không trả về undefined) — SkColor 0x00000000 = transparent.
- */
-export function parseColor(color?: string): number {
-  if (!color || color === 'transparent') return 0x00000000;
-  if (color.startsWith('#')) {
-    const hex = color.slice(1);
-    if (hex.length === 3) {
-      const r = parseInt(hex[0]! + hex[0]!, 16);
-      const g = parseInt(hex[1]! + hex[1]!, 16);
-      const b = parseInt(hex[2]! + hex[2]!, 16);
-      return (0xFF000000 | (r << 16) | (g << 8) | b) >>> 0;
-    }
-    if (hex.length === 6) {
-      const n = parseInt(hex, 16);
-      return (0xFF000000 | n) >>> 0;
-    }
-    if (hex.length === 8) {
-      // #RRGGBBAA → AARRGGBB (SkColor is ARGB)
-      const r = parseInt(hex.slice(0, 2), 16);
-      const g = parseInt(hex.slice(2, 4), 16);
-      const b = parseInt(hex.slice(4, 6), 16);
-      const a = parseInt(hex.slice(6, 8), 16);
-      return ((a << 24) | (r << 16) | (g << 8) | b) >>> 0;
-    }
-  }
-  if (color.startsWith('rgb')) {
-    const m = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-    if (m) {
-      const r = parseInt(m[1]!), g = parseInt(m[2]!), b = parseInt(m[3]!);
-      const a = Math.round((parseFloat(m[4] ?? '1')) * 255);
-      return ((a << 24) | (r << 16) | (g << 8) | b) >>> 0;
-    }
-  }
-  // Fallback — không parse được → transparent
-  return 0x00000000;
-}
+// ── Style converters ──────────────────────────────────────────────────────────
 
 /**
  * buildNativeStyle — Chuyển React Native ViewStyle → NativeYogaStyle.
@@ -399,7 +361,9 @@ const baseHostConfig = {
 
       case 'Image': {
         const src = props.src ?? props.source?.uri ?? props.uri ?? '';
-        uiEngine.createImageNode(id, src);
+        const fit = props.resizeMode ?? props.style?.objectFit ?? 'cover';
+        const borderRadius = props.style?.borderRadius ?? 0;
+        uiEngine.createImageNode(id, src, fit, borderRadius);
         // Phase 6E: C++ fetches image data natively via RNSkPlatformContext
         uiEngine.startImageLoad(id);
         if (isInteractive(props)) {
@@ -427,7 +391,8 @@ const baseHostConfig = {
       }
 
       case 'Scroll': {
-        uiEngine.createScrollNode(id, props.horizontal ?? false);
+        const contentPadding = props.contentPadding ?? props.style?.padding ?? 0;
+        uiEngine.createScrollNode(id, props.horizontal ?? false, contentPadding);
         // CRITICAL: Force overflow:hidden so Yoga constrains the ScrollNode
         // to its allocated size and does NOT expand it to fit content.
         // Without this, viewportSize == contentSize and maxScroll == 0.
@@ -616,15 +581,16 @@ const baseHostConfig = {
   commitUpdate(...args: any[]) {
     // React 18+ react-reconciler signature: commitUpdate(instance, type, oldProps, newProps, internalHandle)
     // React 17: commitUpdate(instance, updatePayload, type, oldProps, newProps, internalHandle)
-    let id, type, oldProps, newProps;
+    let id, type, newProps;
     if (typeof args[1] === 'string') {
       // React 18+ signature
-      [id, type, oldProps, newProps] = args;
+      id = args[0];
+      type = args[1];
+      newProps = args[3];
     } else {
       // React 17 signature
       id = args[0];
       type = args[2];
-      oldProps = args[3];
       newProps = args[4];
     }
 
@@ -681,9 +647,10 @@ const baseHostConfig = {
       }
 
       case 'Image': {
-        // Image src changed → recreate (không có updateImageNode trong C++)
         const src = newProps.src ?? newProps.source?.uri ?? newProps.uri ?? '';
-        uiEngine.createImageNode(id, src);
+        const fit = newProps.resizeMode ?? newProps.style?.objectFit ?? 'cover';
+        const borderRadius = newProps.style?.borderRadius ?? 0;
+        uiEngine.updateImageNode(id, src, fit, borderRadius);
         uiEngine.startImageLoad(id);
         break;
       }
@@ -695,12 +662,16 @@ const baseHostConfig = {
         // ScrollNode to match content → viewportSize = contentSize → maxScroll = 0.
         const scrollUpdateStyle = { ...yogaStyle, overflow: 'hidden' };
         uiEngine.updateLayoutNode(id, scrollUpdateStyle);
+        const contentPadding = newProps.contentPadding ?? newProps.style?.padding ?? 0;
+        uiEngine.updateScrollNode(id, newProps.horizontal ?? false, contentPadding);
+        
         // Scroll is ALWAYS interactive (pan handlers always present).
         // Never unregister — that would break hit testing.
         const zIndex = newProps.style?.zIndex ?? 0;
         uiEngine.registerWidget(id, 0, 0, 0, 0, zIndex, 0);
         break;
       }
+
 
       // ── Layout container aliases ──────────────────────────────────────────
       // case 'Column':

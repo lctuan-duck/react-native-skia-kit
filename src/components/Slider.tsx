@@ -11,6 +11,8 @@ import type {
   LayoutStyle,
 } from '../types/style.types';
 import { resolveSemanticColor } from '../core/colorUtils';
+import { uiEngine } from '../core/GlobalEngine';
+import { useSharedValue, withTiming, useAnimatedReaction } from 'react-native-reanimated';
 
 // === Slider Types ===
 
@@ -68,6 +70,8 @@ export const Slider = React.memo(function Slider({
   const thumbR = 12;
   const totalHeight = thumbR * 2;
   const widgetId = useWidgetId('Slider');
+  const fillId = useWidgetId('SliderFill');
+  const thumbId = useWidgetId('SliderThumb');
   
   const layout = useNativeYogaLayout(widgetId, { width, height: totalHeight });
   const finalWidth = layout?.width > 0 ? layout.width : (typeof width === 'number' ? width : 200);
@@ -75,15 +79,28 @@ export const Slider = React.memo(function Slider({
   const [internalValue, setInternalValue] = React.useState(value);
   const isDragging = React.useRef(false);
 
+  const getRatio = (v: number) => Math.max(0, Math.min(1, (v - min) / (max - min)));
+  
+  const animatedRatio = useSharedValue(getRatio(value));
+
   React.useEffect(() => {
     if (!isDragging.current) {
       setInternalValue(value);
+      animatedRatio.value = withTiming(getRatio(value), { duration: 200 });
     }
-  }, [value]);
+  }, [value, min, max, animatedRatio]);
 
-  const ratio = Math.max(0, Math.min(1, (internalValue - min) / (max - min)));
-  const fillWidth = ratio * finalWidth;
-  const thumbCx = ratio * finalWidth;
+  useAnimatedReaction(
+    () => animatedRatio.value,
+    (r) => {
+      const fillW = r * finalWidth;
+      const thumbCx = r * finalWidth;
+      
+      uiEngine.updateLayoutNode(fillId, { width: fillW });
+      uiEngine.updateLayoutNode(thumbId, { left: thumbCx - thumbR });
+    },
+    [finalWidth, fillId, thumbId, thumbR]
+  );
 
   const calculateValue = (localX: number) => {
     const rawValue = min + (localX / finalWidth) * (max - min);
@@ -102,6 +119,7 @@ export const Slider = React.memo(function Slider({
     startLocalX.current = e?.localX ?? 0;
     const newValue = calculateValue(startLocalX.current);
     setInternalValue(newValue);
+    animatedRatio.value = getRatio(newValue);
     onChange?.(newValue);
   };
 
@@ -110,6 +128,7 @@ export const Slider = React.memo(function Slider({
     const currentLocalX = startLocalX.current + (e?.translationX ?? 0);
     const newValue = calculateValue(currentLocalX);
     setInternalValue(newValue);
+    animatedRatio.value = getRatio(newValue);
     onChange?.(newValue);
   };
 
@@ -117,6 +136,11 @@ export const Slider = React.memo(function Slider({
     isDragging.current = false;
     onSlidingComplete?.(internalValue);
   };
+  
+  // Initial calculation for first render
+  const initialRatio = getRatio(internalValue);
+  const initialFillWidth = initialRatio * finalWidth;
+  const initialThumbLeft = initialRatio * finalWidth - thumbR;
 
   return (
     <Box
@@ -146,8 +170,9 @@ export const Slider = React.memo(function Slider({
 
       {/* Active fill */}
       <Box
+        id={fillId}
         style={{
-          width: fillWidth,
+          width: initialFillWidth,
           height: trackH,
           borderRadius: trackH / 2,
           backgroundColor: activeColor,
@@ -157,6 +182,7 @@ export const Slider = React.memo(function Slider({
 
       {/* Thumb */}
       <Box
+        id={thumbId}
         style={{
           width: thumbR * 2,
           height: thumbR * 2,
@@ -165,7 +191,7 @@ export const Slider = React.memo(function Slider({
           borderWidth: 2,
           borderColor: activeColor,
           position: 'absolute',
-          left: thumbCx - thumbR,
+          left: initialThumbLeft,
         }}
       />
     </Box>

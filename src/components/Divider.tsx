@@ -49,11 +49,11 @@ export const Divider = React.memo(function Divider({
   const yogaWidth = orientation === 'horizontal' ? (length ?? '100%') : thickness;
   const yogaHeight = orientation === 'vertical' ? (length ?? '100%') : thickness;
 
-  const finalX = 0;
-  const finalY = 0;
+  
+  
 
-  const finalW = typeof yogaWidth === 'number' ? yogaWidth : 300;
-  const finalH = typeof yogaHeight === 'number' ? yogaHeight : 300;
+  
+  
 
   if (orientation === 'horizontal') {
     return (

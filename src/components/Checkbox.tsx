@@ -10,7 +10,9 @@ import type {
   FlexChildStyle,
   SemanticColor,
 } from '../types/style.types';
-import { resolveSemanticColor } from '../core/colorUtils';
+import { resolveSemanticColor, parseColor } from '../core/colorUtils';
+import { uiEngine } from '../core/GlobalEngine';
+import { useSharedValue, withTiming, useAnimatedReaction, interpolateColor } from 'react-native-reanimated';
 
 // === Checkbox Types ===
 
@@ -49,14 +51,19 @@ export const Checkbox = React.memo(function Checkbox({
   const theme = useTheme();
   const activeColor =
     style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
-  const borderColor = disabled
-    ? theme.colors.textDisabled
+    
+  const uncheckedBorderColor = theme.colors.outline;
+  const disabledBorderColor = theme.colors.textDisabled;
+  
+  const targetBorderColor = disabled
+    ? disabledBorderColor
     : checked
     ? activeColor
-    : theme.colors.outline;
-  const bgColor = checked
+    : uncheckedBorderColor;
+    
+  const targetBgColor = checked
     ? disabled
-      ? theme.colors.textDisabled
+      ? disabledBorderColor
       : activeColor
     : 'transparent';
 
@@ -67,6 +74,50 @@ export const Checkbox = React.memo(function Checkbox({
   };
 
   const widgetId = useWidgetId('Checkbox');
+  const iconId = useWidgetId('CheckboxIcon');
+  
+  const borderRadius = style?.borderRadius ?? 4;
+  const borderWidth = style?.borderWidth ?? 2;
+
+  const progress = useSharedValue(checked ? 1 : 0);
+
+  React.useEffect(() => {
+    progress.value = withTiming(checked ? 1 : 0, { duration: 150 });
+  }, [checked, progress]);
+
+  // Use Worklet to directly update UIEngine for smooth 60fps animations
+  useAnimatedReaction(
+    () => progress.value,
+    (p) => {
+      const currentBg = interpolateColor(
+        p,
+        [0, 1],
+        ['transparent', disabled ? disabledBorderColor : activeColor]
+      );
+      
+      const currentBorder = interpolateColor(
+        p,
+        [0, 1],
+        [disabled ? disabledBorderColor : uncheckedBorderColor, disabled ? disabledBorderColor : activeColor]
+      );
+
+      // Update Box background and border
+      uiEngine.updateBoxNode(
+        widgetId, 
+        {}, 
+        { 
+          backgroundColor: parseColor(currentBg),
+          borderColor: parseColor(currentBorder),
+          borderRadius: borderRadius,
+          borderWidth: borderWidth,
+        }
+      );
+      
+      // Update Icon opacity
+      uiEngine.updateRenderNodeStyle(iconId, p);
+    },
+    [activeColor, disabledBorderColor, uncheckedBorderColor, disabled, widgetId, iconId, borderRadius, borderWidth]
+  );
 
   return (
     <Box
@@ -74,10 +125,10 @@ export const Checkbox = React.memo(function Checkbox({
       style={{
         width: size,
         height: size,
-        borderRadius: style?.borderRadius ?? 4,
-        backgroundColor: bgColor,
-        borderWidth: style?.borderWidth ?? 2,
-        borderColor: style?.borderColor ?? borderColor,
+        borderRadius: borderRadius,
+        backgroundColor: targetBgColor,
+        borderWidth: borderWidth,
+        borderColor: targetBorderColor,
         opacity: disabled ? 0.5 : 1,
         justifyContent: 'center',
         alignItems: 'center',
@@ -85,13 +136,14 @@ export const Checkbox = React.memo(function Checkbox({
       hitTestBehavior="translucent"
       onPress={handlePress}
     >
-      {checked && (
-        <Icon
-          name="check"
-          size={size * 0.8}
-          color="white"
-        />
-      )}
+      <Icon
+        id={iconId}
+        name="check"
+        size={size * 0.8}
+        color="white"
+        // Start with the correct opacity
+        style={{ opacity: checked ? 1 : 0 }}
+      />
     </Box>
   );
 });

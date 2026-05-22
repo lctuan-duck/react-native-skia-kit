@@ -51,7 +51,7 @@ export const Card = React.memo(function Card({
   variant = 'solid',
   color: _color = 'primary',
   style,
-  interactive,
+  
   children,
   onPress,
   onLongPress,

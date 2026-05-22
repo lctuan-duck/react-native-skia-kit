@@ -58,7 +58,6 @@ export const SearchBar = React.memo(function SearchBar({
   const [internalValue, setInternalValue] = useState('');
   const text = controlledValue ?? internalValue;
 
-  const w = width ?? 0;
   useWidgetId('SearchBar');
 
   const handleClear = () => {

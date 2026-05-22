@@ -56,7 +56,7 @@ export interface ButtonProps extends WidgetProps {
   /** Interactive effect (Default: ripple) */
   interactive?: 'ripple' | 'bounce' | 'opacity' | 'none';
   /** Manual ripple color override */
-  rippleColor?: string;
+  
   /** Press callback */
   onPress?: (localX?: number, localY?: number) => void;
   /** Long press callback */
@@ -82,8 +82,7 @@ export const Button = React.memo(function Button({
   color = 'primary',
   disabled = false,
   extended = false,
-  interactive = 'ripple',
-  rippleColor,
+
   onPress,
   onLongPress,
   style,
