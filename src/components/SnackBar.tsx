@@ -1,9 +1,7 @@
 import * as React from 'react';
 import { useEffect } from 'react';
-import { Group } from '@shopify/react-native-skia';
 import {
   useSharedValue,
-  useDerivedValue,
   withTiming,
 } from 'react-native-reanimated';
 import { Box } from './Box';
@@ -50,8 +48,6 @@ export const SnackBar = React.memo(function SnackBar({
 
   useWidgetId('SnackBar');
 
-  const transform = useDerivedValue(() => [{ translateY: _translateY.value }]);
-
   useEffect(() => {
     if (visible) {
       _translateY.value = withTiming(0, { duration: 200 });
@@ -69,38 +65,36 @@ export const SnackBar = React.memo(function SnackBar({
   if (!visible) return null;
 
   return (
-    <Group transform={transform}>
-      <Box
-        x={8}
-        y={screenHeight - 72}
-        style={{
-          width: screenWidth - 16,
-          height: 48,
-          borderRadius: 8,
-          backgroundColor: bgColor,
-          elevation: 6,
-          flexDirection: 'row',
-          alignItems: 'center',
-          padding: [0, 16, 0, 16],
-        }}
-      >
-        <Expanded>
-          <Text text={message} style={{ fontSize: 14, color: fgColor }} />
-        </Expanded>
-        {action && (
-          <Box hitTestBehavior="opaque" onPress={action.onPress}>
-            <Text
-              text={action.label}
-              style={{
-                fontSize: 14,
-                fontWeight: 'bold',
-                color: theme.colors.primary,
-              }}
-            />
-          </Box>
-        )}
-      </Box>
-    </Group>
+    <Box
+      x={8}
+      y={screenHeight - 72}
+      style={{
+        width: screenWidth - 16,
+        height: 48,
+        borderRadius: 8,
+        backgroundColor: bgColor,
+        elevation: 6,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: [0, 16, 0, 16],
+      }}
+    >
+      <Expanded>
+        <Text text={message} style={{ fontSize: 14, color: fgColor }} />
+      </Expanded>
+      {action && (
+        <Box hitTestBehavior="opaque" onPress={action.onPress}>
+          <Text
+            text={action.label}
+            style={{
+              fontSize: 14,
+              fontWeight: 'bold',
+              color: theme.colors.primary,
+            }}
+          />
+        </Box>
+      )}
+    </Box>
   );
 });
 

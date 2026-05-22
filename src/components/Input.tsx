@@ -113,8 +113,8 @@ export const Input = React.memo(function Input({
           width: width - 28,
           fontSize: 16,
           color: showPlaceholder ? placeholderColor : textColor,
+          numberOfLines: 1
         }}
-        numberOfLines={1}
       />
     </Box>
   );

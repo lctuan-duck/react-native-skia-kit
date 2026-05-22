@@ -7,18 +7,10 @@
  */
 
 import * as React from 'react';
-import { useMemo } from 'react';
-import { Group } from '@shopify/react-native-skia';
-import {
-  useSharedValue,
-  useDerivedValue,
-  withDecay,
-  useAnimatedReaction,
-  runOnJS,
-} from 'react-native-reanimated';
+import { useMemo, useState } from 'react';
+import { Box } from './Box';
+import { ScrollView } from './ScrollView';
 import { useWidgetId } from '../hooks/useWidgetId';
-import { useHitTest } from '../hooks/useHitTest';
-import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import type { WidgetProps } from '../types/widget.types';
 import type { LayoutStyle, SpacingStyle, FlexChildStyle } from '../types/style.types';
 
@@ -48,56 +40,14 @@ export const VirtualizedList = React.memo(function VirtualizedList<T>({
   bufferCount = 5,
   separatorHeight = 0,
 }: VirtualizedListProps<T>) {
-  const width = style?.width;
-  const height = style?.height;
-  const fallbackW = typeof width === 'number' ? width : 360;
-  const fallbackH = typeof height === 'number' ? height : 400;
-
-  const widgetId = useWidgetId('VirtualizedList');
-
-  const layoutResult = useNativeYogaLayout(widgetId, style, []);
+  const [scrollOffset, setScrollOffset] = useState(0);
   
-  const finalX = layoutResult?.x ?? 0;
-  const finalY = layoutResult?.y ?? 0;
-  const numWidth = layoutResult?.width ?? fallbackW;
-  const numHeight = layoutResult?.height ?? fallbackH;
-
-  const scrollOffset = useSharedValue(0);
   const totalItemHeight = itemHeight + separatorHeight;
   const contentHeight = data.length * totalItemHeight;
-  const maxScroll = Math.max(0, contentHeight - numHeight);
+  const numHeight = (style?.height as number) || 800; // rough estimate if no style.height
 
-  // Pan gesture for scrolling
-  useHitTest(widgetId, {
-    rect: { left: finalX, top: finalY, width: numWidth, height: numHeight },
-    callbacks: {
-      onPanUpdate: (e) => {
-        const newOffset = scrollOffset.value - e.translationY;
-        scrollOffset.value = Math.max(0, Math.min(maxScroll, newOffset));
-      },
-      onPanEnd: (e) => {
-        // Momentum scrolling with decay
-        scrollOffset.value = withDecay({
-          velocity: -e.velocityY,
-          clamp: [0, maxScroll],
-        });
-      },
-    },
-    behavior: 'opaque',
-  });
-
-  // Render only visible items — recomputed when scroll changes
-  const [visibleStart, setVisibleStart] = React.useState(0);
-
-  useAnimatedReaction(
-    () => scrollOffset.value,
-    (offset) => {
-      'worklet';
-      const start = Math.max(0, Math.floor(offset / totalItemHeight) - bufferCount);
-      runOnJS(setVisibleStart)(start);
-    },
-    [totalItemHeight, bufferCount]
-  );
+  // Render only visible items
+  const visibleStart = Math.max(0, Math.floor(scrollOffset / totalItemHeight) - bufferCount);
 
   const visibleItems = useMemo(() => {
     const items: React.ReactNode[] = [];
@@ -110,20 +60,29 @@ export const VirtualizedList = React.memo(function VirtualizedList<T>({
       const item = data[i];
       if (!item) continue;
       const key = keyExtractor ? keyExtractor(item, i) : String(i);
-      const itemY = finalY + i * totalItemHeight;
-      items.push(<Group key={key} transform={[{ translateY: itemY }]}>{renderItem(item, i)}</Group>);
+      const itemY = i * totalItemHeight;
+      items.push(
+        <Box 
+          key={key} 
+          style={{ position: 'absolute', top: itemY, left: 0, right: 0, height: itemHeight }}
+        >
+          {renderItem(item, i)}
+        </Box>
+      );
     }
     return items;
-  }, [data, totalItemHeight, numHeight, bufferCount, visibleStart, keyExtractor, renderItem, finalY]);
-
-  const scrollTransform = useDerivedValue(() => [
-    { translateY: -scrollOffset.value },
-  ]);
+  }, [data, totalItemHeight, numHeight, bufferCount, visibleStart, keyExtractor, renderItem, itemHeight]);
 
   return (
-    <Group clip={{ x: finalX, y: finalY, width: numWidth, height: numHeight }}>
-      <Group transform={scrollTransform}>{visibleItems}</Group>
-    </Group>
+    <ScrollView 
+      style={style} 
+      contentSize={contentHeight}
+      onScroll={setScrollOffset}
+    >
+      <Box style={{ width: '100%', height: contentHeight }}>
+        {visibleItems}
+      </Box>
+    </ScrollView>
   );
 }) as <T>(props: VirtualizedListProps<T>) => React.ReactElement;
 

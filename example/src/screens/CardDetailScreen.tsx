@@ -60,7 +60,7 @@ export function CardDetailScreen() {
 
       <ScrollView x={0} y={132} style={{ width: '100%', flex: 1 }}>
         <Column
-          style={{ width: '100%', alignItems: 'center', gap: 32, padding: 64 }}
+          style={{ width: '100%', alignItems: 'center', gap: 32, padding: 24 }}
         >
           {/* Credit Card Hero (Rotated/Expanded style) */}
           <Hero tag="credit-card" width={320} height={480}>

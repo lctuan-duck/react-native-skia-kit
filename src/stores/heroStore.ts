@@ -6,7 +6,7 @@ import './setup';
 
 export interface HeroData {
   tag: string;
-  rect: { width: number; height: number };
+  rect: { x: number; y: number; width: number; height: number };
   widgetSnapshot?: unknown; // SkImage — snapshot for animation
 }
 

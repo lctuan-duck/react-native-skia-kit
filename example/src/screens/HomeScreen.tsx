@@ -90,7 +90,7 @@ export function HomeScreen() {
       style={{
         width: '100%',
         height: '100%',
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.background,
         paddingTop: 10, // approximate top padding
       }}
     >

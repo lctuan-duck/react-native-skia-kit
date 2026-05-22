@@ -45,6 +45,49 @@ function unregisterJSCallbacks(id: string) {
   jsCallbacks.delete(id);
 }
 
+// Track parent→children relationships in JS so we can recursively
+// unregister HitTest + callbacks for ALL descendants when a tree is removed.
+// This fixes the "ghost hit target" bug after screen navigation.
+const nodeChildren = new Map<string, Set<string>>();
+
+function trackChild(parentId: string, childId: string) {
+  if (!nodeChildren.has(parentId)) {
+    nodeChildren.set(parentId, new Set());
+  }
+  nodeChildren.get(parentId)!.add(childId);
+}
+
+function untrackChild(parentId: string, childId: string) {
+  nodeChildren.get(parentId)?.delete(childId);
+}
+
+/**
+ * Recursively unregister a node and all its JS-tracked descendants from:
+ * - HitTestSubsystem (widget + scroll area)
+ * - JS callback registry
+ * - Layout + Render subsystems
+ *
+ * This prevents "ghost" hit targets from previous screens showing up
+ * after navigation between screens.
+ */
+function recursiveUnregister(id: string) {
+  // 1. Recurse into children first (depth-first)
+  const children = nodeChildren.get(id);
+  if (children) {
+    for (const childId of children) {
+      recursiveUnregister(childId);
+    }
+    nodeChildren.delete(id);
+  }
+  
+  // 2. Cleanup this node — C++ removeRenderNode handles render tree recursively
+  uiEngine.removeRenderNode(id);
+  uiEngine.unregisterWidget(id);
+  // Safe optional call for scroll areas — only scroll nodes are registered
+  try { (uiEngine as any).unregisterScrollArea?.(id); } catch (_) {}
+  unregisterJSCallbacks(id);
+}
+
 function isInteractive(props: any): boolean {
   return !!(
     props.onPress ||
@@ -122,16 +165,48 @@ export function buildNativeStyle(style?: ViewStyle & {
   if (!style) return {};
 
   // Expand padding shorthand: per-edge > axis > all
-  const pt = style.paddingTop ?? style.paddingVertical ?? style.padding;
-  const pb = style.paddingBottom ?? style.paddingVertical ?? style.padding;
-  const pl = style.paddingLeft ?? style.paddingHorizontal ?? style.padding;
-  const pr = style.paddingRight ?? style.paddingHorizontal ?? style.padding;
+  let pt = style.paddingTop ?? style.paddingVertical;
+  let pb = style.paddingBottom ?? style.paddingVertical;
+  let pl = style.paddingLeft ?? style.paddingHorizontal;
+  let pr = style.paddingRight ?? style.paddingHorizontal;
+
+  if (style.padding !== undefined) {
+    if (Array.isArray(style.padding)) {
+      if (style.padding.length === 4) {
+        pt = pt ?? style.padding[0];
+        pr = pr ?? style.padding[1];
+        pb = pb ?? style.padding[2];
+        pl = pl ?? style.padding[3];
+      }
+    } else {
+      pt = pt ?? style.padding;
+      pb = pb ?? style.padding;
+      pl = pl ?? style.padding;
+      pr = pr ?? style.padding;
+    }
+  }
 
   // Expand margin shorthand
-  const mt = style.marginTop ?? style.marginVertical ?? style.margin;
-  const mb = style.marginBottom ?? style.marginVertical ?? style.margin;
-  const ml = style.marginLeft ?? style.marginHorizontal ?? style.margin;
-  const mr = style.marginRight ?? style.marginHorizontal ?? style.margin;
+  let mt = style.marginTop ?? style.marginVertical;
+  let mb = style.marginBottom ?? style.marginVertical;
+  let ml = style.marginLeft ?? style.marginHorizontal;
+  let mr = style.marginRight ?? style.marginHorizontal;
+
+  if (style.margin !== undefined) {
+    if (Array.isArray(style.margin)) {
+      if (style.margin.length === 4) {
+        mt = mt ?? style.margin[0];
+        mr = mr ?? style.margin[1];
+        mb = mb ?? style.margin[2];
+        ml = ml ?? style.margin[3];
+      }
+    } else {
+      mt = mt ?? style.margin;
+      mb = mb ?? style.margin;
+      ml = ml ?? style.margin;
+      mr = mr ?? style.margin;
+    }
+  }
 
   const result: NativeYogaStyle = {};
 
@@ -226,7 +301,7 @@ const baseHostConfig = {
   // ── Scheduling ────────────────────────────────────────────────────────────
   getCurrentUpdatePriority() { return DefaultEventPriority; },
   resolveUpdatePriority() { return DefaultEventPriority; },
-  setCurrentUpdatePriority() {},
+  setCurrentUpdatePriority() { },
   resolveEventTimeStamp() { return Date.now(); },
   scheduleTimeout: setTimeout,
   cancelTimeout: clearTimeout,
@@ -234,10 +309,10 @@ const baseHostConfig = {
   warnsIfNotActing: true,
   resolveEventType() { return null; },
   resolveEventPriority() { return DefaultEventPriority; },
-  requestPostPaintCallback() {},
-  trackSchedulerEvent() {},
-  trackSchedulerEventInDEV() {},
-  detachDeletedInstance() {},
+  requestPostPaintCallback() { },
+  trackSchedulerEvent() { },
+  trackSchedulerEventInDEV() { },
+  detachDeletedInstance() { },
   shouldAttemptEagerTransition() { return false; },
 
   // ── React 19: Commit suspension (must all return false/null for custom renderers) ──
@@ -246,8 +321,8 @@ const baseHostConfig = {
   maySuspendCommitOnUpdate(_type: string, _oldProps: any, _newProps: any) { return false; },
   maySuspendCommitInSyncRender(_type: string, _props: any) { return false; },
   preloadInstance(_type: string, _props: any) { return true; }, // true = already loaded
-  startSuspendingCommit() {},
-  suspendInstance(_type: string, _props: any) {},
+  startSuspendingCommit() { },
+  suspendInstance(_type: string, _props: any) { },
   waitForCommitToBeReady() { return null; }, // null = not suspending
 
   // ── React 19: Microtask scheduling ────────────────────────────────────────
@@ -353,7 +428,16 @@ const baseHostConfig = {
 
       case 'Scroll': {
         uiEngine.createScrollNode(id, props.horizontal ?? false);
+        // CRITICAL: Force overflow:hidden so Yoga constrains the ScrollNode
+        // to its allocated size and does NOT expand it to fit content.
+        // Without this, viewportSize == contentSize and maxScroll == 0.
+        const scrollYogaStyle = { ...yogaStyle, overflow: 'hidden' };
+        uiEngine.updateLayoutNode(id, scrollYogaStyle);
         uiEngine.registerScrollArea(id, 0, 0, 0, 0, props.horizontal ?? false);
+        // Always register as interactive so hit test always reaches ScrollView
+        // regardless of whether user passed onPanStart etc explicitly
+        const zIndex = props.style?.zIndex ?? 0;
+        uiEngine.registerWidget(id, 0, 0, 0, 0, zIndex, 0);
         break;
       }
 
@@ -403,7 +487,7 @@ const baseHostConfig = {
 
     registerJSCallbacks(id, props);
     if (__DEV__) {
-      console.log(`[SkiaKit Reconciler] createInstance type=${type} id=${id}`);
+      // console.log(`[SkiaKit Reconciler] createInstance type=${type} id=${id}`);
     }
     return id;
   },
@@ -428,29 +512,28 @@ const baseHostConfig = {
   // ── Tree manipulation ─────────────────────────────────────────────────────
 
   appendInitialChild(parentId: string, childId: string) {
-    if (__DEV__) console.log(`[SkiaKit Reconciler] appendInitialChild parent=${parentId} child=${childId}`);
     uiEngine.addRenderChild(parentId, childId);
+    trackChild(parentId, childId);
   },
   appendChild(parentId: string, childId: string) {
-    if (__DEV__) console.log(`[SkiaKit Reconciler] appendChild parent=${parentId} child=${childId}`);
     uiEngine.addRenderChild(parentId, childId);
+    trackChild(parentId, childId);
   },
   appendChildToContainer(containerInfo: { canvasId: string }, childId: string) {
-    if (__DEV__) console.log(`[SkiaKit Reconciler] appendChildToContainer canvas=${containerInfo.canvasId} child=${childId}`);
     uiEngine.addRenderChild(containerInfo.canvasId, childId);
+    trackChild(containerInfo.canvasId, childId);
   },
 
   removeChild(parentId: string, childId: string) {
     uiEngine.removeRenderChild(parentId, childId);
-    uiEngine.removeRenderNode(childId); // Recursive cleanup trong C++
-    uiEngine.unregisterWidget(childId);
-    unregisterJSCallbacks(childId);
+    untrackChild(parentId, childId);
+    // Recursively cleanup child and all its descendants
+    recursiveUnregister(childId);
   },
   removeChildFromContainer(containerInfo: { canvasId: string }, childId: string) {
     uiEngine.removeRenderChild(containerInfo.canvasId, childId);
-    uiEngine.removeRenderNode(childId);
-    uiEngine.unregisterWidget(childId);
-    unregisterJSCallbacks(childId);
+    // Recursively cleanup child and all its descendants
+    recursiveUnregister(childId);
   },
 
   insertBefore(parentId: string, childId: string, _beforeChildId: string) {
@@ -516,8 +599,9 @@ const baseHostConfig = {
       return { type };
     }
     if (type === 'Scroll') {
-      const changed = oldProps.horizontal !== newProps.horizontal;
-      if (!changed) return null;
+      // Always update Scroll — callbacks (onPanStart/Update/End) change when viewportSize/contentSize change
+      // If we return null here, registerJSCallbacks never runs, leaving stale closures that
+      // have wrong viewportSize/contentSize captured, causing maxScroll to be wrong.
       return { type };
     }
     // Fallback types: check layout only
@@ -529,19 +613,28 @@ const baseHostConfig = {
    * commitUpdate — Cập nhật C++ node khi props thay đổi.
    * Chỉ chạy khi prepareUpdate trả về non-null payload.
    */
-  commitUpdate(
-    id: string,
-    _updatePayload: any,
-    type: string,
-    _oldProps: any,
-    newProps: any
-  ) {
-    const yogaStyle = buildNativeStyle(newProps.style);
+  commitUpdate(...args: any[]) {
+    // React 18+ react-reconciler signature: commitUpdate(instance, type, oldProps, newProps, internalHandle)
+    // React 17: commitUpdate(instance, updatePayload, type, oldProps, newProps, internalHandle)
+    let id, type, oldProps, newProps;
+    if (typeof args[1] === 'string') {
+      // React 18+ signature
+      [id, type, oldProps, newProps] = args;
+    } else {
+      // React 17 signature
+      id = args[0];
+      type = args[2];
+      oldProps = args[3];
+      newProps = args[4];
+    }
+
+    const yogaStyle = buildNativeStyle(newProps?.style);
 
     switch (type) {
       case 'Box': {
+        const bgColor = parseColor(newProps.style?.backgroundColor);
         uiEngine.updateBoxNode(id, yogaStyle, {
-          backgroundColor: parseColor(newProps.style?.backgroundColor),
+          backgroundColor: bgColor,
           borderRadius: newProps.style?.borderRadius ?? 0,
           borderWidth: newProps.style?.borderWidth ?? 0,
           borderColor: parseColor(newProps.style?.borderColor),
@@ -595,44 +688,54 @@ const baseHostConfig = {
         break;
       }
 
-      case 'Scroll':
-        // ScrollNode không có visual update — horizontal không thể thay đổi sau khi tạo.
-        // Chỉ cần update yoga style nếu dimension thay đổi.
-        // C++ side: không có updateScrollNode → skip.
-        break;
-
-      // ── Layout container aliases ──────────────────────────────────────────
-      case 'Column':
-      case 'Row':
-      case 'Stack':
-      case 'Scaffold':
-      case 'SafeArea':
-      case 'Screen':
-      case 'Nav':
-      case 'Center':
-      case 'Align':
-      case 'Expanded':
-      case 'Flexible':
-      case 'Wrap':
-      case 'Spacer': {
-        uiEngine.updateBoxNode(id, yogaStyle, {
-          backgroundColor: parseColor(newProps.style?.backgroundColor),
-          borderRadius: newProps.style?.borderRadius ?? 0,
-          borderWidth: newProps.style?.borderWidth ?? 0,
-          borderColor: parseColor(newProps.style?.borderColor),
-          elevation: newProps.elevation ?? 0,
-          overflowHidden: newProps.style?.overflow === 'hidden',
-        });
+      case 'Scroll': {
+        // CRITICAL: Always force overflow:hidden — same as createInstance.
+        // Without this, commitUpdate would overwrite the overflow setting with the user's
+        // raw style (which doesn't have overflow:hidden), causing Yoga to expand the
+        // ScrollNode to match content → viewportSize = contentSize → maxScroll = 0.
+        const scrollUpdateStyle = { ...yogaStyle, overflow: 'hidden' };
+        uiEngine.updateLayoutNode(id, scrollUpdateStyle);
+        // Scroll is ALWAYS interactive (pan handlers always present).
+        // Never unregister — that would break hit testing.
+        const zIndex = newProps.style?.zIndex ?? 0;
+        uiEngine.registerWidget(id, 0, 0, 0, 0, zIndex, 0);
         break;
       }
 
+      // ── Layout container aliases ──────────────────────────────────────────
+      // case 'Column':
+      // case 'Row':
+      // case 'Stack':
+      // case 'Scaffold':
+      // case 'SafeArea':
+      // case 'Screen':
+      // case 'Nav':
+      // case 'Center':
+      // case 'Align':
+      // case 'Expanded':
+      // case 'Flexible':
+      // case 'Wrap':
+      // case 'Spacer': {
+      //   const bgColor = parseColor(newProps.style?.backgroundColor);
+      //   uiEngine.updateBoxNode(id, yogaStyle, {
+      //     backgroundColor: bgColor,
+      //     borderRadius: newProps.style?.borderRadius ?? 0,
+      //     borderWidth: newProps.style?.borderWidth ?? 0,
+      //     borderColor: parseColor(newProps.style?.borderColor),
+      //     elevation: newProps.elevation ?? 0,
+      //     overflowHidden: newProps.style?.overflow === 'hidden',
+      //   });
+      //   break;
+      // }
+
       default: {
         // Fallback BoxNode — cập nhật layout và visual style
+        const bgColor = parseColor(newProps.style?.backgroundColor);
         uiEngine.updateBoxNode(id, yogaStyle, {
-          backgroundColor: parseColor(newProps.style?.backgroundColor) ?? 0,
+          backgroundColor: bgColor,
           borderRadius: newProps.style?.borderRadius ?? 0,
           borderWidth: newProps.style?.borderWidth ?? 0,
-          borderColor: parseColor(newProps.style?.borderColor) ?? 0,
+          borderColor: parseColor(newProps.style?.borderColor),
           elevation: newProps.elevation ?? 0,
           overflowHidden: newProps.style?.overflow === 'hidden',
         });
@@ -680,12 +783,12 @@ const baseHostConfig = {
 
   finalizeInitialChildren: () => false,
   shouldSetTextContent: () => false,
-  clearContainer: () => {},
+  clearContainer: () => { },
   getCurrentEventPriority: () => DefaultEventPriority,
   getInstanceFromNode: () => null,
-  beforeActiveInstanceBlur() {},
-  afterActiveInstanceBlur() {},
-  preparePortalMount() {},
+  beforeActiveInstanceBlur() { },
+  afterActiveInstanceBlur() { },
+  preparePortalMount() { },
 } as const;
 
 // ── Factory per CanvasRoot ────────────────────────────────────────────────────

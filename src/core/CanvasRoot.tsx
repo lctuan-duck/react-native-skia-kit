@@ -11,13 +11,9 @@ import {
   Gesture,
 } from 'react-native-gesture-handler';
 import { useOverlayStore } from '../stores/overlayStore';
-import {
-  uiEngine,
-  globalActiveWidgetId,
-  globalPanEvent,
-  globalPanState,
-} from './GlobalEngine';
+import { uiEngine } from './GlobalEngine';
 import { WidgetContext } from './WidgetContext';
+import { useSharedValue } from 'react-native-reanimated';
 import { createSkiaKitHostConfig } from './SkiaKitReconciler';
 import { updateLayoutSVs } from '../stores/layoutRegistry';
 
@@ -56,6 +52,8 @@ export const CanvasRoot = React.memo(function CanvasRoot({
 
   // Guard: ngăn re-entrant call (resetAfterCommit → setPicture → re-render → lại resetAfterCommit)
   const isRedrawingRef = useRef(false);
+  // RAF dedup flag — prevents queuing multiple animation frames during scroll
+  const rafPendingRef = useRef(false);
 
   // ── requestRedraw ─────────────────────────────────────────────────────────
   const requestRedraw = useCallback(() => {
@@ -67,26 +65,25 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       uiEngine.calculateLayout(canvasId, screenWidth, screenHeight);
 
       // 2. Lấy serialized SkPicture bytes từ C++
-      const buffer = uiEngine.getRootPicture(canvasId, screenWidth, screenHeight);
+      const buffer = uiEngine.getRootPicture(
+        canvasId,
+        screenWidth,
+        screenHeight
+      );
 
       if (__DEV__) {
         const allLayouts = uiEngine.getAllLayouts() ?? {};
         const nodeCount = Object.keys(allLayouts).length;
-        console.log('[SkiaKit] picture bytes:', buffer?.byteLength ?? 0, 'nodes:', nodeCount);
-        if (nodeCount > 0) {
-          // Log layout details
-          let c = 0;
-          Object.entries(allLayouts).forEach(([id, layout]: [string, any]) => {
-            if (c < 10 || id === 'w_eor33mzru' || id === 'w_7ls1odomw' || layout.width > 0) {
-                console.log(`  node[${id}]: x=${layout.x?.toFixed(0)} y=${layout.y?.toFixed(0)} w=${layout.width?.toFixed(0)} h=${layout.height?.toFixed(0)}`);
-            }
-            c++;
-          });
-        }
+        console.log(
+          '[SkiaKit] picture bytes:',
+          buffer?.byteLength ?? 0,
+          'nodes:',
+          nodeCount
+        );
       }
 
-
-      if (buffer && buffer.byteLength > 100) { // > 100 bytes = có content thực sự
+      if (buffer && buffer.byteLength > 100) {
+        // > 100 bytes = có content thực sự
         const newPicture = Skia.Picture.MakePicture(new Uint8Array(buffer));
         if (newPicture) {
           // Defer ra ngoài commit phase để tránh sync re-render loop
@@ -110,13 +107,49 @@ export const CanvasRoot = React.memo(function CanvasRoot({
     }
   }, [canvasId, screenWidth, screenHeight]);
 
+  // ── scrollRedraw — FAST path for scroll, bypasses Yoga calculateLayout ──────
+  // Uses flushSync so the picture update is committed synchronously (within the same RAF tick),
+  // not batched by React's async scheduler which would cause visible lag.
+  const isScrollRedrawingRef = useRef(false);
+  const scrollRedrawRef = useRef<(() => void) | null>(null);
+  scrollRedrawRef.current = () => {
+    if (isScrollRedrawingRef.current) return;
+    isScrollRedrawingRef.current = true;
+    try {
+      const buffer = uiEngine.getRootPicture(canvasId, screenWidth, screenHeight);
+      if (buffer && buffer.byteLength > 100) {
+        const newPicture = Skia.Picture.MakePicture(new Uint8Array(buffer));
+        if (newPicture) {
+          setPicture(newPicture);
+        }
+      }
+    } finally {
+      isScrollRedrawingRef.current = false;
+    }
+  };
 
-  // ── requestRedraw stable ref ────────────────────────────────────────────
-  // hostConfig capture requestRedraw một lần duy nhất khi tạo Reconciler.
-  // Dùng ref wrapper để luôn gọi version mới nhất (với screenWidth/screenHeight đúng).
+  // ── Expose global draw functions ──────────────────────────────────────────
+  // Single useLayoutEffect to expose both globals — avoids hooks order violations.
   const requestRedrawRef = useRef(requestRedraw);
   requestRedrawRef.current = requestRedraw;
 
+  useLayoutEffect(() => {
+    (global as any).skiaKitRequestRedraw = () => {
+      // Full redraw with layout — for state changes. RAF-deduped.
+      if (rafPendingRef.current) return;
+      rafPendingRef.current = true;
+      requestAnimationFrame(() => {
+        rafPendingRef.current = false;
+        if (!isRedrawingRef.current) requestRedrawRef.current();
+      });
+    };
+    // Fast scroll redraw — NO layout recalc, called every frame by scroll RAF loop
+    (global as any).skiaKitScrollRedraw = () => {
+      scrollRedrawRef.current?.();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps — refs always current
+
+  // ── requestRedraw stable ref for Reconciler ────────────────────────────────
   const stableRequestRedraw = useRef(() => {
     requestRedrawRef.current();
   }).current;
@@ -139,11 +172,15 @@ export const CanvasRoot = React.memo(function CanvasRoot({
     // 0. Cleanup: xóa debug/stale nodes từ session trước (JS reload giữ nguyên C++ state)
     try {
       uiEngine.removeRenderNode('_dbg_box_');
-    } catch { /* node không tồn tại — ignore */ }
+    } catch {
+      /* node không tồn tại — ignore */
+    }
     // Cleanup root node cũ nếu có (hot reload)
     try {
       uiEngine.removeRenderNode(canvasId);
-    } catch { /* first mount — ignore */ }
+    } catch {
+      /* first mount — ignore */
+    }
 
     // 1. Tạo Root BoxNode trong C++ (canvasId là root của cây)
     uiEngine.createBoxNode(
@@ -168,9 +205,15 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       false, // isStrictMode
       null, // concurrentUpdatesByDefaultOverride
       '', // identifierPrefix
-      (error: unknown) => { console.error('[SkiaKit] onUncaughtError:', error); }, // onUncaughtError
-      (error: unknown) => { console.error('[SkiaKit] onCaughtError:', error); },   // onCaughtError
-      (error: unknown) => { console.warn('[SkiaKit] onRecoverableError:', error); }, // onRecoverableError
+      (error: unknown) => {
+        console.error('[SkiaKit] onUncaughtError:', error);
+      }, // onUncaughtError
+      (error: unknown) => {
+        console.error('[SkiaKit] onCaughtError:', error);
+      }, // onCaughtError
+      (error: unknown) => {
+        console.warn('[SkiaKit] onRecoverableError:', error);
+      }, // onRecoverableError
       () => {} // onDefaultTransitionIndicator
     );
 
@@ -196,7 +239,10 @@ export const CanvasRoot = React.memo(function CanvasRoot({
     );
 
     if (__DEV__) {
-      console.log('[SkiaKit] updateContainer, children:', children ? 'yes' : 'none');
+      console.log(
+        '[SkiaKit] updateContainer, children:',
+        children ? 'yes' : 'none'
+      );
     }
 
     // React 19: cần force sync commit cho secondary renderer.
@@ -207,8 +253,14 @@ export const CanvasRoot = React.memo(function CanvasRoot({
     const hasFlushFromRec = typeof rec.flushSyncFromReconciler === 'function';
 
     if (__DEV__) {
-      console.log('[SkiaKit] API check: updateContainerSync=', hasSync,
-        'flushSyncWork=', hasFlushSync, 'flushSyncFromReconciler=', hasFlushFromRec);
+      console.log(
+        '[SkiaKit] API check: updateContainerSync=',
+        hasSync,
+        'flushSyncWork=',
+        hasFlushSync,
+        'flushSyncFromReconciler=',
+        hasFlushFromRec
+      );
     }
 
     if (hasSync && hasFlushFromRec) {
@@ -240,7 +292,7 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       );
     }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [children, reconciler]); // sortedOverlays intentionally via ref
 
   // Re-run layout khi screen thay đổi
@@ -251,42 +303,69 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       // Dùng queueMicrotask để đảm bảo concurrent commit đã xong
       queueMicrotask(() => requestRedrawRef2.current());
     }
+    // Note: skiaKitRequestRedraw and skiaKitScrollRedraw are managed by exposeGlobals
+    // via useLayoutEffect above — do NOT override them here.
   }, [screenWidth, screenHeight]);
 
-  // ── Gesture handling ──────────────────────────────────────────────────────
-  const triggerJSCallback = useCallback(
-    (
-      widgetId: string,
-      type: string,
-      args: { x?: number; y?: number } & any
-    ) => {
-      const { getJSCallbacks } = require('./SkiaKitReconciler');
-      const cbs = getJSCallbacks(widgetId);
-      if (!cbs) return;
+  // Use plain useRef — NOT useSharedValue — for active gesture ID tracking.
+  // Reanimated SharedValue.value writes are async on New Arch (Fabric):
+  // writing .value then immediately reading it returns the OLD value on JS thread.
+  // This caused pan gestures to silently fail (globalActivePanId always appeared empty).
+  const globalActivePressIdRef = React.useRef('');
+  const globalActivePanIdRef = React.useRef('');
 
+  const triggerJSCallback = React.useCallback(
+    (id: string, type: string, args: any = {}) => {
+      const { getJSCallbacks } = require('./SkiaKitReconciler');
+      const cbs = getJSCallbacks(id);
+      if (!cbs) return false;
+
+      let handled = false;
       switch (type) {
         case 'press':
-          cbs.onPress?.(args.x, args.y);
+          if (cbs.onPress) {
+            cbs.onPress(args.x, args.y);
+            handled = true;
+          }
           break;
         case 'pressIn':
-          cbs.onPressIn?.(args.x, args.y);
+          if (cbs.onPressIn || cbs.onPress) {
+            cbs.onPressIn?.(args.x, args.y);
+            handled = true;
+          }
           break;
         case 'pressOut':
-          cbs.onPressOut?.(args.x, args.y);
+          if (cbs.onPressOut || cbs.onPress) {
+            cbs.onPressOut?.(args.x, args.y);
+            handled = true;
+          }
           break;
         case 'longPress':
-          cbs.onLongPress?.();
+          if (cbs.onLongPress) {
+            cbs.onLongPress();
+            handled = true;
+          }
           break;
         case 'panStart':
-          cbs.onPanStart?.(args);
+          if (cbs.onPanStart) {
+            cbs.onPanStart(args);
+            handled = true;
+          }
           break;
         case 'panUpdate':
-          cbs.onPanUpdate?.(args);
+          if (cbs.onPanUpdate) {
+            cbs.onPanUpdate(args);
+            handled = true;
+          }
           break;
         case 'panEnd':
-          cbs.onPanEnd?.(args);
+          if (cbs.onPanEnd) {
+            cbs.onPanEnd(args);
+            handled = true;
+          }
           break;
       }
+      return handled;
     },
     []
   );
@@ -296,39 +375,35 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       .runOnJS(true)
       .onBegin((e) => {
         const hits = uiEngine.hitTest(e.x, e.y);
-        if (__DEV__) {
-          console.log(
-            `[SkiaKit Tap onBegin] x=${e.x}, y=${e.y}, hits=${hits.length}`
-          );
-        }
-        const hit = hits.length > 0 ? hits[0]! : undefined;
-        if (hit?.id) {
-          globalActiveWidgetId.value = hit.id;
-          triggerJSCallback(hit.id, 'pressIn', {
+        for (let i = hits.length - 1; i >= 0; i--) {
+          const hit = hits[i]!;
+          const handled = triggerJSCallback(hit.id, 'pressIn', {
             x: hit.localX,
             y: hit.localY,
           });
+          if (handled) {
+            globalActivePressIdRef.current = hit.id;
+            break;
+          }
         }
       })
       .onEnd((e) => {
         const hits = uiEngine.hitTest(e.x, e.y);
-        if (__DEV__) {
-          console.log(
-            `[SkiaKit Tap onEnd] x=${e.x}, y=${e.y}, hits=${hits.length}`
-          );
-        }
-        const hit = hits.length > 0 ? hits[0]! : undefined;
-        if (hit?.id && hit.id === globalActiveWidgetId.value) {
-          triggerJSCallback(hit.id, 'press', {
-            x: hit.localX,
-            y: hit.localY,
-          });
+        for (let i = hits.length - 1; i >= 0; i--) {
+          const hit = hits[i]!;
+          if (hit.id === globalActivePressIdRef.current) {
+            const handled = triggerJSCallback(hit.id, 'press', {
+              x: hit.localX,
+              y: hit.localY,
+            });
+            if (handled) break;
+          }
         }
       })
       .onFinalize(() => {
-        if (globalActiveWidgetId.value) {
-          triggerJSCallback(globalActiveWidgetId.value, 'pressOut', {});
-          globalActiveWidgetId.value = '';
+        if (globalActivePressIdRef.current) {
+          triggerJSCallback(globalActivePressIdRef.current, 'pressOut', {});
+          globalActivePressIdRef.current = '';
         }
       }),
 
@@ -336,9 +411,10 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       .runOnJS(true)
       .onStart((e) => {
         const hits = uiEngine.hitTest(e.x, e.y);
-        const hit = hits.length > 0 ? hits[0]! : undefined;
-        if (hit?.id) {
-          triggerJSCallback(hit.id, 'longPress', {});
+        for (let i = hits.length - 1; i >= 0; i--) {
+          const hit = hits[i]!;
+          const handled = triggerJSCallback(hit.id, 'longPress', {});
+          if (handled) break;
         }
       }),
 
@@ -346,9 +422,9 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       .runOnJS(true)
       .onStart((e) => {
         const hits = uiEngine.hitTest(e.x, e.y);
-        const hit = hits.length > 0 ? hits[0]! : undefined;
-        if (hit?.id) {
-          globalActiveWidgetId.value = hit.id;
+        console.log(`[Pan.onStart] touch=(${e.x.toFixed(0)},${e.y.toFixed(0)}) hits=${hits.length} ids=[${hits.map(h => h.id).join(',')}]`);
+        for (let i = hits.length - 1; i >= 0; i--) {
+          const hit = hits[i]!;
           const ev = {
             translationX: 0,
             translationY: 0,
@@ -360,13 +436,19 @@ export const CanvasRoot = React.memo(function CanvasRoot({
             localY: hit.localY,
             state: 2,
           };
-          globalPanEvent.value = ev as any;
-          globalPanState.value = 'start';
-          triggerJSCallback(hit.id, 'panStart', ev);
+          const handled = triggerJSCallback(hit.id, 'panStart', ev);
+          console.log(`[Pan.onStart] try id=${hit.id} handled=${handled}`);
+          if (handled) {
+            globalActivePanIdRef.current = hit.id; // useRef — sync on JS thread
+            break;
+          }
+        }
+        if (!globalActivePanIdRef.current) {
+          console.log('[Pan.onStart] NO handler found — scroll will not work');
         }
       })
       .onUpdate((e) => {
-        if (globalActiveWidgetId.value) {
+        if (globalActivePanIdRef.current) {
           const ev = {
             translationX: e.translationX,
             translationY: e.translationY,
@@ -378,13 +460,15 @@ export const CanvasRoot = React.memo(function CanvasRoot({
             localY: 0,
             state: 4,
           };
-          globalPanEvent.value = ev as any;
-          globalPanState.value = 'update';
-          triggerJSCallback(globalActiveWidgetId.value, 'panUpdate', ev);
+          // Log once per gesture (first update only)
+          if (Math.abs(e.translationY) < 15 && Math.abs(e.translationX) < 15) {
+            console.log(`[Pan.onUpdate] id=${globalActivePanIdRef.current} tx=${e.translationX.toFixed(1)} ty=${e.translationY.toFixed(1)}`);
+          }
+          triggerJSCallback(globalActivePanIdRef.current, 'panUpdate', ev);
         }
       })
       .onEnd((e) => {
-        if (globalActiveWidgetId.value) {
+        if (globalActivePanIdRef.current) {
           const ev = {
             translationX: e.translationX,
             translationY: e.translationY,
@@ -396,15 +480,13 @@ export const CanvasRoot = React.memo(function CanvasRoot({
             localY: 0,
             state: 5,
           };
-          globalPanEvent.value = ev as any;
-          globalPanState.value = 'end';
-          triggerJSCallback(globalActiveWidgetId.value, 'panEnd', ev);
-          globalActiveWidgetId.value = '';
+          triggerJSCallback(globalActivePanIdRef.current, 'panEnd', ev);
+          globalActivePanIdRef.current = '';
         }
       })
       .onFinalize(() => {
-        if (globalActiveWidgetId.value) {
-          globalActiveWidgetId.value = '';
+        if (globalActivePanIdRef.current) {
+          globalActivePanIdRef.current = '';
         }
       })
   );
@@ -415,7 +497,6 @@ export const CanvasRoot = React.memo(function CanvasRoot({
         {/* picture prop — stable public API của SkiaPictureView */}
         <SkiaPictureView
           picture={picture ?? undefined}
-
           style={[
             {
               flex: 1,

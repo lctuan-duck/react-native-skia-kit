@@ -36,7 +36,7 @@ export interface PopupMenuButtonProps<T = string> extends WidgetProps {
   /** Menu border radius */
   menuBorderRadius?: number;
   /** Position offset */
-  offset?: { dd};
+  offset?: { dx: number; dy: number };
   /** Screen width for backdrop */
   screenWidth?: number;
   /** Screen height for backdrop */
@@ -63,11 +63,14 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
   offset = { dx: 0, dy: 0 },
   screenWidth = 360,
   screenHeight = 800,
+  ...props
 }: PopupMenuButtonProps<T>) {
   const theme = useTheme();
   const bgColor = menuColor ?? theme.colors.surface;
   const showOverlay = useOverlayStore((s) => s.showOverlay);
   const hideOverlay = useOverlayStore((s) => s.hideOverlay);
+  const x = props.x ?? 0;
+  const y = props.y ?? 0;
   const menuId = `popup-menu-${x}-${y}`;
 
   useWidgetId('PopupMenuButton');

@@ -206,7 +206,13 @@ public:
     if (it != _nodes.end()) {
       if (auto* scroll = dynamic_cast<ScrollNode*>(it->second.get())) {
         scroll->setScrollOffset(offset);
-        if (_redrawCallback) _redrawCallback();
+        // CRITICAL: mark dirty so the next getPictureBytes/drawTree call rebuilds
+        // the render tree with the new scroll offset. Without this, getPictureBytes
+        // returns the cached picture (with old offset) and scroll is invisible.
+        _isDirty.store(true);
+        // _redrawCallback here would trigger a full JS-side requestRedraw,
+        // which is too expensive for scroll. Skip it — JS scrollRedraw path
+        // calls getPictureBytes directly after this.
       }
     }
   }

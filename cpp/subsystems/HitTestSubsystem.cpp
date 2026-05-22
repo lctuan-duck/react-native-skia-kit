@@ -48,30 +48,39 @@ namespace margelo::nitro::skiakit {
     if (it != _allWidgets.end()) {
       // Chỉ update nếu toạ độ thực sự thay đổi
       if (it->second.x == x && it->second.y == y && it->second.w == w && it->second.h == h) {
-        return; 
-      }
-      
-      // Keep existing zIndex and behavior, but update coordinates
-      WidgetNode updatedNode = it->second;
-      updatedNode.x = x;
-      updatedNode.y = y;
-      updatedNode.w = w;
-      updatedNode.h = h;
-      
-      _allWidgets[id] = updatedNode;
-      
-      if (_dynamicStatusMap[id]) {
-        for (auto& n : _dynamicNodes) {
-          if (n.id == id) {
-            n = updatedNode;
-            break;
-          }
-        }
+        // Fall through to check scroll areas below
       } else {
-        // Update in QuadTree
-        _staticTree.remove(id);
-        _staticTree.insert(updatedNode);
+        // Keep existing zIndex and behavior, but update coordinates
+        WidgetNode updatedNode = it->second;
+        updatedNode.x = x;
+        updatedNode.y = y;
+        updatedNode.w = w;
+        updatedNode.h = h;
+        
+        _allWidgets[id] = updatedNode;
+        
+        if (_dynamicStatusMap[id]) {
+          for (auto& n : _dynamicNodes) {
+            if (n.id == id) {
+              n = updatedNode;
+              break;
+            }
+          }
+        } else {
+          // Update in QuadTree
+          _staticTree.remove(id);
+          _staticTree.insert(updatedNode);
+        }
       }
+    }
+
+    // CRITICAL: Update scroll area layout so hit testing can find it!
+    auto scrollIt = _scrollAreas.find(id);
+    if (scrollIt != _scrollAreas.end()) {
+      scrollIt->second.x = x;
+      scrollIt->second.y = y;
+      scrollIt->second.w = w;
+      scrollIt->second.h = h;
     }
   }
 

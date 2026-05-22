@@ -94,17 +94,21 @@ export const Slider = React.memo(function Slider({
     return newValue;
   };
 
+  const startLocalX = React.useRef(0);
+
   const handlePanStart = (e: PanEvent) => {
     if (disabled) return;
     isDragging.current = true;
-    const newValue = calculateValue(e?.localX ?? 0);
+    startLocalX.current = e?.localX ?? 0;
+    const newValue = calculateValue(startLocalX.current);
     setInternalValue(newValue);
     onChange?.(newValue);
   };
 
   const handlePanUpdate = (e: PanEvent) => {
     if (disabled) return;
-    const newValue = calculateValue(e?.localX ?? 0);
+    const currentLocalX = startLocalX.current + (e?.translationX ?? 0);
+    const newValue = calculateValue(currentLocalX);
     setInternalValue(newValue);
     onChange?.(newValue);
   };

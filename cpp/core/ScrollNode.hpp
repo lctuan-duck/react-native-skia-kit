@@ -64,7 +64,10 @@ public:
     // 2. Clip viewport — chỉ render nội dung trong bounds
     canvas->clipRect(SkRect::MakeWH(w, h), true /* antiAlias */);
 
-    // 3. Translate content theo scroll offset
+    // 3. Translate content theo scroll offset (sau khi đã clip)
+    // Lưu lại state trước khi scroll để lát vẽ scrollbar
+    canvas->save();
+    
     const float offset = _scrollOffset.load(std::memory_order_relaxed);
     if (_horizontal) {
       canvas->translate(-offset, 0.f);
@@ -73,13 +76,46 @@ public:
     }
 
     // 4. Vẽ đệ quy children (bên trong clip + scroll)
+    float contentW = 0.f, contentH = 0.f;
     {
       std::shared_lock<std::shared_mutex> lock(_childrenMutex);
       for (auto& child : children) {
         child->paint(canvas);
       }
+      if (!children.empty()) {
+        contentW = children[0]->_cachedW;
+        contentH = children[0]->_cachedH;
+      }
     }
 
+    // 5. Restore để huỷ scroll translation (vẫn giữ clip và transform ban đầu)
+    canvas->restore();
+
+    if (!_horizontal && contentH > h) {
+      float maxScroll = contentH - h;
+      float offsetClamped = std::max(0.f, std::min(offset, maxScroll));
+      float barH = std::max(20.f, (h / contentH) * h);
+      float barY = (offsetClamped / maxScroll) * (h - barH);
+      
+      SkPaint paint;
+      paint.setColor(SkColorSetARGB(100, 150, 150, 150));
+      paint.setAntiAlias(true);
+      SkRect barRect = SkRect::MakeXYWH(w - 6.f, barY + 2.f, 4.f, barH - 4.f);
+      canvas->drawRoundRect(barRect, 2.f, 2.f, paint);
+    } else if (_horizontal && contentW > w) {
+      float maxScroll = contentW - w;
+      float offsetClamped = std::max(0.f, std::min(offset, maxScroll));
+      float barW = std::max(20.f, (w / contentW) * w);
+      float barX = (offsetClamped / maxScroll) * (w - barW);
+      
+      SkPaint paint;
+      paint.setColor(SkColorSetARGB(100, 150, 150, 150));
+      paint.setAntiAlias(true);
+      SkRect barRect = SkRect::MakeXYWH(barX + 2.f, h - 6.f, barW - 4.f, 4.f);
+      canvas->drawRoundRect(barRect, 2.f, 2.f, paint);
+    }
+
+    // Restore the clipRect and initial translate
     canvas->restore();
   }
 

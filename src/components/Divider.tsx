@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Line } from '@shopify/react-native-skia';
+import { Box } from './Box';
 import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
@@ -9,8 +9,6 @@ import type {
 } from '../types/style.types';
 import { useTheme } from '../hooks/useTheme';
 import { resolveSemanticColor } from '../core/colorUtils';
-import { useWidgetId } from '../hooks/useWidgetId';
-import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 
 // === Divider Types ===
 
@@ -51,36 +49,30 @@ export const Divider = React.memo(function Divider({
   const yogaWidth = orientation === 'horizontal' ? (length ?? '100%') : thickness;
   const yogaHeight = orientation === 'vertical' ? (length ?? '100%') : thickness;
 
-  const widgetId = useWidgetId('Divider');
+  const finalX = 0;
+  const finalY = 0;
 
-  const layoutResult = useNativeYogaLayout(
-    widgetId,
-    { ...style, width: yogaWidth, height: yogaHeight },
-    undefined
-  );
-
-  const finalX = layoutResult?.x ?? 0;
-  const finalY = layoutResult?.y ?? 0;
-
-  const finalW = layoutResult?.width ?? (typeof yogaWidth === 'number' ? yogaWidth : 300);
-  const finalH = layoutResult?.height ?? (typeof yogaHeight === 'number' ? yogaHeight : 300);
+  const finalW = typeof yogaWidth === 'number' ? yogaWidth : 300;
+  const finalH = typeof yogaHeight === 'number' ? yogaHeight : 300;
 
   if (orientation === 'horizontal') {
     return (
-      <Line
-        p1={{ x: finalX, y: finalY }}
-        p2={{ x: finalX + finalW, y: finalY }}
-        strokeWidth={thickness}
-        color={lineColor}
+      <Box
+        style={{
+          width: yogaWidth,
+          height: thickness,
+          backgroundColor: lineColor,
+        }}
       />
     );
   }
   return (
-    <Line
-      p1={{ x: finalX, y: finalY }}
-      p2={{ x: finalX, y: finalY + finalH }}
-      strokeWidth={thickness}
-      color={lineColor}
+    <Box
+      style={{
+        width: thickness,
+        height: yogaHeight,
+        backgroundColor: lineColor,
+      }}
     />
   );
 });

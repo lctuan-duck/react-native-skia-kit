@@ -23,9 +23,10 @@ export interface ImageProps extends WidgetProps {
   /** Press callback */
   onPress?: () => void;
   /** Error callback */
-  onError?: (e: Error) => void;
+  onError?: (error: string) => void;
   /** Load complete callback */
   onLoad?: () => void;
+  children?: any;
 }
 
 export const Image = React.forwardRef<any, ImageProps>((props, ref) => {

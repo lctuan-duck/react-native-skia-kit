@@ -3,6 +3,7 @@
 #include "RenderNode.hpp"
 #include <mutex>
 #include <algorithm>
+#include <android/log.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdocumentation"
@@ -60,7 +61,7 @@ public:
       return;
     }
 
-    // __android_log_print(ANDROID_LOG_DEBUG, "SkiaKit", "BoxNode::draw id=%s w=%.1f h=%.1f bg=0x%08x alpha=%d", id.c_str(), w, h, props.backgroundColor, (props.backgroundColor >> 24));
+    __android_log_print(ANDROID_LOG_DEBUG, "SkiaKit", "BoxNode::draw id=%s w=%.1f h=%.1f bg=0x%08x alpha=%d", id.c_str(), w, h, props.backgroundColor, (props.backgroundColor >> 24));
 
     const SkRect bounds = SkRect::MakeWH(w, h);
     const float  r      = props.borderRadius;

@@ -1,10 +1,8 @@
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Group, Rect } from '@shopify/react-native-skia';
 import {
   useSharedValue,
   withTiming,
-  useDerivedValue,
 } from 'react-native-reanimated';
 import { useHeroStore } from '../stores/heroStore';
 import { Box } from './Box';
@@ -99,7 +97,7 @@ export const HeroOverlay = React.memo(function HeroOverlay({
   const isTransitioning = useHeroStore((s) => s.isTransitioning);
   const [transitions, setTransitions] = useState<HeroTransition[]>([]);
   const prevHeroesRef = useRef<
-    Map<string, { width: number; height: number }>
+    Map<string, { x: number; y: number; width: number; height: number }>
   >(new Map());
   const progress = useSharedValue(0);
 
@@ -150,7 +148,7 @@ export const HeroOverlay = React.memo(function HeroOverlay({
   if (!isTransitioning || transitions.length === 0) return null;
 
   return (
-    <Group>
+    <Box style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}>
       {transitions.map((t) => (
         <HeroAnimatedRect
           key={t.tag}
@@ -159,7 +157,7 @@ export const HeroOverlay = React.memo(function HeroOverlay({
           progress={progress}
         />
       ))}
-    </Group>
+    </Box>
   );
 });
 
@@ -176,37 +174,26 @@ const HeroAnimatedRect = React.memo(function HeroAnimatedRect({
   to,
   progress,
 }: HeroAnimatedRectProps) {
-  const animatedX = useDerivedValue(
-    () => from.x + (to.x - from.x) * progress.value
-  );
-  const animatedY = useDerivedValue(
-    () => from.y + (to.y - from.y) * progress.value
-  );
-  const animatedW = useDerivedValue(
-    () => from.width + (to.width - from.width) * progress.value
-  );
-  const animatedH = useDerivedValue(
-    () => from.height + (to.height - from.height) * progress.value
-  );
-
-  const transform = useDerivedValue(() => [
-    { translateX: animatedX.value },
-    { translateY: animatedY.value },
-  ]);
+  // TODO: V2 Engine currently does not support animated transform/width/height 
+  // via Reanimated SharedValues directly to BoxNode.
+  // This will require 'updateRenderNodeTransform' exposed to JS.
+  // For now we just render it at the 'to' position.
 
   return (
-    <Group transform={transform}>
-      <Rect
-        x={0}
-        y={0}
-        width={animatedW}
-        height={animatedH}
-        color="rgba(0,0,0,0.1)"
-      />
-    </Group>
+    <Box 
+      style={{
+        position: 'absolute',
+        left: to.x,
+        top: to.y,
+        width: to.width,
+        height: to.height,
+        backgroundColor: "rgba(0,0,0,0.2)"
+      }}
+    />
   );
 });
 
 (Hero as any).skiaWidgetType = 'Hero';
 
 (HeroOverlay as any).skiaWidgetType = 'HeroOverlay';
+(HeroAnimatedRect as any).skiaWidgetType = 'HeroAnimatedRect';

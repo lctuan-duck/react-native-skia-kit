@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { useSharedValue, withDecay, withSpring } from 'react-native-reanimated';
+import { useSharedValue, withDecay, withSpring, cancelAnimation } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 
 // ===== Types =====
@@ -13,6 +13,7 @@ export interface ScrollPhysicsConfig {
 
 export interface ScrollPhysicsResult {
   scrollOffset: SharedValue<number>;
+  handlePanStart: () => void;
   handlePanUpdate: (translationDelta: number) => void;
   handlePanEnd: (velocity: number) => void;
 
@@ -68,30 +69,29 @@ export function useScrollPhysics(
 
       'worklet';
       if (type === 'clamping') {
-        // Decay with clamping
+        // Decay with hard clamping — no overscroll
         scrollOffset.value = withDecay({
           velocity: -velocity,
           clamp: [0, maxScroll.value],
         });
       } else {
-        // Bouncing: decay then spring back if overscrolled
+        // Bouncing: overscroll is handled during drag (rubber-band in ScrollView.tsx).
+        // On release, spring back if we're past the boundary; otherwise decay normally.
         const currentVal = scrollOffset.value;
         if (currentVal < 0) {
-          scrollOffset.value = withSpring(0, {
-            damping: 20,
-            stiffness: 200,
-          });
+          // Snap back — overdamped (damping > 2√(k·m) = 2√150 ≈ 24.5) → zero oscillation
+          scrollOffset.value = withSpring(0, { damping: 35, stiffness: 150 });
         } else if (currentVal > maxScroll.value) {
+          // Was rubber-banded past bottom — spring back
           scrollOffset.value = withSpring(maxScroll.value, {
-            damping: 20,
-            stiffness: 200,
+            damping: 35,
+            stiffness: 150,
           });
         } else {
+          // In bounds — normal decay, hard-clamp at boundary (no extra overscroll)
           scrollOffset.value = withDecay({
             velocity: -velocity,
             clamp: [0, maxScroll.value],
-            rubberBandEffect: true,
-            rubberBandFactor: 0.6,
           });
         }
       }
@@ -111,8 +111,13 @@ export function useScrollPhysics(
     [maxScroll]
   );
 
+  const handlePanStart = useCallback(() => {
+    cancelAnimation(scrollOffset);
+  }, [scrollOffset]);
+
   return {
     scrollOffset,
+    handlePanStart,
     handlePanUpdate,
     handlePanEnd,
     scrollTo,

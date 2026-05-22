@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState, useCallback } from 'react';
-import { Group } from '@shopify/react-native-skia';
+import { Box } from './Box';
 import { Progress } from './Progress';
 import { useWidgetId } from '../hooks/useWidgetId';
 import type { WidgetProps } from '../types/widget.types';
@@ -42,9 +42,12 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
   displacement = 40,
   screenWidth,
   style,
+  ...props
 }: RefreshIndicatorProps) {
+  const x = props.x ?? 0;
+  const y = props.y ?? 0;
   const containerWidth = style?.width ?? screenWidth ?? 360;
-  const spinnerX = x + containerWidth / 2 - 14; // center the 28px spinner
+  const spinnerX = x + (typeof containerWidth === 'number' ? containerWidth : 360) / 2 - 14; 
   const [refreshing, setRefreshing] = useState(false);
 
   useWidgetId('RefreshIndicator');
@@ -63,18 +66,18 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
   void handleRefresh;
 
   return (
-    <Group>
+    <Box style={{ width: '100%', height: '100%' }}>
       {refreshing && (
         <Progress
           variant="circular"
           x={spinnerX}
           y={y + displacement}
           color={color}
-          style={{ size: 28 }}
+          style={{ width: 28, height: 28 }}
         />
       )}
       {children}
-    </Group>
+    </Box>
   );
 });
 
