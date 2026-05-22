@@ -4,7 +4,7 @@ import { Box } from './Box';
 import { Text } from './Text';
 import { Icon } from './Icon';
 import { Expanded } from './Expanded';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
@@ -39,11 +39,10 @@ export interface BottomNavigationBarProps extends WidgetProps {
   /** Style override */
   style?: BottomNavigationBarStyle;
   onChange?: (index: number) => void;
+
 }
 
 export const BottomNavigationBar = React.memo(function BottomNavigationBar({
-  x = 0,
-  y,
   items,
   activeIndex = 0,
   style,
@@ -59,12 +58,10 @@ export const BottomNavigationBar = React.memo(function BottomNavigationBar({
   const height = style?.height ?? 64;
   const numHeight = typeof height === 'number' ? height : 64;
   // Use screen height instead of hardcoded 800
-  const barY = y ?? screenHeight - numHeight;
+  const barY = screenHeight - numHeight;
 
-  const widgetId = useWidget({
-    type: 'BottomNavigationBar',
-    layout: { x, y: barY, width: typeof width === 'number' ? width : 0, height: numHeight },
-  });
+
+  const widgetId = useWidgetId('BottomNavigationBar');
 
   // Participate in Yoga layout tree
   const layoutResult = useNativeYogaLayout(
@@ -73,8 +70,9 @@ export const BottomNavigationBar = React.memo(function BottomNavigationBar({
     undefined
   );
 
-  const finalX = layoutResult?.x ?? x;
+  const finalX = layoutResult?.x ?? 0;
   const finalY = layoutResult?.y ?? barY;
+
 
   return (
     <Box
@@ -104,7 +102,6 @@ export const BottomNavigationBar = React.memo(function BottomNavigationBar({
                 gap: 2,
               }}
               hitTestBehavior="opaque"
-              interactive="ripple"
               onPress={() => onChange?.(index)}
             >
               <Icon name={iconName} size={24} color={color} />

@@ -1,7 +1,6 @@
 import * as React from 'react';
-import { Group } from '@shopify/react-native-skia';
 import { Box } from './Box';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -34,25 +33,17 @@ export const Overlay = React.memo(function Overlay({
   screenWidth = 360,
   screenHeight = 800,
 }: OverlayProps) {
-  useWidget({
-    type: 'Overlay',
-    layout: {
-      x: 0,
-      y: 0,
-      width: visible ? screenWidth : 0,
-      height: visible ? screenHeight : 0,
-    },
-  });
+  const widgetId = useWidgetId('Overlay');
 
   if (!visible) return null;
   return (
     <Box
-      x={0}
-      y={0}
+      id={widgetId}
       style={{
         width: screenWidth,
         height: screenHeight,
         backgroundColor: barrierColor,
+        position: 'absolute',
       }}
       hitTestBehavior="translucent"
       onPress={onPress}
@@ -85,7 +76,7 @@ export interface ModalProps extends WidgetProps {
 /**
  * Modal — centered dialog overlay.
  * Composition: Overlay (barrier) + Box (dialog).
- * Tương đương Flutter showDialog / AlertDialog.
+ * Equivalent to Flutter showDialog / AlertDialog.
  */
 export const Modal = React.memo(function Modal({
   visible = false,
@@ -109,7 +100,7 @@ export const Modal = React.memo(function Modal({
   const modalY = (screenHeight - h) / 2;
 
   return (
-    <Group>
+    <Box style={{ width: screenWidth, height: screenHeight, position: 'absolute' }}>
       <Overlay
         visible
         barrierColor={barrierColor}
@@ -118,20 +109,21 @@ export const Modal = React.memo(function Modal({
         screenHeight={screenHeight}
       />
       <Box
-        x={modalX}
-        y={modalY}
         style={{
           width: w,
           height: h,
           borderRadius: borderR,
           backgroundColor: bgColor,
           elevation: elev,
+          position: 'absolute',
+          left: modalX,
+          top: modalY,
         }}
         hitTestBehavior="opaque"
       >
         {children}
       </Box>
-    </Group>
+    </Box>
   );
 });
 
@@ -160,7 +152,7 @@ export interface BottomSheetProps extends WidgetProps {
 /**
  * BottomSheet — slides up from bottom.
  * Composition: Overlay (barrier) + Box (sheet with handle).
- * Tương đương Flutter showModalBottomSheet.
+ * Equivalent to Flutter showModalBottomSheet.
  */
 export const BottomSheet = React.memo(function BottomSheet({
   visible = false,
@@ -181,7 +173,7 @@ export const BottomSheet = React.memo(function BottomSheet({
   const elev = style?.elevation ?? 16;
 
   return (
-    <Group>
+    <Box style={{ width: screenWidth, height: screenHeight, position: 'absolute' }}>
       <Overlay
         visible
         barrierColor={barrierColor}
@@ -190,8 +182,6 @@ export const BottomSheet = React.memo(function BottomSheet({
         screenHeight={screenHeight}
       />
       <Box
-        x={0}
-        y={screenHeight - sheetHeight}
         style={{
           width: screenWidth,
           height: sheetHeight,
@@ -200,6 +190,9 @@ export const BottomSheet = React.memo(function BottomSheet({
           elevation: elev,
           flexDirection: 'column',
           alignItems: 'center',
+          position: 'absolute',
+          left: 0,
+          top: screenHeight - sheetHeight,
         }}
       >
         {showHandle && (
@@ -214,7 +207,7 @@ export const BottomSheet = React.memo(function BottomSheet({
         )}
         {children}
       </Box>
-    </Group>
+    </Box>
   );
 });
 
@@ -241,7 +234,7 @@ export interface DrawerProps extends WidgetProps {
 
 /**
  * Drawer — side panel overlay.
- * Tương đương Flutter Drawer.
+ * Equivalent to Flutter Drawer.
  */
 export const Drawer = React.memo(function Drawer({
   visible = false,
@@ -262,7 +255,7 @@ export const Drawer = React.memo(function Drawer({
   const drawerX = side === 'left' ? 0 : screenWidth - drawerWidth;
 
   return (
-    <Group>
+    <Box style={{ width: screenWidth, height: screenHeight, position: 'absolute' }}>
       <Overlay
         visible
         barrierColor={barrierColor}
@@ -271,26 +264,24 @@ export const Drawer = React.memo(function Drawer({
         screenHeight={screenHeight}
       />
       <Box
-        x={drawerX}
-        y={0}
         style={{
           width: drawerWidth,
           height: screenHeight,
           backgroundColor: bgColor,
           elevation: elev,
+          position: 'absolute',
+          left: drawerX,
+          top: 0,
         }}
         hitTestBehavior="opaque"
       >
         {children}
       </Box>
-    </Group>
+    </Box>
   );
 });
 
 (Overlay as any).skiaWidgetType = 'Overlay';
-
 (Modal as any).skiaWidgetType = 'Modal';
-
 (BottomSheet as any).skiaWidgetType = 'BottomSheet';
-
 (Drawer as any).skiaWidgetType = 'Drawer';

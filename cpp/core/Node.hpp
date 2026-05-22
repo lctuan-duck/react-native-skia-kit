@@ -12,6 +12,7 @@ namespace margelo::nitro::skiakit {
     double h;
     double zIndex;
     double behavior; // 1 = opaque, 0 = translucent
+    uint64_t order;  // Insertion order to resolve DOM depth when zIndex is equal
   };
 
   struct ScrollArea {

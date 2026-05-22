@@ -3,7 +3,7 @@ import { Box } from './Box';
 import { Text } from './Text';
 import { Column } from './Column';
 import { Expanded } from './Expanded';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -49,8 +49,6 @@ export interface ListTileProps extends WidgetProps {
  * Tương đương Flutter ListTile.
  */
 export const ListTile = React.memo(function ListTile({
-  x = 0,
-  y = 0,
   title,
   subtitle,
   leading,
@@ -72,15 +70,10 @@ export const ListTile = React.memo(function ListTile({
 
   const w = width ?? 0;
 
-  useWidget({
-    type: 'ListTile',
-    layout: { x, y, width: w, height: tileHeight },
-  });
+  useWidgetId('ListTile');
 
   return (
     <Box
-      x={x}
-      y={y}
       style={{
         width,
         height: tileHeight,
@@ -92,7 +85,6 @@ export const ListTile = React.memo(function ListTile({
         ...style,
       }}
       hitTestBehavior="opaque"
-      interactive={interactive ?? (onPress ? 'ripple' : 'none')}
       onPress={onPress}
       onLongPress={onLongPress}
     >

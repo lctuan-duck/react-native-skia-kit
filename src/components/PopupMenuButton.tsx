@@ -6,7 +6,7 @@ import { Icon } from './Icon';
 import { Divider } from './Divider';
 import { Overlay } from './Overlay';
 import { useOverlayStore } from '../stores/overlayStore';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 
@@ -36,7 +36,7 @@ export interface PopupMenuButtonProps<T = string> extends WidgetProps {
   /** Menu border radius */
   menuBorderRadius?: number;
   /** Position offset */
-  offset?: { dx: number; dy: number };
+  offset?: { dd};
   /** Screen width for backdrop */
   screenWidth?: number;
   /** Screen height for backdrop */
@@ -52,8 +52,6 @@ export interface PopupMenuButtonProps<T = string> extends WidgetProps {
 export const PopupMenuButton = React.memo(function PopupMenuButton<
   T extends string
 >({
-  x = 0,
-  y = 0,
   items,
   onSelected,
   child,
@@ -72,10 +70,7 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
   const hideOverlay = useOverlayStore((s) => s.hideOverlay);
   const menuId = `popup-menu-${x}-${y}`;
 
-  useWidget({
-    type: 'PopupMenuButton',
-    layout: { x, y, width: 40, height: 40 },
-  });
+  useWidgetId('PopupMenuButton');
 
   const openMenu = useCallback(() => {
     const menuX = x + offset.dx;
@@ -150,8 +145,6 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
     items,
     onSelected,
     menuId,
-    x,
-    y,
     offset,
     menuWidth,
     menuBorderRadius,
@@ -166,8 +159,6 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
 
   return (
     <Box
-      x={x}
-      y={y}
       style={{
         width: 40,
         height: 40,

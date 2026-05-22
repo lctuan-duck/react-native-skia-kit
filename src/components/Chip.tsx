@@ -80,7 +80,6 @@ export const Chip = React.memo(function Chip({
         alignItems: 'center',
       }}
       hitTestBehavior="translucent"
-      interactive="opacity"
       onPress={onPress}
     >
       <Text

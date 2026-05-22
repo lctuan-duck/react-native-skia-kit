@@ -12,7 +12,7 @@ import type {
   LayoutStyle,
 } from '../types/style.types';
 import { useTheme } from '../hooks/useTheme';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 
 // === Card Types ===
 
@@ -48,8 +48,6 @@ export interface CardProps extends WidgetProps {
  * Equivalent to Flutter Card / Card.filled / Card.outlined.
  */
 export const Card = React.memo(function Card({
-  x = 0,
-  y = 0,
   variant = 'solid',
   color: _color = 'primary',
   style,
@@ -70,27 +68,19 @@ export const Card = React.memo(function Card({
   const w = style?.width;
   const h = style?.height;
 
-  useWidget({
-    type: 'Card',
-    layout: { x, y, width: typeof w === 'number' ? w : 0, height: typeof h === 'number' ? h : 0 },
-  });
+  useWidgetId('Card');
 
   return (
     <Box
-      x={x}
-      y={y}
       style={{
         ...style,
-        width: w,
-        height: h,
-        borderRadius: borderR,
+        width: w, height: h, borderRadius: borderR,
         backgroundColor: bgColor,
         elevation: elev,
         borderWidth: borderW,
         borderColor: borderC,
       }}
       hitTestBehavior={onPress ? 'opaque' : 'deferToChild'}
-      interactive={interactive ?? (onPress ? 'ripple' : 'none')}
       onPress={onPress}
       onLongPress={onLongPress}
     >

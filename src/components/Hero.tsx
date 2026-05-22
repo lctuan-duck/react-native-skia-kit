@@ -99,7 +99,7 @@ export const HeroOverlay = React.memo(function HeroOverlay({
   const isTransitioning = useHeroStore((s) => s.isTransitioning);
   const [transitions, setTransitions] = useState<HeroTransition[]>([]);
   const prevHeroesRef = useRef<
-    Map<string, { x: number; y: number; width: number; height: number }>
+    Map<string, { width: number; height: number }>
   >(new Map());
   const progress = useSharedValue(0);
 
@@ -136,9 +136,10 @@ export const HeroOverlay = React.memo(function HeroOverlay({
     // Save current positions for next transition
     const heroMap = useHeroStore.getState().heroMap;
     const snapshot = new Map<
-      string,
-      { x: number; y: number; width: number; height: number }
-    >();
+    string,
+    { x: number; y: number; width: number; height: number }
+  >();
+
     for (const [tag, hero] of heroMap) {
       snapshot.set(tag, { ...hero.rect });
     }

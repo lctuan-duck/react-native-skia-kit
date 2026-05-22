@@ -8,8 +8,13 @@ namespace margelo::nitro::skiakit {
     : _staticTree(AABB{-5000, -5000, 20000, 20000}, 16) {
   }
 
+  static uint64_t g_hitTestOrderCounter = 0;
+
   void HitTestSubsystem::registerWidget(const std::string& id, double x, double y, double w, double h, double zIndex, double behavior) {
-    WidgetNode node = {id, x, y, w, h, zIndex, behavior};
+    auto it = _allWidgets.find(id);
+    uint64_t order = (it != _allWidgets.end()) ? it->second.order : ++g_hitTestOrderCounter;
+    
+    WidgetNode node = {id, x, y, w, h, zIndex, behavior, order};
     
     // Lưu lại thông tin nguyên gốc
     _allWidgets[id] = node;
@@ -39,19 +44,35 @@ namespace margelo::nitro::skiakit {
 
   void HitTestSubsystem::updateWidgetLayout(const std::string& id, double x, double y, double w, double h) {
     auto it = _allWidgets.find(id);
-    double zIndex = 0.0;
-    double behavior = 0.0; // default to translucent
-    
+    // Only update layout for widgets that have been explicitly registered as interactive
     if (it != _allWidgets.end()) {
       // Chỉ update nếu toạ độ thực sự thay đổi
       if (it->second.x == x && it->second.y == y && it->second.w == w && it->second.h == h) {
         return; 
       }
-      zIndex = it->second.zIndex;
-      behavior = it->second.behavior;
+      
+      // Keep existing zIndex and behavior, but update coordinates
+      WidgetNode updatedNode = it->second;
+      updatedNode.x = x;
+      updatedNode.y = y;
+      updatedNode.w = w;
+      updatedNode.h = h;
+      
+      _allWidgets[id] = updatedNode;
+      
+      if (_dynamicStatusMap[id]) {
+        for (auto& n : _dynamicNodes) {
+          if (n.id == id) {
+            n = updatedNode;
+            break;
+          }
+        }
+      } else {
+        // Update in QuadTree
+        _staticTree.remove(id);
+        _staticTree.insert(updatedNode);
+      }
     }
-    
-    registerWidget(id, x, y, w, h, zIndex, behavior);
   }
 
   void HitTestSubsystem::unregisterWidget(const std::string& id) {
@@ -152,9 +173,10 @@ namespace margelo::nitro::skiakit {
       }
     }
 
-    // Sort by zIndex descending
+    // Sort by zIndex descending, then by insertion order descending (children/later inserted appear first)
     std::sort(hits.begin(), hits.end(), [](const WidgetNode& a, const WidgetNode& b) {
-      return a.zIndex > b.zIndex;
+      if (a.zIndex != b.zIndex) return a.zIndex > b.zIndex;
+      return a.order > b.order;
     });
 
     std::vector<NativeHitResult> result;

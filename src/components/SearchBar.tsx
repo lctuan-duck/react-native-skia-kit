@@ -4,7 +4,7 @@ import { Box } from './Box';
 import { Text } from './Text';
 import { Icon } from './Icon';
 import { Expanded } from './Expanded';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -40,8 +40,6 @@ export interface SearchBarProps extends WidgetProps {
 }
 
 export const SearchBar = React.memo(function SearchBar({
-  x = 0,
-  y = 0,
   style,
   value: controlledValue,
   placeholder = 'Tìm kiếm...',
@@ -61,7 +59,7 @@ export const SearchBar = React.memo(function SearchBar({
   const text = controlledValue ?? internalValue;
 
   const w = width ?? 0;
-  useWidget({ type: 'SearchBar', layout: { x, y, width: w, height } });
+  useWidgetId('SearchBar');
 
   const handleClear = () => {
     setInternalValue('');
@@ -70,8 +68,6 @@ export const SearchBar = React.memo(function SearchBar({
 
   return (
     <Box
-      x={x}
-      y={y}
       style={{
         width,
         height,

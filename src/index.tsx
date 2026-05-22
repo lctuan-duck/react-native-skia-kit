@@ -96,7 +96,6 @@ export { ScrollView, GridView, PageView } from './components/ScrollView';
 export {
   GestureDetector,
   Dismissible,
-  Draggable,
 } from './components/GestureDetector';
 
 // ===== Form & Advanced =====
@@ -111,8 +110,9 @@ export {
 } from './core/DialogService';
 
 // ===== Component Types =====
-export type { BoxProps, BoxStyle } from './components/Box';
+export type { BoxProps, BoxStyle } from './types/widget.types';
 export type { RowProps } from './components/Row';
+
 export type { ColumnProps } from './components/Column';
 export type { StackProps, PositionedProps } from './components/Stack';
 export type { ExpandedProps, FlexibleProps } from './components/Expanded';
@@ -199,14 +199,12 @@ export type {
 export type {
   GestureDetectorProps,
   DismissibleProps,
-  DraggableProps,
 } from './components/GestureDetector';
 export type { FormProps } from './components/Form';
 export type { HeroProps } from './components/Hero';
 
 // ===== Hooks =====
 export { useTheme } from './hooks/useTheme';
-export { useWidget } from './hooks/useWidget';
 export { useWidgetId } from './hooks/useWidgetId';
 export { useHitTest } from './hooks/useHitTest';
 export { useNativeYogaLayout } from './hooks/useNativeYogaLayout';
@@ -214,6 +212,7 @@ export { useNav } from './hooks/useNav';
 export { useAnimation } from './hooks/useAnimation';
 export { useScrollPhysics } from './hooks/useScrollPhysics';
 export { useScreenState } from './hooks/useScreenState';
+export { useInteractive } from './hooks/useInteractive';
 
 // ===== Router (Phase 9 + 14) =====
 export { RouteParser, RouterDelegate, createRouter } from './core/Router';
@@ -236,8 +235,6 @@ export { measureText } from './utils/measureText';
 
 // ===== Stores =====
 export { useThemeStore, enableThemePersistence } from './stores/themeStore';
-export { useLayoutStore } from './stores/layoutStore';
-export { useEventStore } from './stores/eventStore';
 export { useNavStore } from './stores/navStore';
 export { useOverlayStore } from './stores/overlayStore';
 export { useHeroStore } from './stores/heroStore';
@@ -255,11 +252,8 @@ export type {
   TextStyle,
 } from './stores/themeStore';
 
-export type { LayoutEntry, LayoutConstraints } from './stores/layoutStore';
-export type {
-  HitEntry,
-  HitRect,
-} from './stores/eventStore';
+// export type { LayoutEntry, LayoutConstraints } from './stores/layoutStore';
+// export type { HitEntry, HitRect } from './stores/eventStore';
 export type { NavObject } from './stores/navStore';
 export type { OverlayEntry } from './stores/overlayStore';
 export type { HeroData } from './stores/heroStore';

@@ -405,28 +405,30 @@ interface PersistedThemeData {
 export function enableThemePersistence(): void {
   // 1. Restore saved state
   try {
-    AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
-      if (!raw) return;
+    AsyncStorage.getItem(STORAGE_KEY)
+      .then((raw) => {
+        if (!raw) return;
 
-      try {
-        const data: PersistedThemeData = JSON.parse(raw);
-        const store = useThemeStore.getState();
+        try {
+          const data: PersistedThemeData = JSON.parse(raw);
+          const store = useThemeStore.getState();
 
-        // Restore custom themes
-        for (const [key, config] of data.customThemes ?? []) {
-          store.registerTheme(key, config);
+          // Restore custom themes
+          for (const [key, config] of data.customThemes ?? []) {
+            store.registerTheme(key, config);
+          }
+
+          // Restore active theme
+          if (data.activeTheme) {
+            store.setActiveTheme(data.activeTheme);
+          }
+        } catch {
+          // Invalid data — ignore
         }
-
-        // Restore active theme
-        if (data.activeTheme) {
-          store.setActiveTheme(data.activeTheme);
-        }
-      } catch {
-        // Invalid data — ignore
-      }
-    }).catch(() => {
-      // Storage error
-    });
+      })
+      .catch(() => {
+        // Storage error
+      });
   } catch (e) {
     // Native module missing or synchronous error
   }

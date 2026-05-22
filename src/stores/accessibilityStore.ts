@@ -11,6 +11,7 @@ export interface AccessibilityNode {
   hint?: string;
   value?: { min?: number; max?: number; now?: number; text?: string };
   rect: { x: number; y: number; width: number; height: number };
+
   onPress?: () => void;
 }
 

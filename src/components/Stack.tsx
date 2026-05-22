@@ -36,14 +36,12 @@ export interface PositionedProps extends WidgetProps {
  * Tương đương Flutter Stack + Positioned.
  */
 export const Stack = React.memo(function Stack({
-  x = 0,
-  y = 0,
   style,
   clipToBounds: _clipToBounds = true,
   children,
 }: StackProps) {
   return (
-    <Box x={x} y={y} style={style}>
+    <Box style={style}>
       {children}
     </Box>
   );

@@ -6,7 +6,7 @@ import { Icon } from './Icon';
 import { Column } from './Column';
 import { Expanded } from './Expanded';
 import { useTheme } from '../hooks/useTheme';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import type { WidgetProps } from '../types/widget.types';
 import type { ColorStyle, FlexChildStyle } from '../types/style.types';
 
@@ -33,8 +33,6 @@ export interface ExpansionTileProps extends WidgetProps {
 }
 
 export const ExpansionTile = React.memo(function ExpansionTile({
-  x = 0,
-  y = 0,
   title,
   subtitle,
   leading,
@@ -51,10 +49,7 @@ export const ExpansionTile = React.memo(function ExpansionTile({
   const width = style?.width;
   const w = width ?? 0;
 
-  useWidget({
-    type: 'ExpansionTile',
-    layout: { x, y, width: w, height: expanded ? 200 : subtitle ? 72 : 56 },
-  });
+  useWidgetId('ExpansionTile');
 
   const toggle = () => {
     const next = !expanded;
@@ -67,7 +62,7 @@ export const ExpansionTile = React.memo(function ExpansionTile({
     : style?.collapsedBackgroundColor ?? 'transparent';
 
   return (
-    <Column x={x} y={y}>
+    <Column >
       <Box
         style={{
           width,

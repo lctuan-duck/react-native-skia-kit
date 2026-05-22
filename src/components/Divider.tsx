@@ -9,7 +9,7 @@ import type {
 } from '../types/style.types';
 import { useTheme } from '../hooks/useTheme';
 import { resolveSemanticColor } from '../core/colorUtils';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 
 // === Divider Types ===
@@ -35,8 +35,6 @@ export interface DividerProps extends WidgetProps {
  * Equivalent to Flutter Divider / VerticalDivider.
  */
 export const Divider = React.memo(function Divider({
-  x = 0,
-  y = 0,
   orientation = 'horizontal',
   color,
   style,
@@ -53,15 +51,7 @@ export const Divider = React.memo(function Divider({
   const yogaWidth = orientation === 'horizontal' ? (length ?? '100%') : thickness;
   const yogaHeight = orientation === 'vertical' ? (length ?? '100%') : thickness;
 
-  const widgetId = useWidget({
-    type: 'Divider',
-    layout: {
-      x,
-      y,
-      width: typeof yogaWidth === 'number' ? yogaWidth : 0,
-      height: typeof yogaHeight === 'number' ? yogaHeight : 0,
-    },
-  });
+  const widgetId = useWidgetId('Divider');
 
   const layoutResult = useNativeYogaLayout(
     widgetId,
@@ -69,8 +59,9 @@ export const Divider = React.memo(function Divider({
     undefined
   );
 
-  const finalX = layoutResult?.x ?? x;
-  const finalY = layoutResult?.y ?? y;
+  const finalX = layoutResult?.x ?? 0;
+  const finalY = layoutResult?.y ?? 0;
+
   const finalW = layoutResult?.width ?? (typeof yogaWidth === 'number' ? yogaWidth : 300);
   const finalH = layoutResult?.height ?? (typeof yogaHeight === 'number' ? yogaHeight : 300);
 

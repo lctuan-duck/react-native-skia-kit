@@ -1,6 +1,9 @@
 import * as React from 'react';
-import { useCallback, useLayoutEffect, useRef } from 'react';
-import { Canvas, Group } from '@shopify/react-native-skia';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { SkiaPictureView, Skia } from '@shopify/react-native-skia';
+import type { SkPicture } from '@shopify/react-native-skia';
+import Reconciler from 'react-reconciler';
+
 import { useWindowDimensions } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import {
@@ -8,9 +11,6 @@ import {
   Gesture,
 } from 'react-native-gesture-handler';
 import { useOverlayStore } from '../stores/overlayStore';
-import { useEventStore } from '../stores/eventStore';
-import { useLayoutStore, registerLiveNode, unregisterLiveNode } from '../stores/layoutStore';
-import { runOnJS } from 'react-native-reanimated';
 import {
   uiEngine,
   globalActiveWidgetId,
@@ -18,34 +18,28 @@ import {
   globalPanState,
 } from './GlobalEngine';
 import { WidgetContext } from './WidgetContext';
+import { createSkiaKitHostConfig } from './SkiaKitReconciler';
+import { updateLayoutSVs } from '../stores/layoutRegistry';
 
 interface CanvasRootProps {
-  /** Style cho Canvas container */
   style?: ViewStyle;
-  /** Canvas ID for multi-canvas scenarios (default: 'main') */
   canvasId?: string;
-  /** Widget tree */
   children?: React.ReactNode;
 }
 
 /**
- * CanvasRoot — Root canvas duy nhất cho toàn bộ ứng dụng.
- * Tương đương Flutter MaterialApp — wrap tất cả widgets.
+ * CanvasRoot v2 — Root canvas với C++ Render Tree.
  *
- * Features:
- * - Renders all child widgets on a single Skia Canvas
- * - Overlay layer: renders overlayStore entries on top of everything
- * - Touch event dispatch: GestureHandler → eventStore.hitTest → widget callbacks
+ * Flow per commit:
+ *   JSX tree → SkiaKitReconciler → C++ createBoxNode/createTextNode/...
+ *   → resetAfterCommit → markDirty + requestRedraw()
+ *   → calculateLayout (AUTO-BRIDGE Layout→HitTest→Render)
+ *   → getRootPicture (serialize SkPicture → bytes)
+ *   → Skia.Picture.MakePicture(bytes) → setPicture state → SkiaPictureView re-render
  *
- * Usage:
- * ```tsx
- * <GestureHandlerRootView style={{ flex: 1 }}>
- *   <CanvasRoot>
- *     <Box ... />
- *     <Text ... />
- *   </CanvasRoot>
- * </GestureHandlerRootView>
- * ```
+ * Canvas Integration (Phase 6E):
+ *   Dùng `picture` prop trực tiếp trên SkiaPictureView — KHÔNG dùng SkiaViewApi.setJsiProperty
+ *   vì đó là internal unstable API. React state trigger re-render nhẹ (chỉ picture prop thay đổi).
  */
 export const CanvasRoot = React.memo(function CanvasRoot({
   style,
@@ -55,204 +49,383 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const overlaysMap = useOverlayStore((s) => s.overlays);
   const overlays = Array.from(overlaysMap.values());
-
-  // Sort overlays by zIndex (lower zIndex drawn first, higher drawn on top)
   const sortedOverlays = [...overlays].sort((a, b) => a.zIndex - b.zIndex);
 
-  // === YOGA LAYOUT ===
+  // ── Picture state — React state để trigger SkiaPictureView update
+  const [picture, setPicture] = useState<SkPicture | null>(null);
 
-  useLayoutEffect(() => {
-    // 1. Register Canvas Root node
-    uiEngine.updateLayoutNode(canvasId, {
-      flexDirection: 'column',
-      justifyContent: 'start',
-      alignItems: 'stretch',
-      width: screenWidth > 0 ? screenWidth : undefined,
-      height: screenHeight > 0 ? screenHeight : undefined,
-    });
-    registerLiveNode(canvasId);
+  // Guard: ngăn re-entrant call (resetAfterCommit → setPicture → re-render → lại resetAfterCommit)
+  const isRedrawingRef = useRef(false);
 
-    // 2. Cache root configuration
-    useLayoutStore.getState().setRoot(canvasId, screenWidth, screenHeight);
+  // ── requestRedraw ─────────────────────────────────────────────────────────
+  const requestRedraw = useCallback(() => {
+    if (isRedrawingRef.current) return; // Chặn re-entrant
+    isRedrawingRef.current = true;
 
-    // 3. Trigger Yoga calculation
-    useLayoutStore.getState().triggerLayout();
+    try {
+      // 1. Yoga layout → AUTO-BRIDGE vào HitTest + RenderSubsystem (syncLayoutResults)
+      uiEngine.calculateLayout(canvasId, screenWidth, screenHeight);
 
-    return () => {
-      unregisterLiveNode(canvasId);
-    };
+      // 2. Lấy serialized SkPicture bytes từ C++
+      const buffer = uiEngine.getRootPicture(canvasId, screenWidth, screenHeight);
+
+      if (__DEV__) {
+        const allLayouts = uiEngine.getAllLayouts() ?? {};
+        const nodeCount = Object.keys(allLayouts).length;
+        console.log('[SkiaKit] picture bytes:', buffer?.byteLength ?? 0, 'nodes:', nodeCount);
+        if (nodeCount > 0) {
+          // Log layout details
+          let c = 0;
+          Object.entries(allLayouts).forEach(([id, layout]: [string, any]) => {
+            if (c < 10 || id === 'w_eor33mzru' || id === 'w_7ls1odomw' || layout.width > 0) {
+                console.log(`  node[${id}]: x=${layout.x?.toFixed(0)} y=${layout.y?.toFixed(0)} w=${layout.width?.toFixed(0)} h=${layout.height?.toFixed(0)}`);
+            }
+            c++;
+          });
+        }
+      }
+
+
+      if (buffer && buffer.byteLength > 100) { // > 100 bytes = có content thực sự
+        const newPicture = Skia.Picture.MakePicture(new Uint8Array(buffer));
+        if (newPicture) {
+          // Defer ra ngoài commit phase để tránh sync re-render loop
+          // SkiaPictureView.componentDidUpdate sẽ handle redraw
+          setPicture(newPicture);
+        }
+      }
+
+      // 3. Sync layout từ C++ về JS SharedValues để animations đọc được
+      const layouts = uiEngine.getAllLayouts();
+      if (layouts) {
+        updateLayoutSVs(
+          layouts as Record<
+            string,
+            { x: number; y: number; width: number; height: number }
+          >
+        );
+      }
+    } finally {
+      isRedrawingRef.current = false;
+    }
   }, [canvasId, screenWidth, screenHeight]);
 
-  // === Touch Event Dispatch ===
-  // All gesture callbacks run on JS thread via .runOnJS(true)
-  // because they access zustand stores which are JS-thread only
 
-  const dispatchPress = useCallback(
-    (x: number, y: number) => {
-      const hits = uiEngine.hitTest(x, y);
-      const hitMap = useEventStore.getState().hitMaps.get(canvasId);
-      if (!hitMap) return;
+  // ── requestRedraw stable ref ────────────────────────────────────────────
+  // hostConfig capture requestRedraw một lần duy nhất khi tạo Reconciler.
+  // Dùng ref wrapper để luôn gọi version mới nhất (với screenWidth/screenHeight đúng).
+  const requestRedrawRef = useRef(requestRedraw);
+  requestRedrawRef.current = requestRedraw;
 
-      for (const hit of hits) {
-        const entry = hitMap.get(hit.id);
-        if (entry) {
-          entry.callbacks.onPress?.(hit.localX, hit.localY);
-        }
+  const stableRequestRedraw = useRef(() => {
+    requestRedrawRef.current();
+  }).current;
+
+  // ── Custom Reconciler per CanvasRoot ──────────────────────────────────────
+  const hostConfigRef = useRef<ReturnType<
+    typeof createSkiaKitHostConfig
+  > | null>(null);
+  const reconcilerRef = useRef<ReturnType<typeof Reconciler> | null>(null);
+  const containerRef = useRef<any>(null);
+
+  if (!hostConfigRef.current) {
+    hostConfigRef.current = createSkiaKitHostConfig(stableRequestRedraw);
+    reconcilerRef.current = Reconciler(hostConfigRef.current as any);
+  }
+
+  const reconciler = reconcilerRef.current!;
+
+  if (!containerRef.current) {
+    // 0. Cleanup: xóa debug/stale nodes từ session trước (JS reload giữ nguyên C++ state)
+    try {
+      uiEngine.removeRenderNode('_dbg_box_');
+    } catch { /* node không tồn tại — ignore */ }
+    // Cleanup root node cũ nếu có (hot reload)
+    try {
+      uiEngine.removeRenderNode(canvasId);
+    } catch { /* first mount — ignore */ }
+
+    // 1. Tạo Root BoxNode trong C++ (canvasId là root của cây)
+    uiEngine.createBoxNode(
+      canvasId,
+      { flex: 1, width: screenWidth, height: screenHeight },
+      {
+        backgroundColor: 0, // transparent root
+        borderRadius: 0,
+        borderWidth: 0,
+        borderColor: 0,
+        elevation: 0,
+        overflowHidden: false,
       }
-    },
-    [canvasId]
-  );
+    );
 
-  const dispatchLongPress = useCallback(
-    (x: number, y: number) => {
-      const hits = uiEngine.hitTest(x, y);
-      const hitMap = useEventStore.getState().hitMaps.get(canvasId);
-      if (!hitMap) return;
+    // 2. Tạo React Reconciler container
+    // ConcurrentRoot = 1: bắt buộc với React 18 Fabric/Concurrent Mode
+    containerRef.current = reconciler.createContainer(
+      { canvasId }, // containerInfo
+      1, // ConcurrentRoot (React 19 Fabric)
+      null, // hydrationCallbacks
+      false, // isStrictMode
+      null, // concurrentUpdatesByDefaultOverride
+      '', // identifierPrefix
+      (error: unknown) => { console.error('[SkiaKit] onUncaughtError:', error); }, // onUncaughtError
+      (error: unknown) => { console.error('[SkiaKit] onCaughtError:', error); },   // onCaughtError
+      (error: unknown) => { console.warn('[SkiaKit] onRecoverableError:', error); }, // onRecoverableError
+      () => {} // onDefaultTransitionIndicator
+    );
 
-      for (const hit of hits) {
-        const entry = hitMap.get(hit.id);
-        if (entry) {
-          entry.callbacks.onLongPress?.();
-        }
-      }
-    },
-    [canvasId]
-  );
+    // 3. Validate C++ engine sẵn sàng
+    uiEngine.initRenderEngine();
+  }
 
-  // Tap gesture → onPress
-  const tapGesture = Gesture.Tap()
-    .runOnJS(true)
-    .onBegin((e) => {
-      const hits = uiEngine.hitTest(e.absoluteX, e.absoluteY);
-      const hitMap = useEventStore.getState().hitMaps.get(canvasId);
-      if (!hitMap) return;
+  // ── overlays ref: tránh useLayoutEffect chạy lại do array reference mới
+  const sortedOverlaysRef = useRef(sortedOverlays);
+  sortedOverlaysRef.current = sortedOverlays;
 
-      for (const hit of hits) {
-        const entry = hitMap.get(hit.id);
-        if (entry) {
-          entry.callbacks.onPressIn?.(hit.localX, hit.localY);
-        }
-      }
-    })
-    .onEnd((e) => {
-      dispatchPress(e.absoluteX, e.absoluteY);
-    })
-    .onFinalize((e) => {
-      const hits = uiEngine.hitTest(e.absoluteX, e.absoluteY);
-      const hitMap = useEventStore.getState().hitMaps.get(canvasId);
-      if (!hitMap) return;
+  // Render children tree thông qua custom Reconciler
+  // Dùng useLayoutEffect KHÔNG có sortedOverlays trong deps để tránh infinite loop.
+  // sortedOverlays được đọc qua ref. children là stable (memoized bởi parent).
+  useLayoutEffect(() => {
+    const skiaChildren = (
+      <>
+        {children}
+        {sortedOverlaysRef.current.map((o) => (
+          <React.Fragment key={o.id}>{o.node}</React.Fragment>
+        ))}
+      </>
+    );
 
-      for (const hit of hits) {
-        const entry = hitMap.get(hit.id);
-        if (entry) {
-          entry.callbacks.onPressOut?.(hit.localX, hit.localY);
-        }
-      }
-    });
+    if (__DEV__) {
+      console.log('[SkiaKit] updateContainer, children:', children ? 'yes' : 'none');
+    }
 
-  // Long press gesture → onLongPress
-  const longPressGesture = Gesture.LongPress()
-    .runOnJS(true)
-    .minDuration(500)
-    .onEnd((e) => {
-      dispatchLongPress(e.absoluteX, e.absoluteY);
-    });
+    // React 19: cần force sync commit cho secondary renderer.
+    // Pattern từ React source (scheduleRefresh): updateContainerSync + flushSyncWork
+    const rec = reconciler as any;
+    const hasSync = typeof rec.updateContainerSync === 'function';
+    const hasFlushSync = typeof rec.flushSyncWork === 'function';
+    const hasFlushFromRec = typeof rec.flushSyncFromReconciler === 'function';
 
-  const capturedHitsRef = useRef<any[]>([]);
+    if (__DEV__) {
+      console.log('[SkiaKit] API check: updateContainerSync=', hasSync,
+        'flushSyncWork=', hasFlushSync, 'flushSyncFromReconciler=', hasFlushFromRec);
+    }
 
-  const dispatchJSPan = useCallback(
-    (type: 'start' | 'update' | 'end', e: any) => {
-      const hitMap = useEventStore.getState().hitMaps.get(canvasId);
-      if (!hitMap) return;
-
-      let hits = type === 'start' ? uiEngine.hitTest(e.absoluteX, e.absoluteY) : capturedHitsRef.current;
-
-      if (type === 'start') {
-        capturedHitsRef.current = hits;
-        const scrollAreas = useEventStore.getState().scrollAreas;
-        let activeScrollId: string | null = null;
-        if (hits) {
-          for (const hit of hits) {
-            if (scrollAreas.has(hit.id)) {
-              activeScrollId = hit.id;
-              break;
-            }
+    if (hasSync && hasFlushFromRec) {
+      // Pattern 1: flushSyncFromReconciler wraps updateContainerSync
+      // (sets BatchedContext trước để scheduler recognize work)
+      rec.flushSyncFromReconciler(() => {
+        rec.updateContainerSync(skiaChildren, containerRef.current, null, null);
+      });
+      if (__DEV__) console.log('[SkiaKit] pattern1 done');
+      stableRequestRedraw();
+    } else if (hasSync && hasFlushSync) {
+      // Pattern 2: updateContainerSync + flushSyncWork (from scheduleRefresh source)
+      rec.updateContainerSync(skiaChildren, containerRef.current, null, null);
+      rec.flushSyncWork();
+      if (__DEV__) console.log('[SkiaKit] pattern2 done');
+      stableRequestRedraw();
+    } else {
+      // Fallback: legacy updateContainer (React 18 / non-concurrent)
+      reconciler.updateContainer(
+        skiaChildren,
+        containerRef.current,
+        null as any,
+        () => {
+          if (__DEV__) {
+            console.log('[SkiaKit] updateContainer COMMITTED');
           }
+          stableRequestRedraw();
         }
-        globalActiveWidgetId.value = activeScrollId ? activeScrollId : (hits && hits.length > 0) ? (hits[0]?.id || null) : null;
+      );
+    }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [children, reconciler]); // sortedOverlays intentionally via ref
+
+  // Re-run layout khi screen thay đổi
+  const requestRedrawRef2 = useRef(requestRedraw);
+  requestRedrawRef2.current = requestRedraw;
+  React.useEffect(() => {
+    if (containerRef.current) {
+      // Dùng queueMicrotask để đảm bảo concurrent commit đã xong
+      queueMicrotask(() => requestRedrawRef2.current());
+    }
+  }, [screenWidth, screenHeight]);
+
+  // ── Gesture handling ──────────────────────────────────────────────────────
+  const triggerJSCallback = useCallback(
+    (
+      widgetId: string,
+      type: string,
+      args: { x?: number; y?: number } & any
+    ) => {
+      const { getJSCallbacks } = require('./SkiaKitReconciler');
+      const cbs = getJSCallbacks(widgetId);
+      if (!cbs) return;
+
+      switch (type) {
+        case 'press':
+          cbs.onPress?.(args.x, args.y);
+          break;
+        case 'pressIn':
+          cbs.onPressIn?.(args.x, args.y);
+          break;
+        case 'pressOut':
+          cbs.onPressOut?.(args.x, args.y);
+          break;
+        case 'longPress':
+          cbs.onLongPress?.();
+          break;
+        case 'panStart':
+          cbs.onPanStart?.(args);
+          break;
+        case 'panUpdate':
+          cbs.onPanUpdate?.(args);
+          break;
+        case 'panEnd':
+          cbs.onPanEnd?.(args);
+          break;
       }
+    },
+    []
+  );
 
-      for (const hit of hits) {
-        const entry = hitMap.get(hit.id);
-        if (!entry) continue;
+  const gesture = Gesture.Simultaneous(
+    Gesture.Tap()
+      .runOnJS(true)
+      .onBegin((e) => {
+        const hits = uiEngine.hitTest(e.x, e.y);
+        if (__DEV__) {
+          console.log(
+            `[SkiaKit Tap onBegin] x=${e.x}, y=${e.y}, hits=${hits.length}`
+          );
+        }
+        const hit = hits.length > 0 ? hits[0]! : undefined;
+        if (hit?.id) {
+          globalActiveWidgetId.value = hit.id;
+          triggerJSCallback(hit.id, 'pressIn', {
+            x: hit.localX,
+            y: hit.localY,
+          });
+        }
+      })
+      .onEnd((e) => {
+        const hits = uiEngine.hitTest(e.x, e.y);
+        if (__DEV__) {
+          console.log(
+            `[SkiaKit Tap onEnd] x=${e.x}, y=${e.y}, hits=${hits.length}`
+          );
+        }
+        const hit = hits.length > 0 ? hits[0]! : undefined;
+        if (hit?.id && hit.id === globalActiveWidgetId.value) {
+          triggerJSCallback(hit.id, 'press', {
+            x: hit.localX,
+            y: hit.localY,
+          });
+        }
+      })
+      .onFinalize(() => {
+        if (globalActiveWidgetId.value) {
+          triggerJSCallback(globalActiveWidgetId.value, 'pressOut', {});
+          globalActiveWidgetId.value = '';
+        }
+      }),
 
-        if (type === 'start')
-          entry.callbacks.onPanStart?.({
-            ...e,
+    Gesture.LongPress()
+      .runOnJS(true)
+      .onStart((e) => {
+        const hits = uiEngine.hitTest(e.x, e.y);
+        const hit = hits.length > 0 ? hits[0]! : undefined;
+        if (hit?.id) {
+          triggerJSCallback(hit.id, 'longPress', {});
+        }
+      }),
+
+    Gesture.Pan()
+      .runOnJS(true)
+      .onStart((e) => {
+        const hits = uiEngine.hitTest(e.x, e.y);
+        const hit = hits.length > 0 ? hits[0]! : undefined;
+        if (hit?.id) {
+          globalActiveWidgetId.value = hit.id;
+          const ev = {
+            translationX: 0,
+            translationY: 0,
+            velocityX: 0,
+            velocityY: 0,
+            absoluteX: e.absoluteX,
+            absoluteY: e.absoluteY,
             localX: hit.localX,
             localY: hit.localY,
-          });
-        else if (type === 'update')
-          entry.callbacks.onPanUpdate?.({
-            ...e,
-            localX: hit.localX + e.translationX,
-            localY: hit.localY + e.translationY,
-          });
-        else if (type === 'end')
-          entry.callbacks.onPanEnd?.({
-            ...e,
-            localX: hit.localX + e.translationX,
-            localY: hit.localY + e.translationY,
-          });
-      }
-    },
-    [canvasId]
-  );
-
-  // Pan gesture → onPanStart/onPanUpdate/onPanEnd
-  // minDistance(10) prevents Pan from activating on simple taps,
-  // allowing Tap gesture to complete and fire onPress callbacks.
-  const panGesture = Gesture.Pan()
-    .minDistance(10)
-    .onStart((e) => {
-      'worklet';
-      globalPanState.value = 'start';
-      globalPanEvent.value = e as any;
-      runOnJS(dispatchJSPan)('start', e);
-    })
-    .onUpdate((e) => {
-      'worklet';
-      globalPanState.value = 'update';
-      globalPanEvent.value = e as any;
-      runOnJS(dispatchJSPan)('update', e);
-    })
-    .onEnd((e) => {
-      'worklet';
-      globalPanState.value = 'end';
-      globalPanEvent.value = e as any;
-      runOnJS(dispatchJSPan)('end', e);
-    });
-
-  // Combine gestures: Tap and LongPress are exclusive (only one fires),
-  // Pan runs simultaneously so scrolling works alongside taps.
-  const composedGesture = Gesture.Simultaneous(
-    panGesture,
-    Gesture.Exclusive(longPressGesture, tapGesture)
+            state: 2,
+          };
+          globalPanEvent.value = ev as any;
+          globalPanState.value = 'start';
+          triggerJSCallback(hit.id, 'panStart', ev);
+        }
+      })
+      .onUpdate((e) => {
+        if (globalActiveWidgetId.value) {
+          const ev = {
+            translationX: e.translationX,
+            translationY: e.translationY,
+            velocityX: e.velocityX,
+            velocityY: e.velocityY,
+            absoluteX: e.absoluteX,
+            absoluteY: e.absoluteY,
+            localX: 0,
+            localY: 0,
+            state: 4,
+          };
+          globalPanEvent.value = ev as any;
+          globalPanState.value = 'update';
+          triggerJSCallback(globalActiveWidgetId.value, 'panUpdate', ev);
+        }
+      })
+      .onEnd((e) => {
+        if (globalActiveWidgetId.value) {
+          const ev = {
+            translationX: e.translationX,
+            translationY: e.translationY,
+            velocityX: e.velocityX,
+            velocityY: e.velocityY,
+            absoluteX: e.absoluteX,
+            absoluteY: e.absoluteY,
+            localX: 0,
+            localY: 0,
+            state: 5,
+          };
+          globalPanEvent.value = ev as any;
+          globalPanState.value = 'end';
+          triggerJSCallback(globalActiveWidgetId.value, 'panEnd', ev);
+          globalActiveWidgetId.value = '';
+        }
+      })
+      .onFinalize(() => {
+        if (globalActiveWidgetId.value) {
+          globalActiveWidgetId.value = '';
+        }
+      })
   );
 
   return (
-    <RNGestureDetector gesture={composedGesture}>
-      <Canvas style={[{ width: screenWidth, height: screenHeight }, style]}>
-        <WidgetContext.Provider value={canvasId}>
-          {/* 1. Main application UI */}
-          {children}
+    <WidgetContext.Provider value={canvasId}>
+      <RNGestureDetector gesture={gesture}>
+        {/* picture prop — stable public API của SkiaPictureView */}
+        <SkiaPictureView
+          picture={picture ?? undefined}
 
-          {/* 2. Overlay layer — always drawn on top */}
-          {sortedOverlays.map((overlay) => (
-            <Group key={overlay.id}>{overlay.node}</Group>
-          ))}
-        </WidgetContext.Provider>
-      </Canvas>
-    </RNGestureDetector>
+          style={[
+            {
+              flex: 1,
+              width: screenWidth,
+              height: screenHeight,
+            },
+            style,
+          ]}
+        />
+      </RNGestureDetector>
+    </WidgetContext.Provider>
   );
 });

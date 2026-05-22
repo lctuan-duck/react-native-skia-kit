@@ -39,8 +39,6 @@ export interface ColumnProps extends WidgetProps {
  * Children do NOT need x/y — Yoga injects them automatically.
  */
 export const Column = React.memo(function Column({
-  x = 0,
-  y = 0,
   id,
   style,
   mainAxisAlignment = 'start',
@@ -50,8 +48,6 @@ export const Column = React.memo(function Column({
   return (
     <Box
       id={id}
-      x={x}
-      y={y}
       style={{
         ...style,
         backgroundColor: style?.backgroundColor ?? 'transparent',

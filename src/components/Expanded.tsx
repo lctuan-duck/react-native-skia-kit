@@ -32,13 +32,9 @@ export interface FlexibleProps extends WidgetProps {
 export const Expanded = React.memo(function Expanded({
   style,
   children,
-  x,
-  y,
-}: ExpandedProps) {
+  }: ExpandedProps) {
   return (
     <Box
-      x={x}
-      y={y}
       style={{
         ...style,
         flex: style?.flex ?? 1,
@@ -61,13 +57,9 @@ export const Flexible = React.memo(function Flexible({
   fit = 'loose',
   style,
   children,
-  x,
-  y,
-}: FlexibleProps) {
+  }: FlexibleProps) {
   return (
     <Box
-      x={x}
-      y={y}
       style={{
         ...style,
         flex: style?.flex ?? 1,

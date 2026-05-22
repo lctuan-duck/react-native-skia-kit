@@ -8,6 +8,9 @@
  * used for C++ communication only — components should NOT import it.
  */
 
+import type { SharedValue } from 'react-native-reanimated';
+import type { Transforms3d } from '@shopify/react-native-skia';
+
 // === Layout (dimensions & overflow) ===
 
 export interface LayoutStyle {
@@ -26,14 +29,20 @@ export interface LayoutStyle {
 // === Spacing (padding & margin — supports shorthand or per-edge) ===
 
 export interface SpacingStyle {
-  padding?: number | string | [number | string, number | string, number | string, number | string];
+  padding?:
+    | number
+    | string
+    | [number | string, number | string, number | string, number | string];
   paddingHorizontal?: number | string;
   paddingVertical?: number | string;
   paddingTop?: number | string;
   paddingBottom?: number | string;
   paddingLeft?: number | string;
   paddingRight?: number | string;
-  margin?: number | string | [number | string, number | string, number | string, number | string];
+  margin?:
+    | number
+    | string
+    | [number | string, number | string, number | string, number | string];
   marginHorizontal?: number | string;
   marginVertical?: number | string;
   marginTop?: number | string;
@@ -46,22 +55,42 @@ export interface SpacingStyle {
 
 export interface ColorStyle {
   backgroundColor?: string;
-  opacity?: number;
+  /** Static number or animated SharedValue */
+  opacity?: number | SharedValue<number>;
 }
 
 // === Border ===
 
 export interface BorderStyle {
   borderRadius?: number;
+  borderTopLeftRadius?: number;
+  borderTopRightRadius?: number;
+  borderBottomLeftRadius?: number;
+  borderBottomRightRadius?: number;
   borderColor?: string;
   borderWidth?: number;
+  borderTopWidth?: number;
+  borderBottomWidth?: number;
+  borderLeftWidth?: number;
+  borderRightWidth?: number;
 }
+
 
 // === Shadow / Elevation ===
 
 export interface ShadowStyle {
   elevation?: number;
   zIndex?: number;
+}
+
+// === Transform (Skia Group transform — static or animated) ===
+
+export interface TransformStyle {
+  /** Transform array — static or animated SharedValue.
+   *  Supports: scale, rotate, translateX, translateY, skewX, skewY */
+  transform?: Transforms3d | SharedValue<Transforms3d>;
+  /** Transform origin — defaults to Box center */
+  transformOrigin?: { };
 }
 
 // === Flex Child (khi widget là con của flex container) ===

@@ -4,7 +4,7 @@ import { Text } from './Text';
 import { Button } from './Button';
 import { Row } from './Row';
 import { Expanded } from './Expanded';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import { useNav } from '../hooks/useNav';
 import { useTheme } from '../hooks/useTheme';
@@ -37,8 +37,6 @@ export interface AppBarProps extends WidgetProps {
 }
 
 export const AppBar = React.memo(function AppBar({
-  x = 0,
-  y = 0,
   title,
   titleWidget,
   leading,
@@ -55,10 +53,7 @@ export const AppBar = React.memo(function AppBar({
   const width = style?.width ?? '100%';
   const height = style?.height ?? 56;
 
-  const widgetId = useWidget({ 
-    type: 'AppBar', 
-    layout: { x, y, width: typeof width === 'number' ? width : 0, height: typeof height === 'number' ? height : 0 } 
-  });
+  const widgetId = useWidgetId('AppBar');
 
   const layoutResult = useNativeYogaLayout(
     widgetId,
@@ -66,8 +61,9 @@ export const AppBar = React.memo(function AppBar({
     undefined
   );
 
-  const finalX = layoutResult?.x ?? x;
-  const finalY = layoutResult?.y ?? y;
+  const finalX = layoutResult?.x ?? 0;
+  const finalY = layoutResult?.y ?? 0;
+
 
   const leadingWidget =
     leading ??
@@ -91,7 +87,8 @@ export const AppBar = React.memo(function AppBar({
         elevation: elev,
         flexDirection: 'row',
         alignItems: 'center',
-        padding: [0, 8, 0, 8],
+        paddingLeft: 8,
+        paddingRight: 8,
       }}
     >
       {leadingWidget}

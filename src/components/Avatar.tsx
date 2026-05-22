@@ -72,7 +72,6 @@ export const Avatar = React.memo(function Avatar({
         ...style,
       }}
       hitTestBehavior={onPress ? 'opaque' : 'deferToChild'}
-      interactive={interactive ?? (onPress ? 'opacity' : 'none')}
       onPress={onPress}
     >
       {src && (

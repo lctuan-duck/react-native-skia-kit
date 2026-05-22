@@ -15,6 +15,7 @@ export interface ScrollPhysicsResult {
   scrollOffset: SharedValue<number>;
   handlePanUpdate: (translationDelta: number) => void;
   handlePanEnd: (velocity: number) => void;
+
   scrollTo: (offset: number) => void;
 }
 
@@ -64,6 +65,7 @@ export function useScrollPhysics(
 
   const handlePanEnd = useCallback(
     (velocity: number) => {
+
       'worklet';
       if (type === 'clamping') {
         // Decay with clamping

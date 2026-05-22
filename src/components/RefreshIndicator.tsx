@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useState, useCallback } from 'react';
 import { Group } from '@shopify/react-native-skia';
 import { Progress } from './Progress';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
@@ -36,8 +36,6 @@ export interface RefreshIndicatorProps extends WidgetProps {
  * Tương đương Flutter RefreshIndicator.
  */
 export const RefreshIndicator = React.memo(function RefreshIndicator({
-  x = 0,
-  y = 0,
   children,
   onRefresh,
   color = 'primary',
@@ -49,10 +47,7 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
   const spinnerX = x + containerWidth / 2 - 14; // center the 28px spinner
   const [refreshing, setRefreshing] = useState(false);
 
-  useWidget({
-    type: 'RefreshIndicator',
-    layout: { x, y, width: containerWidth, height: displacement + 28 },
-  });
+  useWidgetId('RefreshIndicator');
 
   const handleRefresh = useCallback(async () => {
     if (refreshing) return;

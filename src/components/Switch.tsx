@@ -1,10 +1,6 @@
 import * as React from 'react';
-import { useEffect } from 'react';
-import { Circle } from '@shopify/react-native-skia';
-import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { Box } from './Box';
 import { useWidgetId } from '../hooks/useWidgetId';
-import { useLayoutStore } from '../stores/layoutStore';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -44,8 +40,6 @@ export interface SwitchProps extends WidgetProps {
  * Equivalent to Flutter Switch.
  */
 export const Switch = React.memo(function Switch({
-  x = 0,
-  y = 0,
   value = false,
   disabled = false,
   color = 'primary',
@@ -60,22 +54,8 @@ export const Switch = React.memo(function Switch({
   const thumbClr = style?.thumbColor ?? 'white';
 
   const widgetId = useWidgetId('Switch');
-  const layout = useLayoutStore((s) => s.layoutMap[widgetId]);
-  const finalW = layout?.rect.width ?? (typeof style?.width === 'number' ? style.width : 48);
-  const finalH = layout?.rect.height ?? (typeof style?.height === 'number' ? style.height : 28);
-
-  const finalX = layout?.rect.x ?? x;
-  const finalY = layout?.rect.y ?? y;
-
-  const thumbR = finalH / 2 - 2;
-  const targetX = value ? finalX + finalW - thumbR - 2 : finalX + thumbR + 2;
-  const thumbX = useSharedValue(targetX);
-
-  useEffect(() => {
-    thumbX.value = withTiming(targetX, {
-      duration: 200,
-    });
-  }, [targetX, thumbX]);
+  const finalW = style?.width ?? 48;
+  const finalH = style?.height ?? 28;
 
   const trackFill = value
     ? disabled
@@ -89,23 +69,32 @@ export const Switch = React.memo(function Switch({
     onPress?.();
   };
 
+  const thumbSize = finalH - 4;
+
   return (
     <Box
       id={widgetId}
-      x={x}
-      y={y}
       style={{
-        width: style?.width ?? 48,
-        height: style?.height ?? 28,
+        width: finalW,
+        height: finalH,
         borderRadius: finalH / 2,
         backgroundColor: trackFill,
         opacity: disabled ? 0.5 : 1,
+        justifyContent: 'center',
+        alignItems: value ? 'end' : 'start',
+        padding: 2,
       }}
       hitTestBehavior="translucent"
-      interactive={disabled ? 'none' : 'ripple'}
       onPress={handlePress}
     >
-      <Circle cx={thumbX} cy={finalY + finalH / 2} r={thumbR} color={thumbClr} />
+      <Box 
+        style={{
+          width: thumbSize,
+          height: thumbSize,
+          borderRadius: thumbSize / 2,
+          backgroundColor: thumbClr,
+        }}
+      />
     </Box>
   );
 });

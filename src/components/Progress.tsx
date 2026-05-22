@@ -1,23 +1,8 @@
 import * as React from 'react';
-import { useEffect } from 'react';
-import {
-  RoundedRect,
-  Circle,
-  Path,
-  LinearGradient,
-  Group,
-  vec,
-} from '@shopify/react-native-skia';
 import { Box } from './Box';
-import {
-  useSharedValue,
-  useDerivedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
 import { useWidgetId } from '../hooks/useWidgetId';
-import { useLayoutStore } from '../stores/layoutStore';
 import { useTheme } from '../hooks/useTheme';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
@@ -44,11 +29,8 @@ export interface ProgressProps extends WidgetProps {
   variant?: ProgressVariant;
   /** 0..1, undefined = indeterminate */
   value?: number;
-  /**
-   * Colors: accepts SemanticColor | hex string or Array of strings.
-   * 1 color → solid fill, >=2 colors → Skia Sweep/Linear Gradient.
-   */
-  color?: SemanticColor | string | (SemanticColor | string)[];
+  /** Colors */
+  color?: SemanticColor | string;
   /** Style override */
   style?: ProgressStyle;
 }
@@ -58,8 +40,6 @@ export interface ProgressProps extends WidgetProps {
  * Equivalent to Flutter LinearProgressIndicator / CircularProgressIndicator.
  */
 export const Progress = React.memo(function Progress({
-  x = 0,
-  y = 0,
   variant = 'linear',
   value,
   color,
@@ -67,28 +47,10 @@ export const Progress = React.memo(function Progress({
 }: ProgressProps) {
   const theme = useTheme();
 
-  // Resolve colors array from `color`
-  const inputColors = Array.isArray(color)
-    ? color
-    : color
-    ? [color]
-    : ['primary'];
-  const resolvedColors = inputColors.map((c) => {
-    // Check if it's a semantic color name
-    const semanticNames = [
-      'primary',
-      'secondary',
-      'success',
-      'info',
-      'warning',
-      'error',
-      'neutral',
-    ];
-    if (semanticNames.includes(c)) {
-      return resolveSemanticColor(c as SemanticColor, theme.colors);
-    }
-    return c;
-  });
+  const resolvedColor = resolveSemanticColor(
+    (color as SemanticColor) || 'primary',
+    theme.colors
+  );
 
   const trackBg = style?.trackColor ?? theme.colors.surfaceVariant;
   const isDeterminate = value != null;
@@ -99,165 +61,69 @@ export const Progress = React.memo(function Progress({
   const strokeW = style?.strokeWidth ?? 4;
 
   const widgetId = useWidgetId('Progress');
-  const layout = useLayoutStore((s) => s.layoutMap[widgetId]);
-  const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 200);
-  const finalHeight = layout?.rect.height ?? (typeof height === 'number' ? height : 4);
-
-  // All hooks MUST be called unconditionally
-  const linearR = finalHeight / 2;
-  const linearFillWidth = isDeterminate
-    ? finalWidth * Math.min(1, Math.max(0, value!))
-    : finalWidth * 0.4;
-
-  // Linear animation
-  const animX = useSharedValue(0);
-  useEffect(() => {
-    if (variant === 'linear' && !isDeterminate) {
-      animX.value = withRepeat(
-        withTiming(finalWidth - linearFillWidth, { duration: 1000 }),
-        -1,
-        true
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variant, isDeterminate, finalWidth, linearFillWidth]);
-
-  // Circular animation
-  const rotation = useSharedValue(0);
-  useEffect(() => {
-    if (variant === 'circular' && !isDeterminate) {
-      rotation.value = withRepeat(
-        withTiming(360, { duration: 1000 }),
-        -1,
-        false
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variant, isDeterminate]);
-
-  // === LINEAR ===
-  const animatedFillX = useDerivedValue(() => {
-    return isDeterminate ? x : x + animX.value;
-  }, [animX, x, isDeterminate]);
-
-  const animatedStart = useDerivedValue(() => {
-    return vec(isDeterminate ? x : x + animX.value, y);
-  }, [animX, x, y, isDeterminate]);
-
-  const animatedEnd = useDerivedValue(() => {
-    return vec((isDeterminate ? x : x + animX.value) + linearFillWidth, y);
-  }, [animX, x, y, isDeterminate, linearFillWidth]);
+  const layout = useNativeYogaLayout(widgetId, { 
+    width: variant === 'linear' ? width : size, 
+    height: variant === 'linear' ? height : size 
+  });
+  
+  const finalWidth = layout?.width > 0 ? layout.width : (typeof width === 'number' ? width : 200);
 
   if (variant === 'linear') {
-    const useGradient = resolvedColors.length >= 2;
-    const fillColor = resolvedColors[0] ?? theme.colors.primary;
+    const fillWidth = isDeterminate
+      ? finalWidth * Math.min(1, Math.max(0, value!))
+      : finalWidth * 0.4;
 
     return (
       <Box
         id={widgetId}
-        x={x}
-        y={y}
-        style={{ width, height, backgroundColor: 'transparent' }}
+        style={{
+          width,
+          height,
+          backgroundColor: trackBg,
+          borderRadius: height / 2,
+          overflow: 'hidden',
+        }}
       >
-        <RoundedRect
-          x={x}
-          y={y}
-          width={finalWidth}
-          height={finalHeight}
-          r={linearR}
-          color={trackBg}
+        <Box
+          style={{
+            width: fillWidth,
+            height: '100%',
+            backgroundColor: resolvedColor,
+            borderRadius: height / 2,
+          }}
         />
-        <RoundedRect
-          x={animatedFillX}
-          y={y}
-          width={linearFillWidth}
-          height={finalHeight}
-          r={linearR}
-          color={useGradient ? undefined : fillColor}
-        >
-          {useGradient && (
-            <LinearGradient
-              start={animatedStart}
-              end={animatedEnd}
-              colors={resolvedColors}
-            />
-          )}
-        </RoundedRect>
       </Box>
     );
   }
 
   // === CIRCULAR ===
-  const cx = x + size / 2;
-  const cy = y + size / 2;
-  const radius = (size - strokeW) / 2;
-
-  const sweepAngle = isDeterminate
-    ? 360 * Math.min(1, Math.max(0, value!))
-    : 270;
-
-  const startAngle = -90;
-  const arcPath = makeArcPath(cx, cy, radius, startAngle, sweepAngle);
-  const circularColor = resolvedColors[0] ?? theme.colors.primary;
-
-  const circularTransform = useDerivedValue(() =>
-    isDeterminate
-      ? []
-      : [
-          { translateX: cx },
-          { translateY: cy },
-          { rotate: (rotation.value * Math.PI) / 180 },
-          { translateX: -cx },
-          { translateY: -cy },
-        ]
-  );
-
+  // In V2 without Skia primitives, we simulate circular progress with a styled Box
   return (
     <Box
       id={widgetId}
-      x={x}
-      y={y}
-      style={{ width: size, height: size, backgroundColor: 'transparent' }}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: strokeW,
+        borderColor: trackBg,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
     >
-      <Circle
-        cx={cx}
-        cy={cy}
-        r={radius}
-        color={trackBg}
-        style="stroke"
-        strokeWidth={strokeW}
+      <Box 
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: strokeW,
+          borderColor: resolvedColor,
+          opacity: 0.5,
+          position: 'absolute',
+        }}
       />
-      <Group transform={circularTransform}>
-        <Path
-          path={arcPath}
-          color={circularColor}
-          style="stroke"
-          strokeWidth={strokeW}
-          strokeCap="round"
-        />
-      </Group>
     </Box>
   );
 });
-
-function makeArcPath(
-  cx: number,
-  cy: number,
-  r: number,
-  startDeg: number,
-  sweepDeg: number
-): string {
-  const startRad = (startDeg * Math.PI) / 180;
-  const endRad = ((startDeg + sweepDeg) * Math.PI) / 180;
-
-  const x1 = cx + r * Math.cos(startRad);
-  const y1 = cy + r * Math.sin(startRad);
-  const x2 = cx + r * Math.cos(endRad);
-  const y2 = cy + r * Math.sin(endRad);
-
-  const largeArc = sweepDeg > 180 ? 1 : 0;
-
-  return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
-}
 
 (Progress as any).skiaWidgetType = 'Progress';

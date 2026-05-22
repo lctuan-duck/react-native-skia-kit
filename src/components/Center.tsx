@@ -54,15 +54,11 @@ const ALIGN_MAP: Record<
  * Tương đương Flutter Center.
  */
 export const Center = React.memo(function Center({
-  x = 0,
-  y = 0,
   style,
   children,
 }: CenterProps) {
   return (
     <Box
-      x={x}
-      y={y}
       style={{
         ...style,
         flexDirection: 'column',
@@ -80,8 +76,6 @@ export const Center = React.memo(function Center({
  * Tương đương Flutter Align.
  */
 export const Align = React.memo(function Align({
-  x = 0,
-  y = 0,
   style,
   alignment = 'center',
   children,
@@ -89,8 +83,6 @@ export const Align = React.memo(function Align({
   const { justifyContent, alignItems } = ALIGN_MAP[alignment];
   return (
     <Box
-      x={x}
-      y={y}
       style={{
         ...style,
         flexDirection: 'column',

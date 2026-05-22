@@ -22,17 +22,25 @@ export function CardDetailScreen() {
   const [intlEnabled, setIntlEnabled] = useState(false);
   const [limit, setLimit] = useState(2500);
 
+  console.log('[PERF] CardDetailScreen rendering');
+
   return (
     <Column
       style={{
         width: '100%',
         height: '100%',
         backgroundColor: theme.colors.background,
-        padding: 60,
+        padding: 10,
       }}
     >
       {/* Header */}
-      <Row style={{ width: '100%', padding: 24, alignItems: 'center' }}>
+      <Row
+        style={{
+          width: '100%',
+          padding: 10,
+          alignItems: 'center',
+        }}
+      >
         <Button
           icon="arrow-left"
           variant="icon"

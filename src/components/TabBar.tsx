@@ -5,8 +5,8 @@ import { Icon } from './Icon';
 import { Row } from './Row';
 import { Expanded } from './Expanded';
 import { useWidgetId } from '../hooks/useWidgetId';
-import { useLayoutStore } from '../stores/layoutStore';
 import { useTheme } from '../hooks/useTheme';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
@@ -43,8 +43,6 @@ export interface TabBarProps extends WidgetProps {
 }
 
 export const TabBar = React.memo(function TabBar({
-  x = 0,
-  y = 0,
   items,
   activeIndex = 0,
   onChanged,
@@ -64,16 +62,15 @@ export const TabBar = React.memo(function TabBar({
   const width = style?.width ?? 360;
   const height = style?.height ?? 48;
   const widgetId = useWidgetId('TabBar');
-  const layout = useLayoutStore((s) => s.layoutMap[widgetId]);
-  const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 360);
-  const tabWidth = finalWidth / items.length;
+  
+  const layout = useNativeYogaLayout(widgetId, { width, height });
+  const finalWidth = layout?.width > 0 ? layout.width : (typeof width === 'number' ? width : 360);
+  const tabWidth = finalWidth / Math.max(1, items.length);
 
   if (variant === 'segment') {
     return (
       <Box
         id={widgetId}
-        x={x}
-        y={y}
         style={{
           width,
           height,
@@ -100,7 +97,6 @@ export const TabBar = React.memo(function TabBar({
                   gap: item.icon ? 6 : 0,
                 }}
                 hitTestBehavior="opaque"
-                interactive={item.disabled ? 'none' : 'opacity'}
                 onPress={() => !item.disabled && onChanged?.(i)}
               >
                 {item.icon && (
@@ -129,8 +125,6 @@ export const TabBar = React.memo(function TabBar({
   return (
     <Box
       id={widgetId}
-      x={x}
-      y={y}
       style={{
         width,
         height,
@@ -151,10 +145,9 @@ export const TabBar = React.memo(function TabBar({
                 alignItems: 'center',
               }}
               hitTestBehavior="opaque"
-              interactive={item.disabled ? 'none' : 'ripple'}
               onPress={() => !item.disabled && onChanged?.(i)}
             >
-              <Row style={{ gap: item.icon ? 6 : 0 }}>
+              <Row style={{ gap: item.icon ? 6 : 0, alignItems: 'center' }}>
                 {item.icon && (
                   <Icon
                     name={item.icon}

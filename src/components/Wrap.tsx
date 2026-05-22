@@ -32,8 +32,6 @@ export interface WrapProps extends WidgetProps {
  * Yoga handles line-breaking automatically when children exceed width.
  */
 export const Wrap = React.memo(function Wrap({
-  x = 0,
-  y = 0,
   style,
   spacing = 0,
   runSpacing = 0,
@@ -43,8 +41,6 @@ export const Wrap = React.memo(function Wrap({
 }: WrapProps) {
   return (
     <Box
-      x={x}
-      y={y}
       style={{
         ...style,
         flexDirection: 'row',

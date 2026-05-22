@@ -1,15 +1,36 @@
 #include "LayoutSubsystem.hpp"
 #include <yoga/Yoga.h>
+#include <android/log.h>
 
 namespace margelo::nitro::skiakit {
+
+  YGSize LayoutSubsystem::globalYogaMeasureFunc(
+      YGNodeConstRef node,
+      float width, YGMeasureMode widthMode,
+      float height, YGMeasureMode heightMode)
+  {
+    auto* data = static_cast<LayoutSubsystem::NodeData*>(YGNodeGetContext(const_cast<YGNodeRef>(node)));
+    if (data && data->system && data->system->_measureCb) {
+      YGSize res = data->system->_measureCb(data->id, width, static_cast<int>(widthMode), height, static_cast<int>(heightMode));
+      __android_log_print(ANDROID_LOG_DEBUG, "SkiaKit", "globalYogaMeasureFunc id=%s w=%.1f h=%.1f -> res.w=%.1f res.h=%.1f", data->id.c_str(), width, height, res.width, res.height);
+      return res;
+    }
+    __android_log_print(ANDROID_LOG_WARN, "SkiaKit", "globalYogaMeasureFunc FAILED for unknown node");
+    return {0, 0};
+  }
 
   void* LayoutSubsystem::getOrCreateYogaNode(const std::string& id) {
     auto it = _yogaNodes.find(id);
     if (it != _yogaNodes.end()) {
-      return it->second;
+      return it->second->node;
     }
     YGNodeRef node = YGNodeNew();
-    _yogaNodes[id] = node;
+    auto data = std::make_unique<NodeData>();
+    data->id = id;
+    data->node = node;
+    data->system = this;
+    YGNodeSetContext(node, data.get());
+    _yogaNodes[id] = std::move(data);
     return node;
   }
 
@@ -181,7 +202,7 @@ namespace margelo::nitro::skiakit {
   void LayoutSubsystem::removeLayoutNode(const std::string& id) {
     auto it = _yogaNodes.find(id);
     if (it != _yogaNodes.end()) {
-      YGNodeRef node = static_cast<YGNodeRef>(it->second);
+      YGNodeRef node = static_cast<YGNodeRef>(it->second->node);
       YGNodeRef parent = YGNodeGetParent(node);
       if (parent) {
         YGNodeRemoveChild(parent, node);
@@ -202,13 +223,46 @@ namespace margelo::nitro::skiakit {
     }
   }
 
+  void LayoutSubsystem::addChild(const std::string& parentId, const std::string& childId) {
+    YGNodeRef parent = static_cast<YGNodeRef>(getOrCreateYogaNode(parentId));
+    YGNodeRef child = static_cast<YGNodeRef>(getOrCreateYogaNode(childId));
+    // Remove from old parent first (Yoga requires unique parent)
+    YGNodeRef oldParent = YGNodeGetParent(child);
+    if (oldParent) {
+      YGNodeRemoveChild(oldParent, child);
+    }
+    uint32_t count = YGNodeGetChildCount(parent);
+    YGNodeInsertChild(parent, child, count);
+  }
+
+  void LayoutSubsystem::removeChild(const std::string& parentId, const std::string& childId) {
+    auto pit = _yogaNodes.find(parentId);
+    auto cit = _yogaNodes.find(childId);
+    if (pit == _yogaNodes.end() || cit == _yogaNodes.end()) return;
+    YGNodeRef parent = static_cast<YGNodeRef>(pit->second->node);
+    YGNodeRef child = static_cast<YGNodeRef>(cit->second->node);
+    YGNodeRemoveChild(parent, child);
+  }
+
   void LayoutSubsystem::calculateLayout(const std::string& rootId, double width, double height) {
     auto it = _yogaNodes.find(rootId);
     if (it != _yogaNodes.end()) {
-      YGNodeRef root = static_cast<YGNodeRef>(it->second);
+      YGNodeRef root = static_cast<YGNodeRef>(it->second->node);
       float availableWidth = width >= 0 ? (float)width : YGUndefined;
       float availableHeight = height >= 0 ? (float)height : YGUndefined;
+      __android_log_print(ANDROID_LOG_DEBUG, "SkiaKit", "calculateLayout root=%s availW=%.1f availH=%.1f", rootId.c_str(), availableWidth, availableHeight);
       YGNodeCalculateLayout(root, availableWidth, availableHeight, YGDirectionLTR);
+    }
+  }
+
+  void LayoutSubsystem::markDirty(const std::string& id) {
+    auto it = _yogaNodes.find(id);
+    if (it != _yogaNodes.end()) {
+      YGNodeRef node = static_cast<YGNodeRef>(it->second->node);
+      if (!YGNodeHasMeasureFunc(node)) {
+        YGNodeSetMeasureFunc(node, &globalYogaMeasureFunc);
+      }
+      YGNodeMarkDirty(node);
     }
   }
 
@@ -235,7 +289,7 @@ namespace margelo::nitro::skiakit {
   NativeLayoutRect LayoutSubsystem::getNodeLayout(const std::string& id) {
     auto it = _yogaNodes.find(id);
     if (it != _yogaNodes.end()) {
-      YGNodeRef node = static_cast<YGNodeRef>(it->second);
+      YGNodeRef node = static_cast<YGNodeRef>(it->second->node);
       return NativeLayoutRect(
         (double)getAbsoluteLeft(node),
         (double)getAbsoluteTop(node),
@@ -249,7 +303,7 @@ namespace margelo::nitro::skiakit {
   std::unordered_map<std::string, NativeLayoutRect> LayoutSubsystem::getAllLayouts() {
     std::unordered_map<std::string, NativeLayoutRect> result;
     for (const auto& pair : _yogaNodes) {
-      YGNodeRef node = static_cast<YGNodeRef>(pair.second);
+      YGNodeRef node = static_cast<YGNodeRef>(pair.second->node);
       result[pair.first] = NativeLayoutRect(
         (double)getAbsoluteLeft(node),
         (double)getAbsoluteTop(node),
@@ -260,9 +314,23 @@ namespace margelo::nitro::skiakit {
     return result;
   }
 
+  std::unordered_map<std::string, NativeLayoutRect> LayoutSubsystem::getAllRelativeLayouts() {
+    std::unordered_map<std::string, NativeLayoutRect> result;
+    for (const auto& pair : _yogaNodes) {
+      YGNodeRef node = static_cast<YGNodeRef>(pair.second->node);
+      result[pair.first] = NativeLayoutRect(
+        (double)YGNodeLayoutGetLeft(node),
+        (double)YGNodeLayoutGetTop(node),
+        (double)YGNodeLayoutGetWidth(node),
+        (double)YGNodeLayoutGetHeight(node)
+      );
+    }
+    return result;
+  }
+
   void LayoutSubsystem::clear() {
     for (auto& pair : _yogaNodes) {
-      YGNodeFree(static_cast<YGNodeRef>(pair.second));
+      YGNodeFree(static_cast<YGNodeRef>(pair.second->node));
     }
     _yogaNodes.clear();
   }

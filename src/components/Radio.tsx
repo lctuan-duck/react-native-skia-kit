@@ -1,7 +1,6 @@
 import * as React from 'react';
-import { Circle } from '@shopify/react-native-skia';
 import { Box } from './Box';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -38,8 +37,6 @@ export interface RadioProps extends WidgetProps {
  * Equivalent to Flutter Radio.
  */
 export const Radio = React.memo(function Radio({
-  x = 0,
-  y = 0,
   size = 24,
   selected = false,
   disabled = false,
@@ -52,8 +49,6 @@ export const Radio = React.memo(function Radio({
   const activeColor =
     style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
   const r = size / 2;
-  const cx = x + r;
-  const cy = y + r;
   const borderColor = disabled
     ? theme.colors.textDisabled
     : selected
@@ -67,15 +62,11 @@ export const Radio = React.memo(function Radio({
     onPress?.();
   };
 
-  useWidget({
-    type: 'Radio',
-    layout: { x, y, width: size, height: size },
-  });
+  const widgetId = useWidgetId('Radio');
 
   return (
     <Box
-      x={x}
-      y={y}
+      id={widgetId}
       style={{
         width: size,
         height: size,
@@ -84,12 +75,22 @@ export const Radio = React.memo(function Radio({
         borderWidth: style?.borderWidth ?? 2,
         borderColor: style?.borderColor ?? borderColor,
         opacity: disabled ? 0.5 : 1,
+        justifyContent: 'center',
+        alignItems: 'center',
       }}
       hitTestBehavior="translucent"
-      interactive={disabled ? 'none' : 'ripple'}
       onPress={handlePress}
     >
-      {selected && <Circle cx={cx} cy={cy} r={r * 0.4} color={dotColor} />}
+      {selected && (
+        <Box 
+          style={{
+            width: size * 0.5,
+            height: size * 0.5,
+            borderRadius: size * 0.25,
+            backgroundColor: dotColor,
+          }}
+        />
+      )}
     </Box>
   );
 });

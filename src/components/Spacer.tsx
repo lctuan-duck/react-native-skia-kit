@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 
 export interface SpacerProps {
@@ -27,15 +27,7 @@ export const Spacer = React.memo(function Spacer({
   const spacerWidth = orientation === 'horizontal' ? size : 0;
   const spacerHeight = orientation === 'vertical' ? size : 0;
 
-  const widgetId = useWidget({
-    type: 'Spacer',
-    layout: {
-      x: 0,
-      y: 0,
-      width: spacerWidth,
-      height: spacerHeight,
-    },
-  });
+  const widgetId = useWidgetId('Spacer');
 
   // Register with Yoga so it actually takes space in flex layout
   useNativeYogaLayout(

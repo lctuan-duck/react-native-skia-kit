@@ -1,8 +1,14 @@
-import * as React from 'react';
 import { useEffect } from 'react';
-import { useEventStore } from '../stores/eventStore';
-import type { HitRect, HitTestBehavior } from '../stores/eventStore';
-import type { GestureCallbacks } from '../types/widget.types';
+import { useRef } from 'react';
+import { uiEngine } from '../core/GlobalEngine';
+import type { GestureCallbacks, HitTestBehavior } from '../types/widget.types';
+
+export interface HitRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
 
 export interface UseHitTestOptions {
   rect: HitRect;
@@ -13,9 +19,15 @@ export interface UseHitTestOptions {
 }
 
 /**
- * Register a widget's hit area and event callbacks in the eventStore.
- * Auto-registers on mount, auto-unregisters on unmount.
- * Only registers when at least one callback is provided.
+ * useHitTest — Rewrite cho v2.
+ *
+ * Trong v2, hit testing được quản lý hoàn toàn bởi C++ HitTestSubsystem.
+ * Reconciler tự động register widget qua `uiEngine.registerWidget()` khi component mount.
+ * Hook này chỉ cần thiết cho các component KHÔNG render qua Reconciler
+ * (ví dụ: custom manual canvas elements).
+ *
+ * Cho các component render qua Box/Text/Image: KHÔNG cần dùng hook này.
+ * Gesture callbacks được register tự động trong SkiaKitReconciler.createInstance.
  */
 export function useHitTest(
   widgetId: string,
@@ -24,10 +36,9 @@ export function useHitTest(
     callbacks,
     behavior = 'deferToChild',
     zIndex = 0,
-    canvasId = 'main',
   }: UseHitTestOptions
 ): void {
-  const callbacksRef = React.useRef(callbacks);
+  const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
 
   const hasCallbacks =
@@ -37,42 +48,20 @@ export function useHitTest(
     !!callbacks.onPanUpdate ||
     !!callbacks.onPanEnd;
 
-  // Register/unregister on mount/unmount, and update when rect changes.
-  // We DO NOT depend on callback references to avoid React render churn.
   useEffect(() => {
     if (!hasCallbacks) return;
-
-    // Stable wrapper to always call the latest function reference without re-registering
-    const stableCallbacks: GestureCallbacks = {
-      onPress: (x, y) => callbacksRef.current.onPress?.(x, y),
-      onLongPress: () => callbacksRef.current.onLongPress?.(),
-      onPanStart: (e) => callbacksRef.current.onPanStart?.(e),
-      onPanUpdate: (e) => callbacksRef.current.onPanUpdate?.(e),
-      onPanEnd: (e) => callbacksRef.current.onPanEnd?.(e),
-    };
-
-    useEventStore.getState().registerHit(canvasId, widgetId, {
+    const behaviorCode = behavior === 'opaque' ? 1 : 0;
+    uiEngine.registerWidget(
       widgetId,
-      parentId: null,
-      rect,
+      rect.left,
+      rect.top,
+      rect.width,
+      rect.height,
       zIndex,
-      hitTestBehavior: behavior,
-      callbacks: stableCallbacks,
-    });
-
+      behaviorCode
+    );
     return () => {
-      useEventStore.getState().unregisterHit(canvasId, widgetId);
+      uiEngine.unregisterWidget(widgetId);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    widgetId,
-    canvasId,
-    rect.left,
-    rect.top,
-    rect.width,
-    rect.height,
-    zIndex,
-    behavior,
-    hasCallbacks,
-  ]);
+  }, [widgetId, rect.left, rect.top, rect.width, rect.height, zIndex, behavior, hasCallbacks]);
 }

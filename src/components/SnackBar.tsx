@@ -10,7 +10,7 @@ import { Box } from './Box';
 import { Text } from './Text';
 import { Expanded } from './Expanded';
 import { useTheme } from '../hooks/useTheme';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import type { WidgetProps } from '../types/widget.types';
 import type { ColorStyle, FlexChildStyle } from '../types/style.types';
 
@@ -48,15 +48,7 @@ export const SnackBar = React.memo(function SnackBar({
   const fgColor = style?.textColor ?? theme.colors.textInverse;
   const _translateY = useSharedValue(80);
 
-  useWidget({
-    type: 'SnackBar',
-    layout: {
-      x: 8,
-      y: screenHeight - 72,
-      width: screenWidth - 16,
-      height: 48,
-    },
-  });
+  useWidgetId('SnackBar');
 
   const transform = useDerivedValue(() => [{ translateY: _translateY.value }]);
 

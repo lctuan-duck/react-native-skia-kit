@@ -16,7 +16,7 @@ import {
   useAnimatedReaction,
   runOnJS,
 } from 'react-native-reanimated';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import { useHitTest } from '../hooks/useHitTest';
 import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import type { WidgetProps } from '../types/widget.types';
@@ -40,8 +40,6 @@ export interface VirtualizedListProps<T> extends WidgetProps {
 }
 
 export const VirtualizedList = React.memo(function VirtualizedList<T>({
-  x = 0,
-  y = 0,
   style,
   data,
   itemHeight,
@@ -55,15 +53,12 @@ export const VirtualizedList = React.memo(function VirtualizedList<T>({
   const fallbackW = typeof width === 'number' ? width : 360;
   const fallbackH = typeof height === 'number' ? height : 400;
 
-  const widgetId = useWidget({
-    type: 'VirtualizedList',
-    layout: { x, y, width: fallbackW, height: fallbackH },
-  });
+  const widgetId = useWidgetId('VirtualizedList');
 
   const layoutResult = useNativeYogaLayout(widgetId, style, []);
   
-  const finalX = layoutResult?.x ?? x;
-  const finalY = layoutResult?.y ?? y;
+  const finalX = layoutResult?.x ?? 0;
+  const finalY = layoutResult?.y ?? 0;
   const numWidth = layoutResult?.width ?? fallbackW;
   const numHeight = layoutResult?.height ?? fallbackH;
 

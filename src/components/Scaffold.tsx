@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Box } from './Box';
 import { Expanded } from './Expanded';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import { useTheme } from '../hooks/useTheme';
 import { useWindowDimensions } from 'react-native';
@@ -28,8 +28,6 @@ export interface ScaffoldProps extends WidgetProps {
 }
 
 export const Scaffold = React.memo(function Scaffold({
-  x = 0,
-  y = 0,
   style,
   appBar,
   body,
@@ -39,20 +37,13 @@ export const Scaffold = React.memo(function Scaffold({
   fabPosition = 'bottomRight',
 }: ScaffoldProps) {
   const theme = useTheme();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  useWindowDimensions(); // Trigger re-render on screen size change
   const bgColor = style?.backgroundColor ?? theme.colors.background;
+
   const width = style?.width ?? '100%';
   const height = style?.height ?? '100%';
 
-  const widgetId = useWidget({ 
-    type: 'Scaffold', 
-    layout: { 
-      x, 
-      y, 
-      width: typeof width === 'number' ? width : screenWidth, 
-      height: typeof height === 'number' ? height : screenHeight 
-    } 
-  });
+  const widgetId = useWidgetId('Scaffold');
 
   const layoutResult = useNativeYogaLayout(
     widgetId,
@@ -60,8 +51,9 @@ export const Scaffold = React.memo(function Scaffold({
     undefined
   );
 
-  const finalX = layoutResult?.x ?? x;
-  const finalY = layoutResult?.y ?? y;
+  const finalX = layoutResult?.x ?? 0;
+  const finalY = layoutResult?.y ?? 0;
+
   
   // Resolve FAB positioning
   // Using absolute positioning inside Yoga layout

@@ -1,9 +1,8 @@
 import * as React from 'react';
-import { Group, Path } from '@shopify/react-native-skia';
 import { Box } from './Box';
 import { Text } from './Text';
 import { useTheme } from '../hooks/useTheme';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import type { WidgetProps } from '../types/widget.types';
 import type { ColorStyle, FlexChildStyle } from '../types/style.types';
 
@@ -25,13 +24,12 @@ export interface TooltipProps extends WidgetProps {
 }
 
 export const Tooltip = React.memo(function Tooltip({
-  x = 0,
-  y = 0,
   content,
   visible = false,
-  arrowDirection = 'top',
   style,
 }: TooltipProps) {
+  const widgetId = useWidgetId('Tooltip');
+
   if (!visible) return null;
 
   const theme = useTheme();
@@ -40,51 +38,28 @@ export const Tooltip = React.memo(function Tooltip({
   const tooltipBg = style?.backgroundColor ?? theme.colors.inverseSurface;
   const textColor = style?.textColor ?? theme.colors.textInverse;
 
-  useWidget({ type: 'Tooltip', layout: { x, y, width, height } });
-
-  const arrowPath =
-    arrowDirection === 'top'
-      ? `M${x + width / 2 - 6} ${y + height} L${x + width / 2} ${
-          y + height + 8
-        } L${x + width / 2 + 6} ${y + height}`
-      : arrowDirection === 'bottom'
-      ? `M${x + width / 2 - 6} ${y} L${x + width / 2} ${y - 8} L${
-          x + width / 2 + 6
-        } ${y}`
-      : arrowDirection === 'left'
-      ? `M${x + width} ${y + height / 2 - 6} L${x + width + 8} ${
-          y + height / 2
-        } L${x + width} ${y + height / 2 + 6}`
-      : `M${x} ${y + height / 2 - 6} L${x - 8} ${y + height / 2} L${x} ${
-          y + height / 2 + 6
-        }`;
-
   return (
-    <Group>
-      <Box
-        x={x}
-        y={y}
+    <Box
+      id={widgetId}
+      style={{
+        width,
+        height,
+        borderRadius: 6,
+        backgroundColor: tooltipBg,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 8,
+      }}
+    >
+      <Text
+        text={content}
         style={{
-          width,
-          height,
-          borderRadius: 6,
-          backgroundColor: tooltipBg,
+          fontSize: 13,
+          color: textColor,
+          textAlign: 'center',
         }}
-      >
-        <Text
-          x={x + 8}
-          y={y + height / 2 - 6.5}
-          text={content}
-          style={{
-            width: width - 16,
-            fontSize: 13,
-            color: textColor,
-            textAlign: 'center',
-          }}
-        />
-      </Box>
-      <Path path={arrowPath} color={tooltipBg} />
-    </Group>
+      />
+    </Box>
   );
 });
 

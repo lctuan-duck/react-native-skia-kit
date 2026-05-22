@@ -1,15 +1,7 @@
 import * as React from 'react';
-import { useEffect } from 'react';
-import { Group, Rect } from '@shopify/react-native-skia';
-import {
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
 import { Box } from './Box';
 import { Text } from './Text';
 import { useWidgetId } from '../hooks/useWidgetId';
-import { useLayoutStore } from '../stores/layoutStore';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -59,21 +51,17 @@ export interface InputProps extends WidgetProps {
 /**
  * Input — text input field.
  * Hybrid: Native TextInput (invisible) + Skia rendering.
- * Tương đương Flutter TextField / TextFormField.
+ * Equivalent to Flutter TextField / TextFormField.
  */
 export const Input = React.memo(function Input({
-  x = 0,
-  y = 0,
   value = '',
   placeholder = '',
   secureTextEntry = false,
-  keyboardType: _keyboardType = 'default',
   variant = 'outline',
   color = 'primary',
   style,
-  onChange: _onChange,
-  onFocus: _onFocus,
-  onBlur: _onBlur,
+  onFocus,
+  onBlur,
 }: InputProps) {
   const theme = useTheme();
   const focusColor =
@@ -84,128 +72,51 @@ export const Input = React.memo(function Input({
   const borderR = style?.borderRadius ?? 8;
 
   const widgetId = useWidgetId('Input');
-  const layout = useLayoutStore((s) => s.layoutMap[widgetId]);
-  const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 280);
 
   const placeholderColor = theme.colors.textDisabled;
   const textColor = theme.colors.textBody;
 
-  const isFocused = false;
-  const cursorOpacity = useSharedValue(1);
+  const [isFocused, setIsFocused] = React.useState(false);
 
-  useEffect(() => {
-    cursorOpacity.value = isFocused
-      ? withRepeat(withTiming(0, { duration: 500 }), -1, true)
-      : 1;
-  }, [isFocused, cursorOpacity]);
+  const handlePress = () => {
+    setIsFocused(true);
+    onFocus?.();
+  };
 
   const displayText = secureTextEntry ? '•'.repeat(value.length) : value;
   const showPlaceholder = !displayText && placeholder;
 
-  const cursorX = React.useMemo(() => {
-    if (!displayText) return x + 14;
-    const {
-      Skia,
-      TextAlign: SkTextAlign,
-    } = require('@shopify/react-native-skia');
-    const builder = Skia.ParagraphBuilder.Make({ textAlign: SkTextAlign.Left });
-    builder.pushStyle({ color: Skia.Color('#000'), fontSize: 16 });
-    builder.addText(displayText);
-    builder.pop();
-    const para = builder.build();
-    para.layout(finalWidth - 28);
-    const rects = para.getRectsForRange(0, displayText.length);
-    if (rects && rects.length > 0) {
-      const lastRect = rects[rects.length - 1]!;
-      return x + 14 + lastRect.x + lastRect.width;
-    }
-    return x + 14;
-  }, [displayText, x, finalWidth]);
-
   return (
-    <>
-      {/* 
-        Native TextInput (invisible) was removed!
-        React Native core components (<TextInput>, <View>, etc.) CANNOT be rendered 
-        inside a Skia <Canvas> tree. It causes an Invariant Violation crash.
-        TODO (Phase 8): Implement a NativeOverlay portal system outside CanvasRoot 
-        to render native inputs over the canvas, synchronized with Skia layout coords.
-      */}
-
-      {/* Skia rendering */}
-      <Group>
-        {variant === 'underlined' ? (
-          <>
-            <Box
-              id={widgetId}
-              x={x}
-              y={y}
-              style={{
-                width,
-                height,
-                backgroundColor: style?.backgroundColor ?? 'transparent',
-              }}
-            />
-            <Box
-              x={x}
-              y={y + height - 2}
-              style={{
-                width,
-                height: isFocused ? 2 : 1,
-                backgroundColor: isFocused ? focusColor : theme.colors.border,
-              }}
-            />
-          </>
-        ) : (
-          <Box
-            id={widgetId}
-            x={x}
-            y={y}
-            style={{
-              width,
-              height,
-              borderRadius: borderR,
-              backgroundColor:
-                style?.backgroundColor ??
-                (variant === 'solid'
-                  ? theme.colors.surfaceVariant
-                  : 'transparent'),
-              borderWidth: variant === 'outline' ? (isFocused ? 2 : 1) : 0,
-              borderColor:
-                variant === 'outline'
-                  ? isFocused
-                    ? focusColor
-                    : theme.colors.border
-                  : 'transparent',
-            }}
-          />
-        )}
-
-        {/* Text display */}
-        <Text
-          x={x + 14}
-          y={y + height / 2 - 8}
-          text={showPlaceholder ? placeholder : displayText}
-          style={{
-            width: width - 28,
-            fontSize: 16,
-            color: showPlaceholder ? placeholderColor : textColor,
-          }}
-        />
-
-        {/* Blinking cursor */}
-        {isFocused && (
-          <Rect
-            x={Math.min(cursorX, x + width - 18)}
-            y={y + 10}
-            width={2}
-            height={height - 20}
-            color={focusColor}
-            opacity={cursorOpacity}
-          />
-        )}
-      </Group>
-    </>
+    <Box
+      id={widgetId}
+      style={{
+        width,
+        height,
+        borderRadius: variant !== 'underlined' ? borderR : 0,
+        backgroundColor:
+          style?.backgroundColor ??
+          (variant === 'solid' ? theme.colors.surfaceVariant : 'transparent'),
+        borderWidth: variant === 'outline' ? (isFocused ? 2 : 1) : 0,
+        borderBottomWidth: variant === 'underlined' ? (isFocused ? 2 : 1) : undefined,
+        borderColor: isFocused ? focusColor : theme.colors.border,
+        paddingLeft: 14,
+        paddingRight: 14,
+        justifyContent: 'center',
+      }}
+      hitTestBehavior="opaque"
+      onPress={handlePress}
+    >
+      {/* Text display */}
+      <Text
+        text={showPlaceholder ? placeholder : displayText}
+        style={{
+          width: width - 28,
+          fontSize: 16,
+          color: showPlaceholder ? placeholderColor : textColor,
+        }}
+        numberOfLines={1}
+      />
+    </Box>
   );
 });
 

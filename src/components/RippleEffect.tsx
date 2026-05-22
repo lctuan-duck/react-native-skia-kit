@@ -8,8 +8,6 @@ import {
 } from 'react-native-reanimated';
 
 export interface RippleEffectProps {
-  x: number;
-  y: number;
   boundsWidth: number;
   boundsHeight: number;
   color: string;
@@ -18,11 +16,9 @@ export interface RippleEffectProps {
 
 /**
  * A single Ripple animation in Skia.
- * It expands from (x, y) to cover the bounds.
+ * It expands from (y) to cover the bounds.
  */
 export const RippleEffect = React.memo(function RippleEffect({
-  x,
-  y,
   boundsWidth,
   boundsHeight,
   color,
@@ -30,8 +26,8 @@ export const RippleEffect = React.memo(function RippleEffect({
 }: RippleEffectProps) {
   // Bán kính cuối cùng đủ để phủ toàn bộ khối hình chữ nhật lớn nhất
   const maxRadius = Math.sqrt(
-    Math.pow(Math.max(x, boundsWidth - x), 2) +
-      Math.pow(Math.max(y, boundsHeight - y), 2)
+    Math.pow(Math.max(boundsWidth - x), 2) +
+      Math.pow(Math.max(boundsHeight - y), 2)
   );
 
   const radius = useSharedValue(0);
@@ -61,7 +57,7 @@ export const RippleEffect = React.memo(function RippleEffect({
 
   return (
     <Group opacity={opacity}>
-      <Circle cx={x} cy={y} r={radius} color={color} />
+      <Circle ccr={radius} color={color} />
     </Group>
   );
 });

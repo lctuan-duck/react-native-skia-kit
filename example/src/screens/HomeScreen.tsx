@@ -1,3 +1,5 @@
+import * as React from 'react';
+import { useCallback } from 'react';
 import {
   Column,
   Row,
@@ -11,6 +13,7 @@ import {
   VirtualizedList,
   useNav,
   useTheme,
+  useInteractive,
 } from 'react-native-skia-kit';
 
 const TRANSACTIONS = Array.from({ length: 50 }).map((_, i) => ({
@@ -22,27 +25,80 @@ const TRANSACTIONS = Array.from({ length: 50 }).map((_, i) => ({
   color: i % 2 === 0 ? '#00E5FF' : '#B000FF',
 }));
 
+interface QuickActionProps {
+  action: string;
+  icon: string;
+  surfaceColor: string;
+  textColor: string;
+}
+
+const QuickAction = React.memo(function QuickAction({
+  action,
+  icon,
+  surfaceColor,
+  textColor,
+}: QuickActionProps) {
+  const id = `qa-${action}`;
+  const { onPressIn, onPressOut, restoreInteraction } = useInteractive(
+    id,
+    'ripple',
+    { bgColor: surfaceColor }
+  );
+
+  return (
+    <Column style={{ alignItems: 'center', gap: 8 }}>
+      <Box
+        style={{
+          width: 60,
+          height: 60,
+          borderRadius: 30,
+          backgroundColor: surfaceColor,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+        hitTestBehavior="opaque"
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        onPress={restoreInteraction}
+      >
+        <Icon name={icon as any} size={24} color="#00E5FF" />
+      </Box>
+      <Text text={action} style={{ fontSize: 12, color: textColor }} />
+    </Column>
+  );
+});
 export function HomeScreen() {
   const nav = useNav();
   const theme = useTheme();
+
+  const cardId = 'home-card';
+  const {
+    onPressIn: cardPressIn,
+    onPressOut: cardPressOut,
+    restoreInteraction: cardRestore,
+  } = useInteractive(cardId, 'ripple', { bgColor: '#1A1A2E' });
+  console.log('hello');
+
+  const handleCardPress = useCallback(() => {
+    cardRestore();
+    console.log('onpress');
+    nav.push('CardDetail');
+  }, [cardRestore, nav]);
 
   return (
     <Column
       style={{
         width: '100%',
         height: '100%',
-        backgroundColor: theme.colors.background,
-        paddingTop: 60, // approximate top padding
+        backgroundColor: theme.colors.primary,
+        paddingTop: 10, // approximate top padding
       }}
     >
       {/* Header */}
       <Row
         style={{
           width: '100%',
-          paddingTop: 24,
-          paddingBottom: 24,
-          paddingLeft: 24,
-          paddingRight: 24,
+          padding: 10,
           justifyContent: 'space-between',
           alignItems: 'center',
         }}
@@ -82,12 +138,9 @@ export function HomeScreen() {
       <Box style={{ paddingLeft: 24, paddingRight: 24, width: '100%' }}>
         <Hero tag="credit-card" width="100%" height={220}>
           <Box
-            interactive="ripple"
-            onPress={() => {
-              console.log('onpress');
-
-              nav.push('CardDetail');
-            }}
+            onPressIn={cardPressIn}
+            onPressOut={cardPressOut}
+            onPress={handleCardPress}
             style={{
               width: '100%',
               height: 220,
@@ -117,17 +170,29 @@ export function HomeScreen() {
             <Column>
               <Text
                 text="BALANCE"
-                style={{ fontSize: 12, color: '#00E5FF80', letterSpacing: 2 }}
+                style={{
+                  fontSize: 12,
+                  color: '#00E5FF80',
+                  letterSpacing: 2,
+                }}
               />
               <Text
                 text="$24,599.00"
-                style={{ fontSize: 36, fontWeight: 'bold', color: '#FFFFFF' }}
+                style={{
+                  fontSize: 36,
+                  fontWeight: 'bold',
+                  color: '#FFFFFF',
+                }}
               />
             </Column>
             <Row style={{ justifyContent: 'space-between', width: '100%' }}>
               <Text
                 text="**** **** **** 4281"
-                style={{ fontSize: 16, color: '#FFFFFF80', letterSpacing: 4 }}
+                style={{
+                  fontSize: 16,
+                  color: '#FFFFFF80',
+                  letterSpacing: 4,
+                }}
               />
               <Text text="12/28" style={{ fontSize: 16, color: '#FFFFFF' }} />
             </Row>
@@ -137,32 +202,20 @@ export function HomeScreen() {
 
       {/* Quick Actions */}
       <Row
-        style={{ width: '100%', padding: 24, justifyContent: 'space-between' }}
+        style={{
+          width: '100%',
+          padding: 24,
+          justifyContent: 'space-between',
+        }}
       >
         {['Send', 'Receive', 'Scan', 'More'].map((action, i) => (
-          <Column key={action} style={{ alignItems: 'center', gap: 8 }}>
-            <Box
-              style={{
-                width: 60,
-                height: 60,
-                borderRadius: 30,
-                backgroundColor: theme.colors.surface,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-              interactive="ripple"
-            >
-              <Icon
-                name={['arrow-up', 'arrow-down', 'search', 'more'][i] as any}
-                size={24}
-                color="#00E5FF"
-              />
-            </Box>
-            <Text
-              text={action}
-              style={{ fontSize: 12, color: theme.colors.textSecondary }}
-            />
-          </Column>
+          <QuickAction
+            key={action}
+            action={action}
+            icon={['arrow-up', 'arrow-down', 'search', 'more'][i] as string}
+            surfaceColor={theme.colors.surface}
+            textColor={theme.colors.textSecondary}
+          />
         ))}
       </Row>
 

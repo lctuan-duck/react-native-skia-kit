@@ -1,8 +1,8 @@
 import { type HybridObject } from 'react-native-nitro-modules';
 
 export interface NativeLayoutRect {
-  x: number;
-  y: number;
+  x?: number;
+  y?: number;
   width: number;
   height: number;
 }
@@ -45,9 +45,9 @@ export interface NativeYogaStyle {
   aspectRatio?: number;
 
   // === Layout Rules ===
-  display?: string;          // 'flex' | 'none'
-  overflow?: string;         // 'visible' | 'hidden' | 'scroll'
-  direction?: string;        // 'inherit' | 'ltr' | 'rtl'
+  display?: string; // 'flex' | 'none'
+  overflow?: string; // 'visible' | 'hidden' | 'scroll'
+  direction?: string; // 'inherit' | 'ltr' | 'rtl'
 
   // === Padding ===
   paddingTop?: number | string;
@@ -69,35 +69,45 @@ export interface NativeYogaStyle {
   bottom?: number | string;
 }
 
+// ── Render Tree props ──────────────────────────────────────────────────────
+
+/**
+ * NativeBoxProps — Visual props cho BoxNode.
+ * Màu sắc dùng SkColor format (ARGB packed uint32, ví dụ: 0xFF2196F3).
+ */
+export interface NativeBoxProps {
+  backgroundColor?: number; // SkColor ARGB
+  borderRadius?: number;
+  borderWidth?: number;
+  borderColor?: number;     // SkColor ARGB
+  elevation?: number;       // Android shadow / iOS drop shadow
+  overflowHidden?: boolean;
+}
+
+/**
+ * NativeTextProps — Text content + style cho TextNode.
+ */
+export interface NativeTextProps {
+  content: string;
+  fontSize?: number;
+  color?: number;         // SkColor ARGB
+  fontFamily?: string;
+  fontWeight?: number;    // 100 – 900
+  textAlign?: string;     // 'left' | 'center' | 'right'
+  numberOfLines?: number; // 0 = unlimited
+}
+
 export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   // ================= HIT TESTING ================= //
 
-  /**
-   * Đăng ký một widget vào hệ thống Hit-Test C++.
-   */
   registerWidget(
-    id: string,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    zIndex: number,
-    behavior: number
+    id: string, x: number, y: number, w: number, h: number,
+    zIndex: number, behavior: number
   ): void;
   unregisterWidget(id: string): void;
-  
-  /**
-   * Đánh dấu 1 widget là dynamic (đang được kéo thả/animation).
-   * Widget sẽ được đưa ra khỏi QuadTree tĩnh và chuyển sang mảng Linear để tối ưu update.
-   */
   setWidgetDynamic(id: string, isDynamic: boolean): void;
-
   registerScrollArea(
-    id: string,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
+    id: string, x: number, y: number, w: number, h: number,
     horizontal: boolean
   ): void;
   unregisterScrollArea(id: string): void;
@@ -107,34 +117,100 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
 
   // ================= YOGA LAYOUT ================= //
 
-  /**
-   * Cập nhật style Flexbox của một Node.
-   * Chỉ set property nào có giá trị trong object, bỏ qua undefined.
-   */
   updateLayoutNode(id: string, style: NativeYogaStyle): void;
-
-  /**
-   * Xoá một Layout Node khỏi cây Flexbox C++ khi Component Unmount.
-   */
   removeLayoutNode(id: string): void;
-
-  /**
-   * Cập nhật danh sách con của một Node.
-   */
   setChildren(parentId: string, childrenIds: string[]): void;
-
-  /**
-   * Bắt đầu tính toán Layout từ root node.
-   */
   calculateLayout(rootId: string, width: number, height: number): void;
-
-  /**
-   * Lấy LayoutRect đã được tính toán.
-   */
   getNodeLayout(id: string): NativeLayoutRect;
+  getAllLayouts(): Record<string, NativeLayoutRect>;
+
+  // ================= RENDER TREE (v2) ================= //
 
   /**
-   * Lấy toàn bộ LayoutRects trong một lần gọi (batch).
+   * Validate rằng PlatformContext đã được inject trước khi JS render.
+   * PlatformContext thực tế được inject tại platform module init (JNI/iOS) — xem Section 15.
+   * Method này chỉ trigger bước khởi tạo còn lại (validate FontCollection sẵn sàng).
    */
-  getAllLayouts(): Record<string, NativeLayoutRect>;
+  initRenderEngine(): void;
+
+  // Box
+  createBoxNode(id: string, yogaStyle: NativeYogaStyle, props: NativeBoxProps): void;
+  updateBoxNode(id: string, yogaStyle: NativeYogaStyle, props: NativeBoxProps): void;
+
+  // Text
+  createTextNode(id: string, yogaStyle: NativeYogaStyle, props: NativeTextProps): void;
+  updateTextNode(id: string, yogaStyle: NativeYogaStyle, props: NativeTextProps): void;
+
+  // Image — load async ngay khi create
+  createImageNode(id: string, uri: string): void;
+  startImageLoad(id: string): void;
+
+  // Icon — SVG path string
+  createIconNode(
+    id: string,
+    yogaStyle: NativeYogaStyle,
+    pathStr: string,
+    color: number,
+    isStroke: boolean,
+    strokeWidth: number
+  ): void;
+  updateIconNode(
+    id: string,
+    yogaStyle: NativeYogaStyle,
+    pathStr: string,
+    color: number,
+    isStroke: boolean,
+    strokeWidth: number
+  ): void;
+
+  // Scroll
+  createScrollNode(id: string, horizontal: boolean): void;
+
+  // Tree structure
+  addRenderChild(parentId: string, childId: string): void;
+  removeRenderChild(parentId: string, childId: string): void;
+  /** Recursive cleanup — xóa node + toàn bộ descendant */
+  removeRenderNode(id: string): void;
+
+  /**
+   * Sync layout results từ LayoutSubsystem → RenderSubsystem.
+   * Thường được gọi tự động trong calculateLayout() (AUTO-BRIDGE).
+   * Expose ở đây để JS có thể gọi thủ công nếu cần.
+   */
+  syncLayoutResults(layouts: Record<string, NativeLayoutRect>): void;
+
+  /** Cập nhật scroll offset — gọi từ Reanimated worklet, không rebuild SkPicture */
+  updateScrollNodeOffset(id: string, offset: number): void;
+
+  /**
+   * Cập nhật render style (opacity) trực tiếp từ JS worklet cho animation.
+   * C++ cập nhật _opacity trên RenderNode và trigger redraw qua _redrawCallback.
+   */
+  updateRenderNodeStyle(id: string, opacity: number): void;
+
+  /** Đánh dấu dirty → rebuild SkPicture ở frame tiếp theo */
+  markDirty(rootId: string): void;
+
+  /**
+   * drawTree — trigger C++ rebuild SkPicture (nếu dirty).
+   * w/h = logical pixels của viewport.
+   * Trong Phase 6E, đây thực ra chỉ gọi markDirty — getRootPicture() mới thực sự rebuild.
+   */
+  drawTree(rootId: string, w: number, h: number): void;
+
+  /**
+   * getRootPicture — serialize SkPicture → ArrayBuffer để JS reconstruct.
+   *
+   * Canvas Integration (Phase 6E — Serialization Bridge):
+   *   C++ builds SkPicture từ Render Tree → serialize → JS reconstruct via:
+   *   `const picture = Skia.Picture.MakePicture(new Uint8Array(bytes))`
+   *   → canvas.drawPicture(picture) trong useDrawCallback
+   *
+   * Chỉ gọi khi `hasPictureData() === true` để tránh empty buffer.
+   * Overhead chỉ xảy ra khi dirty (lần đầu sau mỗi state change).
+   */
+  getRootPicture(rootId: string, w: number, h: number): ArrayBuffer;
+
+  /** Fast check — tránh unnecessary getRootPicture() call khi tree rỗng */
+  hasPictureData(): boolean;
 }

@@ -126,8 +126,7 @@ export const Button = React.memo(function Button({
           alignItems: 'center',
         }}
         hitTestBehavior="opaque"
-        interactive={disabled ? 'none' : interactive}
-        onPress={(x, y) => !disabled && onPress?.(x, y)}
+        onPress={(y) => !disabled && onPress?.(y)}
         onLongPress={onLongPress}
       >
         <Icon name={icon!} size={iconSz} color={fgColor} />
@@ -154,8 +153,7 @@ export const Button = React.memo(function Button({
           gap: extended ? 8 : 0,
         }}
         hitTestBehavior="opaque"
-        interactive={disabled ? 'none' : interactive}
-        onPress={(x, y) => !disabled && onPress?.(x, y)}
+        onPress={(y) => !disabled && onPress?.(y)}
         onLongPress={onLongPress}
       >
         <Icon name={icon!} size={24} color={fgColor} />
@@ -175,8 +173,7 @@ export const Button = React.memo(function Button({
     <Box
       style={{
         width: btnWidth,
-        height: h,
-        borderRadius: borderR,
+        height: h, borderRadius: borderR,
         backgroundColor: bgColor,
         borderWidth: borderW,
         borderColor: borderC,
@@ -189,9 +186,8 @@ export const Button = React.memo(function Button({
         gap: icon && text ? 8 : 0,
       }}
       hitTestBehavior="opaque"
-      interactive={disabled ? 'none' : interactive}
-      rippleColor={rippleColor}
-      onPress={(x, y) => !disabled && onPress?.(x, y)}
+
+      onPress={(y) => !disabled && onPress?.(y)}
       onLongPress={onLongPress}
     >
       {icon && <Icon name={icon} size={iconSz} color={fgColor} />}

@@ -41,31 +41,38 @@ namespace margelo::nitro::skiakit {
   }
 
   bool QuadTree::insert(const WidgetNode& node) {
-    // If the node doesn't completely fit in this quad, we still insert it if it intersects.
-    // For simplicity, we just check if the center of the node is within the boundary.
-    double cx = node.x + node.w / 2.0;
-    double cy = node.y + node.h / 2.0;
-    
-    if (cx < _boundary.x || cx > _boundary.x + _boundary.w ||
-        cy < _boundary.y || cy > _boundary.y + _boundary.h) {
-      return false; // Center not in boundary
+    // 1. Check if the node intersects this QuadTree node's boundary at all
+    if (node.x + node.w < _boundary.x || node.x > _boundary.x + _boundary.w ||
+        node.y + node.h < _boundary.y || node.y > _boundary.y + _boundary.h) {
+      return false; // Not in boundary
     }
 
-    if (_nodes.size() < _capacity || _depth >= _maxDepth) {
-      _nodes.push_back(node);
-      return true;
-    }
-
-    if (!_divided) {
+    // 2. Subdivide if we reached capacity
+    if (!_divided && _nodes.size() >= _capacity && _depth < _maxDepth) {
       subdivide();
     }
 
-    if (_nw->insert(node)) return true;
-    if (_ne->insert(node)) return true;
-    if (_sw->insert(node)) return true;
-    if (_se->insert(node)) return true;
+    // 3. If divided, try to push the node down to a child 
+    // ONLY if it completely fits inside that child.
+    if (_divided) {
+      double midX = _boundary.x + _boundary.w / 2.0;
+      double midY = _boundary.y + _boundary.h / 2.0;
 
-    // Fallback: put it in this node if subdivision fails
+      bool fitsTop = (node.y + node.h <= midY);
+      bool fitsBottom = (node.y >= midY);
+      bool fitsLeft = (node.x + node.w <= midX);
+      bool fitsRight = (node.x >= midX);
+
+      if (fitsTop && fitsLeft) return _nw->insert(node);
+      if (fitsTop && fitsRight) return _ne->insert(node);
+      if (fitsBottom && fitsLeft) return _sw->insert(node);
+      if (fitsBottom && fitsRight) return _se->insert(node);
+      
+      // If it doesn't completely fit in any single child (i.e. crosses boundaries),
+      // we MUST keep it in this parent node.
+    }
+
+    // 4. Store in current node
     _nodes.push_back(node);
     return true;
   }

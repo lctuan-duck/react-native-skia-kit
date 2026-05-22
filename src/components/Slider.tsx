@@ -1,10 +1,8 @@
 import * as React from 'react';
-import { Circle, RoundedRect } from '@shopify/react-native-skia';
-import { useDerivedValue, useSharedValue } from 'react-native-reanimated';
 import { Box } from './Box';
 import { useWidgetId } from '../hooks/useWidgetId';
-import { useLayoutStore } from '../stores/layoutStore';
 import { useTheme } from '../hooks/useTheme';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import type { WidgetProps, PanEvent } from '../types/widget.types';
 import type {
   ColorStyle,
@@ -13,7 +11,6 @@ import type {
   LayoutStyle,
 } from '../types/style.types';
 import { resolveSemanticColor } from '../core/colorUtils';
-import { runOnJS } from 'react-native-reanimated';
 
 // === Slider Types ===
 
@@ -50,8 +47,6 @@ export interface SliderProps extends WidgetProps {
  * Equivalent to Flutter Slider.
  */
 export const Slider = React.memo(function Slider({
-  x = 0,
-  y = 0,
   min = 0,
   max = 100,
   value = 0,
@@ -73,27 +68,22 @@ export const Slider = React.memo(function Slider({
   const thumbR = 12;
   const totalHeight = thumbR * 2;
   const widgetId = useWidgetId('Slider');
-  const layout = useLayoutStore((s) => s.layoutMap[widgetId]);
-  const finalX = layout?.rect.x ?? x;
-  const finalY = layout?.rect.y ?? y;
-  const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 200);
+  
+  const layout = useNativeYogaLayout(widgetId, { width, height: totalHeight });
+  const finalWidth = layout?.width > 0 ? layout.width : (typeof width === 'number' ? width : 200);
 
+  const [internalValue, setInternalValue] = React.useState(value);
   const isDragging = React.useRef(false);
-  const internalValue = useSharedValue(value);
 
   React.useEffect(() => {
     if (!isDragging.current) {
-      internalValue.value = value;
+      setInternalValue(value);
     }
-  }, [value, internalValue]);
+  }, [value]);
 
-  const ratio = useDerivedValue(() => (internalValue.value - min) / (max - min), [min, max]);
-  const fillWidth = useDerivedValue(() => ratio.value * finalWidth, [finalWidth]);
-  const trackY = finalY + thumbR - trackH / 2;
-
-  const thumbCx = useDerivedValue(() => {
-    return finalX + ratio.value * finalWidth;
-  }, [finalX, finalWidth]);
+  const ratio = Math.max(0, Math.min(1, (internalValue - min) / (max - min)));
+  const fillWidth = ratio * finalWidth;
+  const thumbCx = ratio * finalWidth;
 
   const calculateValue = (localX: number) => {
     const rawValue = min + (localX / finalWidth) * (max - min);
@@ -108,32 +98,31 @@ export const Slider = React.memo(function Slider({
     if (disabled) return;
     isDragging.current = true;
     const newValue = calculateValue(e?.localX ?? 0);
-    internalValue.value = newValue;
+    setInternalValue(newValue);
     onChange?.(newValue);
   };
 
   const handlePanUpdate = (e: PanEvent) => {
     if (disabled) return;
     const newValue = calculateValue(e?.localX ?? 0);
-    internalValue.value = newValue;
+    setInternalValue(newValue);
     onChange?.(newValue);
   };
 
   const handlePanEnd = () => {
     isDragging.current = false;
-    onSlidingComplete?.(internalValue.value);
+    onSlidingComplete?.(internalValue);
   };
 
   return (
     <Box
       id={widgetId}
-      x={x}
-      y={y}
       style={{
         width,
         height: totalHeight,
         backgroundColor: 'transparent',
         opacity: disabled ? 0.5 : 1,
+        justifyContent: 'center',
       }}
       hitTestBehavior="opaque"
       onPanStart={handlePanStart}
@@ -141,34 +130,39 @@ export const Slider = React.memo(function Slider({
       onPanEnd={handlePanEnd}
     >
       {/* Track background */}
-      <RoundedRect
-        x={finalX}
-        y={trackY}
-        width={finalWidth}
-        height={trackH}
-        r={trackH / 2}
-        color={trackBg}
+      <Box
+        style={{
+          width: '100%',
+          height: trackH,
+          borderRadius: trackH / 2,
+          backgroundColor: trackBg,
+          position: 'absolute',
+        }}
       />
 
       {/* Active fill */}
-      <RoundedRect
-        x={finalX}
-        y={trackY}
-        width={fillWidth}
-        height={trackH}
-        r={trackH / 2}
-        color={activeColor}
+      <Box
+        style={{
+          width: fillWidth,
+          height: trackH,
+          borderRadius: trackH / 2,
+          backgroundColor: activeColor,
+          position: 'absolute',
+        }}
       />
 
       {/* Thumb */}
-      <Circle cx={thumbCx} cy={finalY + thumbR} r={thumbR} color={thumbClr} />
-      <Circle
-        cx={thumbCx}
-        cy={finalY + thumbR}
-        r={thumbR}
-        color={activeColor}
-        style="stroke"
-        strokeWidth={2}
+      <Box
+        style={{
+          width: thumbR * 2,
+          height: thumbR * 2,
+          borderRadius: thumbR,
+          backgroundColor: thumbClr,
+          borderWidth: 2,
+          borderColor: activeColor,
+          position: 'absolute',
+          left: thumbCx - thumbR,
+        }}
       />
     </Box>
   );

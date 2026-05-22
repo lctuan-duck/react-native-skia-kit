@@ -17,9 +17,11 @@ enableThemePersistence();
 function RootApp() {
   const { width, height } = useWindowDimensions();
   const theme = useTheme();
-
+  console.log('hello');
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+    <GestureHandlerRootView
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
+    >
       <CanvasRoot style={{ width, height }}>
         <Nav
           initial="Home"

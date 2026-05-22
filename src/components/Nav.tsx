@@ -1,22 +1,13 @@
 import * as React from 'react';
-import { useState, useCallback, useEffect } from 'react';
-import { Group } from '@shopify/react-native-skia';
+import { useState, useEffect } from 'react';
+
 import { useWindowDimensions } from 'react-native';
-import {
-  useSharedValue,
-  useDerivedValue,
-  withTiming,
-  Easing,
-  runOnJS,
-} from 'react-native-reanimated';
-import type { SharedValue } from 'react-native-reanimated';
 import { useNavStore } from '../stores/navStore';
-import { useHeroStore } from '../stores/heroStore';
-import { useWidget } from '../hooks/useWidget';
+import { useWidgetId } from '../hooks/useWidgetId';
 import { Box } from './Box';
 import type { WidgetProps } from '../types/widget.types';
 import { WidgetContext } from '../core/WidgetContext';
-import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
+import type { SharedValue } from 'react-native-reanimated';
 
 export type TransitionType = 'slide' | 'fade' | 'none' | 'custom';
 
@@ -48,173 +39,83 @@ export interface NavProps extends WidgetProps {
   onNavigate?: (screenName: string) => void;
 }
 
+/**
+ * Nav — screen navigation container (SkiaKit Reconciler-safe version).
+ *
+ * QUAN TRỌNG: Component này chạy trong SkiaKit secondary Reconciler.
+ * - KHÔNG dùng Shopify Skia components (Group, etc.)
+ * - KHÔNG dùng Reanimated hooks (useSharedValue trong secondary renderer có thể crash)
+ * - Chỉ dùng: useState, useEffect, useCallback, useRef, useContext + SkiaKit host elements
+ *
+ * Transition animation sẽ được implement ở level C++ khi rendering hoạt động.
+ */
 export const Nav = React.memo(function Nav({
   width: propWidth,
   height: propHeight,
   children,
   initial,
-  transition = 'slide',
-  transitionDuration = 300,
-  customTransition,
-  onNavigate: _onNavigate,
 }: NavProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const navWidth = propWidth ?? screenWidth;
   const navHeight = propHeight ?? screenHeight;
+
+  const widgetId = useWidgetId('Nav');
+
+  // Current screen state
+  const [currentScreen, setCurrentScreen] = useState(initial);
+
+  // Sync với navStore khi store thay đổi
   const storeScreenName = useNavStore((s) => s.getCurrentScreenName('main')) ?? initial;
-  const setCurrentScreen = useNavStore((s) => s.setCurrentScreen);
-
-  const widgetId = useWidget({
-    type: 'Nav',
-    layout: { x: 0, y: 0, width: navWidth, height: navHeight },
-  });
-
-  // Register Nav as a real Yoga node so Screen children
-  // are positioned relative to Nav, not the root.
-  useNativeYogaLayout(widgetId, {
-    width: navWidth,
-    height: navHeight,
-    flexDirection: 'column',
-  });
-
-  const [navState, setNavState] = useState<{
-    currentScreen: string;
-    prevScreen: string | null;
-  }>({
-    currentScreen: initial,
-    prevScreen: null,
-  });
-
-  // --- Transition animation values ---
-  // progress goes from 0 to 1
-  const progress = useSharedValue(1);
-
-  const clearPrevScreen = useCallback(() => {
-    setNavState((s) => ({ ...s, prevScreen: null }));
-  }, []);
+  const storeSetCurrentScreen = useNavStore((s) => s.setCurrentScreen);
 
   useEffect(() => {
-    setCurrentScreen(initial);
-  }, [initial, setCurrentScreen]);
+    storeSetCurrentScreen(initial);
+  }, [initial, storeSetCurrentScreen]);
 
-  // When store's active screen changes → trigger transition
+  // Khi store change → update local state
   useEffect(() => {
-    if (navState.currentScreen !== storeScreenName) {
-      setNavState({
-        prevScreen: navState.currentScreen,
-        currentScreen: storeScreenName,
-      });
-
-      if (transition !== 'none') {
-        useHeroStore.getState().startTransition();
-        progress.value = 0;
-        progress.value = withTiming(
-          1,
-          {
-            duration: transitionDuration,
-            easing: Easing.out(Easing.cubic),
-          },
-          (finished) => {
-            if (finished) {
-              runOnJS(clearPrevScreen)();
-            }
-          }
-        );
-      } else {
-        progress.value = 1;
-        clearPrevScreen();
-      }
+    if (storeScreenName !== currentScreen) {
+      setCurrentScreen(storeScreenName);
     }
-  }, [
-    storeScreenName,
-    navState.currentScreen,
-    transition,
-    transitionDuration,
-    clearPrevScreen,
-    progress,
-  ]);
+  }, [storeScreenName, currentScreen]);
 
-  // Extract screens from children
+  // Extract screen node từ children
   let currentScreenNode: React.ReactNode = null;
-  let prevScreenNode: React.ReactNode = null;
-
   React.Children.forEach(children, (child) => {
     if (React.isValidElement(child)) {
       const name = (child.props as ScreenProps).name;
-      if (name === navState.currentScreen) currentScreenNode = child;
-      if (name === navState.prevScreen) prevScreenNode = child;
+      if (name === currentScreen) {
+        currentScreenNode = child;
+      }
     }
   });
 
-  // --- Derived Animation Transforms ---
-
-  // Slide: new screen slides in from right (100% to 0)
-  const currentSlideTransform = useDerivedValue(() => [
-    { translateX: (1 - progress.value) * navWidth },
-  ]);
-  // Slide: old screen slides out to left (0 to -30%)
-  const prevSlideTransform = useDerivedValue(() => [
-    { translateX: progress.value * -navWidth * 0.3 },
-  ]);
-
-  // Fade: new screen opacity (0 to 1)
-  const currentFadeOpacity = useDerivedValue(() => progress.value);
-  // Fade: old screen opacity (1 to 0)
-  const prevFadeOpacity = useDerivedValue(() => 1 - progress.value);
-
-  // --- Render logic ---
-
-  if (transition === 'custom' && customTransition) {
-    return (
-      <WidgetContext.Provider value={widgetId}>
-        <Group clip={{ x: 0, y: 0, width: navWidth, height: navHeight }}>
-          {customTransition({
-            currentScreen: currentScreenNode,
-            prevScreen: prevScreenNode,
-            progress,
-            width: navWidth,
-            height: navHeight,
-          })}
-        </Group>
-      </WidgetContext.Provider>
-    );
+  if (__DEV__) {
+    console.log('[Nav] rendering screen:', currentScreen, 'has node:', !!currentScreenNode);
   }
 
-  if (transition === 'slide') {
-    return (
-      <WidgetContext.Provider value={widgetId}>
-        <Group clip={{ x: 0, y: 0, width: navWidth, height: navHeight }}>
-          {prevScreenNode && (
-            <Group transform={prevSlideTransform}>{prevScreenNode}</Group>
-          )}
-          <Group transform={currentSlideTransform}>{currentScreenNode}</Group>
-        </Group>
-      </WidgetContext.Provider>
-    );
-  }
-
-  if (transition === 'fade') {
-    return (
-      <WidgetContext.Provider value={widgetId}>
-        <Group clip={{ x: 0, y: 0, width: navWidth, height: navHeight }}>
-          {prevScreenNode && (
-            <Group opacity={prevFadeOpacity}>{prevScreenNode}</Group>
-          )}
-          <Group opacity={currentFadeOpacity}>{currentScreenNode}</Group>
-        </Group>
-      </WidgetContext.Provider>
-    );
-  }
-
-  // No transition
+  // Nav container dùng Box (SkiaKit host element) thay vì Group (Shopify Skia)
   return (
     <WidgetContext.Provider value={widgetId}>
-      <Group>{currentScreenNode}</Group>
+      <Box
+        id={widgetId}
+        style={{
+          width: navWidth,
+          height: navHeight,
+          overflow: 'hidden',
+          flexDirection: 'column',
+        }}
+      >
+        {currentScreenNode}
+      </Box>
     </WidgetContext.Provider>
   );
 });
 
-export const Screen = React.memo(function Screen({ name, children }: ScreenProps) {
+export const Screen = React.memo(function Screen({
+  name,
+  children,
+}: ScreenProps) {
   return (
     <Box
       id={`screen-${name}`}

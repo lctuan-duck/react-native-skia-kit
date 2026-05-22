@@ -11,6 +11,7 @@ export interface OverlayEntry {
   zIndex: number;
 }
 
+
 interface OverlayStoreState {
   overlays: Map<string, OverlayEntry>;
 

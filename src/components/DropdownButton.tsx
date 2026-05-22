@@ -7,8 +7,8 @@ import { Column } from './Column';
 import { Expanded } from './Expanded';
 import { Overlay } from './Overlay';
 import { useWidgetId } from '../hooks/useWidgetId';
-import { useLayoutStore } from '../stores/layoutStore';
 import { useTheme } from '../hooks/useTheme';
+import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
@@ -48,8 +48,6 @@ export interface DropdownButtonProps<T = string> extends WidgetProps {
 export const DropdownButton = React.memo(function DropdownButton<
   T extends string
 >({
-  x = 0,
-  y = 0,
   items,
   value,
   placeholder = 'Chọn...',
@@ -70,16 +68,16 @@ export const DropdownButton = React.memo(function DropdownButton<
   const selectedItem = items.find((i) => i.value === value);
 
   const widgetId = useWidgetId('DropdownButton');
-  const layout = useLayoutStore((s) => s.layoutMap[widgetId]);
-  const finalWidth = layout?.rect.width ?? (typeof width === 'number' ? width : 200);
-  const finalHeight = layout?.rect.height ?? (typeof height === 'number' ? height : 48);
+  const layout = useNativeYogaLayout(widgetId, { width, height });
+
+  const finalWidth = layout?.width > 0 ? layout.width : (typeof width === 'number' ? width : 200);
+  const finalHeight = layout?.height > 0 ? layout.height : (typeof height === 'number' ? height : 48);
+  const finalY = layout?.y ?? 0;
 
   return (
     <>
       <Box
         id={widgetId}
-        x={x}
-        y={y}
         style={{
           width,
           height,
@@ -123,8 +121,6 @@ export const DropdownButton = React.memo(function DropdownButton<
             screenHeight={screenHeight}
           />
           <Box
-            x={x}
-            y={y + finalHeight + 4}
             style={{
               width: finalWidth,
               height: Math.min(items.length * 44, dropdownMaxHeight),
@@ -133,6 +129,8 @@ export const DropdownButton = React.memo(function DropdownButton<
               elevation: 8,
               borderWidth: 1,
               borderColor: theme.colors.divider,
+              position: 'absolute',
+              top: finalY + finalHeight + 4,
             }}
           >
             <Column>

@@ -46,8 +46,6 @@ export interface SafeAreaProps extends WidgetProps {
  * </SafeArea>
  */
 export const SafeArea = React.memo(function SafeArea({
-  x = 0,
-  y = 0,
   children,
   edges = ['top', 'bottom', 'left', 'right'],
   insets: customInsets,
@@ -75,8 +73,6 @@ export const SafeArea = React.memo(function SafeArea({
 
   return (
     <Box
-      x={x}
-      y={y}
       style={{
         ...style,
         width,

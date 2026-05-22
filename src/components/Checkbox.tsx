@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { Path } from '@shopify/react-native-skia';
 import { Box } from './Box';
-import { useWidget } from '../hooks/useWidget';
+import { Icon } from './Icon';
+import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -38,8 +38,6 @@ export interface CheckboxProps extends WidgetProps {
  * Equivalent to Flutter Checkbox.
  */
 export const Checkbox = React.memo(function Checkbox({
-  x = 0,
-  y = 0,
   size = 24,
   checked = false,
   disabled = false,
@@ -62,25 +60,17 @@ export const Checkbox = React.memo(function Checkbox({
       : activeColor
     : 'transparent';
 
-  const checkPath = `M${x + size * 0.2} ${y + size * 0.5} l${size * 0.25} ${
-    size * 0.25
-  } l${size * 0.35} -${size * 0.35}`;
-
   const handlePress = () => {
     if (disabled) return;
     onChange?.(!checked);
     onPress?.();
   };
 
-  useWidget({
-    type: 'Checkbox',
-    layout: { x, y, width: size, height: size },
-  });
+  const widgetId = useWidgetId('Checkbox');
 
   return (
     <Box
-      x={x}
-      y={y}
+      id={widgetId}
       style={{
         width: size,
         height: size,
@@ -89,19 +79,17 @@ export const Checkbox = React.memo(function Checkbox({
         borderWidth: style?.borderWidth ?? 2,
         borderColor: style?.borderColor ?? borderColor,
         opacity: disabled ? 0.5 : 1,
+        justifyContent: 'center',
+        alignItems: 'center',
       }}
       hitTestBehavior="translucent"
-      interactive={disabled ? 'none' : 'ripple'}
       onPress={handlePress}
     >
       {checked && (
-        <Path
-          path={checkPath}
+        <Icon
+          name="check"
+          size={size * 0.8}
           color="white"
-          style="stroke"
-          strokeWidth={2.5}
-          strokeCap="round"
-          strokeJoin="round"
         />
       )}
     </Box>
