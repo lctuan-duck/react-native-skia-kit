@@ -54,17 +54,16 @@ export const Scaffold = React.memo(function Scaffold({
   const finalX = layoutResult?.x ?? 0;
   const finalY = layoutResult?.y ?? 0;
 
-  
   // Resolve FAB positioning
   // Using absolute positioning inside Yoga layout
   const bottomNavGap = bottomNavigationBar ? 64 : 0;
-  
+
   const fabStyle: any = {
     position: 'absolute',
     bottom: bottomNavGap + 16,
     zIndex: 10, // Ensure FAB sits on top
   };
-  
+
   if (fabPosition === 'bottomRight') {
     fabStyle.right = 16;
   } else if (fabPosition === 'bottomLeft') {
@@ -86,19 +85,15 @@ export const Scaffold = React.memo(function Scaffold({
       }}
     >
       {appBar}
-      
+
       <Expanded>
-        <Box style={{ flex: 1, overflow: 'hidden' }}>
-          {body}
-        </Box>
+        <Box style={{ flex: 1, overflow: 'hidden' }}>{body}</Box>
       </Expanded>
 
       {bottomNavigationBar}
 
       {floatingActionButton && (
-        <Box style={fabStyle}>
-          {floatingActionButton}
-        </Box>
+        <Box style={fabStyle}>{floatingActionButton}</Box>
       )}
 
       {drawer}

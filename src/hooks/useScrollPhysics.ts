@@ -1,5 +1,10 @@
 import { useCallback, useEffect } from 'react';
-import { useSharedValue, withDecay, withSpring, cancelAnimation } from 'react-native-reanimated';
+import {
+  useSharedValue,
+  withDecay,
+  withSpring,
+  cancelAnimation,
+} from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 
 // ===== Types =====
@@ -29,7 +34,9 @@ export function useScrollPhysics(
   config: ScrollPhysicsConfig
 ): ScrollPhysicsResult {
   const scrollOffset = useSharedValue(0);
-  const maxScroll = useSharedValue(Math.max(0, config.contentSize - config.viewportSize));
+  const maxScroll = useSharedValue(
+    Math.max(0, config.contentSize - config.viewportSize)
+  );
 
   // Sync config updates to shared value
   useEffect(() => {
@@ -66,7 +73,6 @@ export function useScrollPhysics(
 
   const handlePanEnd = useCallback(
     (velocity: number) => {
-
       'worklet';
       if (type === 'clamping') {
         // Decay with hard clamping — no overscroll

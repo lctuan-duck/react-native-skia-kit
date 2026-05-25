@@ -17,7 +17,7 @@ import {
   resolveSemanticColor,
   resolveOnColor,
   withOpacity,
-} from '../core/colorUtils';
+} from '../utils/color';
 
 // === Button Types ===
 
@@ -56,7 +56,7 @@ export interface ButtonProps extends WidgetProps {
   /** Interactive effect (Default: ripple) */
   interactive?: 'ripple' | 'bounce' | 'opacity' | 'none';
   /** Manual ripple color override */
-  
+
   /** Press callback */
   onPress?: (localX?: number, localY?: number) => void;
   /** Long press callback */
@@ -172,7 +172,8 @@ export const Button = React.memo(function Button({
     <Box
       style={{
         width: btnWidth,
-        height: h, borderRadius: borderR,
+        height: h,
+        borderRadius: borderR,
         backgroundColor: bgColor,
         borderWidth: borderW,
         borderColor: borderC,
@@ -185,7 +186,6 @@ export const Button = React.memo(function Button({
         gap: icon && text ? 8 : 0,
       }}
       hitTestBehavior="opaque"
-
       onPress={(y) => !disabled && onPress?.(y)}
       onLongPress={onLongPress}
     >

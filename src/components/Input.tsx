@@ -10,7 +10,7 @@ import type {
   FlexChildStyle,
   SemanticColor,
 } from '../types/style.types';
-import { resolveSemanticColor } from '../core/colorUtils';
+import { resolveSemanticColor } from '../utils/color';
 
 // === Input Types ===
 
@@ -61,7 +61,6 @@ export const Input = React.memo(function Input({
   color = 'primary',
   style,
   onFocus,
-
 }: InputProps) {
   const theme = useTheme();
   const focusColor =
@@ -97,7 +96,8 @@ export const Input = React.memo(function Input({
           style?.backgroundColor ??
           (variant === 'solid' ? theme.colors.surfaceVariant : 'transparent'),
         borderWidth: variant === 'outline' ? (isFocused ? 2 : 1) : 0,
-        borderBottomWidth: variant === 'underlined' ? (isFocused ? 2 : 1) : undefined,
+        borderBottomWidth:
+          variant === 'underlined' ? (isFocused ? 2 : 1) : undefined,
         borderColor: isFocused ? focusColor : theme.colors.border,
         paddingLeft: 14,
         paddingRight: 14,
@@ -113,7 +113,7 @@ export const Input = React.memo(function Input({
           width: width - 28,
           fontSize: 16,
           color: showPlaceholder ? placeholderColor : textColor,
-          numberOfLines: 1
+          numberOfLines: 1,
         }}
       />
     </Box>

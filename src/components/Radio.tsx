@@ -9,9 +9,15 @@ import type {
   FlexChildStyle,
   SemanticColor,
 } from '../types/style.types';
-import { resolveSemanticColor, parseColor } from '../core/colorUtils';
+import { resolveSemanticColor, parseColor } from '../utils/color';
 import { uiEngine } from '../core/GlobalEngine';
-import { useSharedValue, withTiming, useAnimatedReaction, interpolateColor } from 'react-native-reanimated';
+import {
+  useSharedValue,
+  withTiming,
+  useAnimatedReaction,
+  interpolateColor,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 // === Radio Types ===
 
@@ -34,6 +40,33 @@ export interface RadioProps extends WidgetProps {
   onPress?: () => void;
 }
 
+const updateRadioUI = (
+  widgetId: string,
+  dotId: string,
+  currentBorderStr: string,
+  currentDotSize: number,
+  r: number,
+  borderWidth: number,
+  dotColorStr: string
+) => {
+  if (!uiEngine) return;
+  uiEngine.updateAnimatedStyles(widgetId, {
+    borderColor: parseColor(currentBorderStr),
+    borderRadius: r,
+    borderWidth: borderWidth,
+  });
+
+  // Since dotId has width: dotSize statically in React, we scale it
+  const scale = currentDotSize / r; 
+  uiEngine.updateAnimatedStyles(dotId, {
+    scaleX: scale,
+    scaleY: scale,
+    backgroundColor: parseColor(dotColorStr),
+    borderRadius: currentDotSize / 2, // Actually, since we scale it, borderRadius should technically remain the original radius before scale, but scaling a circle keeps it a circle if we scale uniformly!
+  });
+  (global as any).skiaKitScrollRedraw?.();
+};
+
 /**
  * Radio — single selection within a group.
  * Equivalent to Flutter Radio.
@@ -51,16 +84,16 @@ export const Radio = React.memo(function Radio({
   const activeColor =
     style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
   const r = size / 2;
-  
+
   const uncheckedBorderColor = theme.colors.outline;
   const disabledBorderColor = theme.colors.textDisabled;
-  
+
   const targetBorderColor = disabled
     ? disabledBorderColor
     : selected
     ? activeColor
     : uncheckedBorderColor;
-    
+
   const dotColor = disabled ? disabledBorderColor : activeColor;
 
   const handlePress = () => {
@@ -71,7 +104,7 @@ export const Radio = React.memo(function Radio({
 
   const widgetId = useWidgetId('Radio');
   const dotId = useWidgetId('RadioDot');
-  
+
   const borderWidth = style?.borderWidth ?? 2;
   const maxDotSize = size * 0.5;
 
@@ -88,43 +121,37 @@ export const Radio = React.memo(function Radio({
       const currentBorder = interpolateColor(
         p,
         [0, 1],
-        [disabled ? disabledBorderColor : uncheckedBorderColor, disabled ? disabledBorderColor : activeColor]
+        [
+          disabled ? disabledBorderColor : uncheckedBorderColor,
+          disabled ? disabledBorderColor : activeColor,
+        ]
       );
-      
+
       const currentDotSize = p * maxDotSize;
 
-      // Update Box border color
-      uiEngine.updateBoxNode(
-        widgetId, 
-        {}, 
-        { 
-          backgroundColor: 0, // transparent
-          borderColor: parseColor(currentBorder),
-          borderRadius: r,
-          borderWidth: borderWidth,
-        }
-      );
-      
-      // Update Dot size via LayoutNode
-      uiEngine.updateLayoutNode(
+      scheduleOnRN(
+        updateRadioUI,
+        widgetId,
         dotId,
-        { 
-          width: currentDotSize,
-          height: currentDotSize,
-        }
-      );
-      
-      // Also update Dot border radius
-      uiEngine.updateBoxNode(
-        dotId,
-        {},
-        {
-          backgroundColor: parseColor(dotColor),
-          borderRadius: currentDotSize / 2,
-        }
+        currentBorder.toString(),
+        currentDotSize,
+        r,
+        borderWidth,
+        dotColor.toString()
       );
     },
-    [activeColor, disabledBorderColor, uncheckedBorderColor, disabled, widgetId, dotId, r, borderWidth, maxDotSize, dotColor]
+    [
+      activeColor,
+      disabledBorderColor,
+      uncheckedBorderColor,
+      disabled,
+      widgetId,
+      dotId,
+      r,
+      borderWidth,
+      maxDotSize,
+      dotColor,
+    ]
   );
 
   return (
@@ -144,12 +171,12 @@ export const Radio = React.memo(function Radio({
       hitTestBehavior="translucent"
       onPress={handlePress}
     >
-      <Box 
+      <Box
         id={dotId}
         style={{
-          width: selected ? maxDotSize : 0,
-          height: selected ? maxDotSize : 0,
-          borderRadius: selected ? maxDotSize / 2 : 0,
+          width: maxDotSize,
+          height: maxDotSize,
+          borderRadius: maxDotSize / 2,
           backgroundColor: dotColor,
         }}
       />

@@ -13,7 +13,7 @@ import {
   resolveSemanticColor,
   withOpacity,
   contrastColor,
-} from '../core/colorUtils';
+} from '../utils/color';
 
 // === Chip Types ===
 

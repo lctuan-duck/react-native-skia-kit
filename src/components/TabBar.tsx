@@ -62,9 +62,10 @@ export const TabBar = React.memo(function TabBar({
   const width = style?.width ?? 360;
   const height = style?.height ?? 48;
   const widgetId = useWidgetId('TabBar');
-  
+
   const layout = useNativeYogaLayout(widgetId, { width, height });
-  const finalWidth = layout?.width > 0 ? layout.width : (typeof width === 'number' ? width : 360);
+  const finalWidth =
+    layout?.width > 0 ? layout.width : typeof width === 'number' ? width : 360;
   const tabWidth = finalWidth / Math.max(1, items.length);
 
   if (variant === 'segment') {

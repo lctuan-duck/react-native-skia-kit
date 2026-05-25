@@ -15,6 +15,7 @@ namespace margelo::nitro::skiakit {
 
     void registerWidget(const std::string& id, double x, double y, double w, double h, double zIndex, double behavior);
     void updateWidgetLayout(const std::string& id, double x, double y, double w, double h);
+    void updatePointerEvents(const std::string& id, const std::string& pointerEvents);
     void unregisterWidget(const std::string& id);
     void setWidgetDynamic(const std::string& id, bool isDynamic);
 

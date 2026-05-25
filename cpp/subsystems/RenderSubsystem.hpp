@@ -6,6 +6,7 @@
 #include "../core/ImageNode.hpp"
 #include "../core/ScrollNode.hpp"
 #include "../core/IconNode.hpp"
+#include "../../nitrogen/generated/shared/c++/NativeAnimatedStyle.hpp"
 
 #include <string>
 #include <unordered_map>
@@ -103,10 +104,7 @@ public:
     auto node = std::make_shared<IconNode>(id);
     node->updateIcon(pathStr, static_cast<SkColor>(color), isStroke, strokeWidth);
     node->onRequestRedraw = _redrawCallback;
-    {
-      std::unique_lock<std::shared_mutex> lock(_nodesMutex);
-      _nodes[id] = node;
-    }
+    insertNode(id, std::move(node));
     markDirty();
   }
 
@@ -237,8 +235,17 @@ public:
     std::shared_lock<std::shared_mutex> lock(_nodesMutex);
     auto it = _nodes.find(id);
     if (it != _nodes.end()) {
-      it->second->setOpacity(opacity);
-      if (_redrawCallback) _redrawCallback();
+      it->second->_opacity.store(opacity, std::memory_order_relaxed);
+      markDirty();
+    }
+  }
+
+  void updateAnimatedStyles(const std::string& id, const NativeAnimatedStyle& style) {
+    std::shared_lock<std::shared_mutex> lock(_nodesMutex);
+    auto it = _nodes.find(id);
+    if (it != _nodes.end()) {
+      it->second->updateAnimatedStyles(style);
+      markDirty();
     }
   }
 

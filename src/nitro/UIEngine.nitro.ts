@@ -75,12 +75,117 @@ export interface NativeYogaStyle {
  * NativeBoxProps — Visual props cho BoxNode.
  * Màu sắc dùng SkColor format (ARGB packed uint32, ví dụ: 0xFF2196F3).
  */
+export interface NativeAnimatedStyle {
+  // Kích thước & Layout Bounds
+  width?: number | string;
+  height?: number | string;
+  margin?: number | string;
+  marginTop?: number | string;
+  marginRight?: number | string;
+  marginBottom?: number | string;
+  marginLeft?: number | string;
+  padding?: number | string;
+  paddingTop?: number | string;
+  paddingRight?: number | string;
+  paddingBottom?: number | string;
+  paddingLeft?: number | string;
+  flex?: number;
+  flexGrow?: number;
+  flexShrink?: number;
+  flexBasis?: number | string;
+  top?: number | string;
+  bottom?: number | string;
+  left?: number | string;
+  right?: number | string;
+
+  // Transform 2D/3D
+  scale?: number;
+  scaleX?: number;
+  scaleY?: number;
+  translateX?: number;
+  translateY?: number;
+  rotateZ?: number;
+  rotateX?: number;
+  rotateY?: number;
+  skewX?: number;
+  skewY?: number;
+  perspective?: number;
+  transformOriginX?: number;
+  transformOriginY?: number;
+
+  // Visual & Layer
+  opacity?: number;
+  backgroundColor?: number;
+  zIndex?: number;
+  pointerEvents?: string; // 'auto' | 'none' | 'box-none' | 'box-only'
+
+  // Bo góc (Radius)
+  borderRadius?: number;
+  borderTopLeftRadius?: number;
+  borderTopRightRadius?: number;
+  borderBottomRightRadius?: number;
+  borderBottomLeftRadius?: number;
+
+  // Viền (Border)
+  borderWidth?: number;
+  borderTopWidth?: number;
+  borderRightWidth?: number;
+  borderBottomWidth?: number;
+  borderLeftWidth?: number;
+  borderColor?: number;
+  borderTopColor?: number;
+  borderRightColor?: number;
+  borderBottomColor?: number;
+  borderLeftColor?: number;
+  borderStyle?: string; // 'solid' | 'dashed' | 'dotted'
+  dashLength?: number;
+  dashSpacing?: number;
+
+  // Bóng đổ (Shadow)
+  shadowColor?: number;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  shadowBlur?: number;
+  shadowOpacity?: number;
+  shadowSpread?: number;
+  shadowType?: string; // 'outer' | 'inner'
+}
+
 export interface NativeBoxProps {
   backgroundColor?: number; // SkColor ARGB
+  
   borderRadius?: number;
+  borderTopLeftRadius?: number;
+  borderTopRightRadius?: number;
+  borderBottomRightRadius?: number;
+  borderBottomLeftRadius?: number;
+  
   borderWidth?: number;
+  borderTopWidth?: number;
+  borderRightWidth?: number;
+  borderBottomWidth?: number;
+  borderLeftWidth?: number;
+  
   borderColor?: number; // SkColor ARGB
+  borderTopColor?: number;
+  borderRightColor?: number;
+  borderBottomColor?: number;
+  borderLeftColor?: number;
+  
+  borderStyle?: string; // 'solid' | 'dashed' | 'dotted'
+  dashLength?: number;
+  dashSpacing?: number;
+
   elevation?: number; // Android shadow / iOS drop shadow
+  
+  shadowColor?: number;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  shadowBlur?: number;
+  shadowOpacity?: number;
+  shadowSpread?: number;
+  shadowType?: string; // 'outer' | 'inner'
+  
   overflowHidden?: boolean;
 }
 
@@ -228,6 +333,7 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
    * Expose ở đây để JS có thể gọi thủ công nếu cần.
    */
   syncLayoutResults(layouts: Record<string, NativeLayoutRect>): void;
+  updateAnimatedStyles(id: string, style: NativeAnimatedStyle): void;
 
   /** Cập nhật scroll offset — gọi từ Reanimated worklet, không rebuild SkPicture */
   updateScrollNodeOffset(id: string, offset: number): void;

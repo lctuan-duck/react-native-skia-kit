@@ -68,19 +68,32 @@ export interface BorderStyle {
   borderBottomLeftRadius?: number;
   borderBottomRightRadius?: number;
   borderColor?: string;
+  borderTopColor?: string;
+  borderRightColor?: string;
+  borderBottomColor?: string;
+  borderLeftColor?: string;
   borderWidth?: number;
   borderTopWidth?: number;
   borderBottomWidth?: number;
   borderLeftWidth?: number;
   borderRightWidth?: number;
+  borderStyle?: 'solid' | 'dashed' | 'dotted';
+  dashLength?: number;
+  dashSpacing?: number;
 }
-
 
 // === Shadow / Elevation ===
 
 export interface ShadowStyle {
   elevation?: number;
   zIndex?: number;
+  shadowColor?: string;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  shadowBlur?: number;
+  shadowOpacity?: number;
+  shadowSpread?: number;
+  shadowType?: 'outer' | 'inner';
 }
 
 // === Transform (Skia Group transform — static or animated) ===
@@ -90,7 +103,7 @@ export interface TransformStyle {
    *  Supports: scale, rotate, translateX, translateY, skewX, skewY */
   transform?: Transforms3d | SharedValue<Transforms3d>;
   /** Transform origin — defaults to Box center */
-  transformOrigin?: { };
+  transformOrigin?: {};
 }
 
 // === Flex Child (khi widget là con của flex container) ===

@@ -40,11 +40,7 @@ export const Stack = React.memo(function Stack({
   clipToBounds: _clipToBounds = true,
   children,
 }: StackProps) {
-  return (
-    <Box style={style}>
-      {children}
-    </Box>
-  );
+  return <Box style={style}>{children}</Box>;
 });
 
 /**

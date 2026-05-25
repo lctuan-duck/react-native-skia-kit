@@ -37,8 +37,8 @@ export interface WidgetProps {
  * Hit test behavior — xác định cách widget phản hồi touch events.
  */
 export type HitTestBehavior =
-  | 'opaque'        // Chặn events
-  | 'translucent'   // Nhận và pass qua
+  | 'opaque' // Chặn events
+  | 'translucent' // Nhận và pass qua
   | 'deferToChild'; // Chỉ nhận nếu child nhận
 
 /**
@@ -165,7 +165,12 @@ export interface BoxProps extends GestureCallbacks {
    * onLayout — callback khi Yoga tính xong layout (best-effort trong v2).
    * Nhận { x, y, width, height } là absolute position trong canvas.
    */
-  onLayout?: (layout: { x: number; y: number; width: number; height: number }) => void;
+  onLayout?: (layout: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) => void;
 
   /** Children — bất kỳ ReactNode nào (Box, Text, Image, ...) */
   children?: React.ReactNode;

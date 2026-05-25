@@ -47,7 +47,8 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
   const x = props.x ?? 0;
   const y = props.y ?? 0;
   const containerWidth = style?.width ?? screenWidth ?? 360;
-  const spinnerX = x + (typeof containerWidth === 'number' ? containerWidth : 360) / 2 - 14; 
+  const spinnerX =
+    x + (typeof containerWidth === 'number' ? containerWidth : 360) / 2 - 14;
   const [refreshing, setRefreshing] = useState(false);
 
   useWidgetId('RefreshIndicator');

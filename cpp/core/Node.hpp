@@ -13,6 +13,7 @@ namespace margelo::nitro::skiakit {
     double zIndex;
     double behavior; // 1 = opaque, 0 = translucent
     uint64_t order;  // Insertion order to resolve DOM depth when zIndex is equal
+    std::string pointerEvents = "auto"; // Thêm dòng này
   };
 
   struct ScrollArea {

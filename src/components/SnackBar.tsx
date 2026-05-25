@@ -1,9 +1,6 @@
 import * as React from 'react';
 import { useEffect } from 'react';
-import {
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { Box } from './Box';
 import { Text } from './Text';
 import { Expanded } from './Expanded';

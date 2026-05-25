@@ -10,9 +10,14 @@ import type {
   SemanticColor,
   LayoutStyle,
 } from '../types/style.types';
-import { resolveSemanticColor } from '../core/colorUtils';
+import { resolveSemanticColor } from '../utils/color';
 import { uiEngine } from '../core/GlobalEngine';
-import { useSharedValue, withTiming, useAnimatedReaction } from 'react-native-reanimated';
+import {
+  useSharedValue,
+  withTiming,
+  useAnimatedReaction,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 // === Slider Types ===
 
@@ -44,6 +49,14 @@ export interface SliderProps extends WidgetProps {
   onSlidingComplete?: (value: number) => void;
 }
 
+const updateSliderUI = (fillId: string, thumbId: string, fillW: number, thumbLeft: number) => {
+  if (uiEngine) {
+    uiEngine.updateLayoutNode(fillId, { width: fillW });
+    uiEngine.updateLayoutNode(thumbId, { left: thumbLeft });
+    (global as any).skiaKitRequestRedraw?.();
+  }
+};
+
 /**
  * Slider — continuous value selection via draggable thumb.
  * Equivalent to Flutter Slider.
@@ -72,15 +85,17 @@ export const Slider = React.memo(function Slider({
   const widgetId = useWidgetId('Slider');
   const fillId = useWidgetId('SliderFill');
   const thumbId = useWidgetId('SliderThumb');
-  
+
   const layout = useNativeYogaLayout(widgetId, { width, height: totalHeight });
-  const finalWidth = layout?.width > 0 ? layout.width : (typeof width === 'number' ? width : 200);
+  const finalWidth =
+    layout?.width > 0 ? layout.width : typeof width === 'number' ? width : 200;
 
   const [internalValue, setInternalValue] = React.useState(value);
   const isDragging = React.useRef(false);
 
-  const getRatio = (v: number) => Math.max(0, Math.min(1, (v - min) / (max - min)));
-  
+  const getRatio = (v: number) =>
+    Math.max(0, Math.min(1, (v - min) / (max - min)));
+
   const animatedRatio = useSharedValue(getRatio(value));
 
   React.useEffect(() => {
@@ -95,9 +110,8 @@ export const Slider = React.memo(function Slider({
     (r) => {
       const fillW = r * finalWidth;
       const thumbCx = r * finalWidth;
-      
-      uiEngine.updateLayoutNode(fillId, { width: fillW });
-      uiEngine.updateLayoutNode(thumbId, { left: thumbCx - thumbR });
+
+      scheduleOnRN(updateSliderUI, fillId, thumbId, fillW, thumbCx - thumbR);
     },
     [finalWidth, fillId, thumbId, thumbR]
   );
@@ -136,47 +150,53 @@ export const Slider = React.memo(function Slider({
     isDragging.current = false;
     onSlidingComplete?.(internalValue);
   };
-  
+
   // Initial calculation for first render
   const initialRatio = getRatio(internalValue);
   const initialFillWidth = initialRatio * finalWidth;
   const initialThumbLeft = initialRatio * finalWidth - thumbR;
 
+  React.useLayoutEffect(() => {
+    updateSliderUI(fillId, thumbId, initialFillWidth, initialThumbLeft);
+  }, [fillId, thumbId, initialFillWidth, initialThumbLeft]);
+
   return (
     <Box
       id={widgetId}
       style={{
-        width,
+        width: finalWidth,
         height: totalHeight,
-        backgroundColor: 'transparent',
-        opacity: disabled ? 0.5 : 1,
         justifyContent: 'center',
+        opacity: disabled ? 0.5 : 1,
+        ...style,
       }}
       hitTestBehavior="opaque"
       onPanStart={handlePanStart}
       onPanUpdate={handlePanUpdate}
       onPanEnd={handlePanEnd}
     >
-      {/* Track background */}
+      {/* Track Background */}
       <Box
         style={{
           width: '100%',
           height: trackH,
-          borderRadius: trackH / 2,
           backgroundColor: trackBg,
+          borderRadius: trackH / 2,
           position: 'absolute',
+          top: (totalHeight - trackH) / 2,
         }}
       />
 
-      {/* Active fill */}
+      {/* Track Fill */}
       <Box
         id={fillId}
         style={{
-          width: initialFillWidth,
           height: trackH,
-          borderRadius: trackH / 2,
           backgroundColor: activeColor,
+          borderRadius: trackH / 2,
           position: 'absolute',
+          top: (totalHeight - trackH) / 2,
+          left: 0,
         }}
       />
 
@@ -191,7 +211,7 @@ export const Slider = React.memo(function Slider({
           borderWidth: 2,
           borderColor: activeColor,
           position: 'absolute',
-          left: initialThumbLeft,
+          top: 0,
         }}
       />
     </Box>

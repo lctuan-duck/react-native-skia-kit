@@ -1,9 +1,6 @@
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import {
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { useHeroStore } from '../stores/heroStore';
 import { Box } from './Box';
 import type { WidgetProps } from '../types/widget.types';
@@ -49,10 +46,17 @@ export const Hero = React.memo(function Hero({
 }: HeroProps) {
   const isTransitioning = useHeroStore((s) => s.isTransitioning);
 
-  console.log(`[Hero] ${tag} rendering with size ${width}x${height}, isTransitioning: ${isTransitioning}`);
+  console.log(
+    `[Hero] ${tag} rendering with size ${width}x${height}, isTransitioning: ${isTransitioning}`
+  );
   return (
     <Box
-      style={{ width, height, overflow: 'hidden', opacity: isTransitioning ? 0 : 1 }}
+      style={{
+        width,
+        height,
+        overflow: 'hidden',
+        opacity: isTransitioning ? 0 : 1,
+      }}
       onLayout={(layout) => {
         useHeroStore.getState().registerHero(tag, {
           tag,
@@ -134,9 +138,9 @@ export const HeroOverlay = React.memo(function HeroOverlay({
     // Save current positions for next transition
     const heroMap = useHeroStore.getState().heroMap;
     const snapshot = new Map<
-    string,
-    { x: number; y: number; width: number; height: number }
-  >();
+      string,
+      { x: number; y: number; width: number; height: number }
+    >();
 
     for (const [tag, hero] of heroMap) {
       snapshot.set(tag, { ...hero.rect });
@@ -148,7 +152,16 @@ export const HeroOverlay = React.memo(function HeroOverlay({
   if (!isTransitioning || transitions.length === 0) return null;
 
   return (
-    <Box style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}>
+    <Box
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 9999,
+      }}
+    >
       {transitions.map((t) => (
         <HeroAnimatedRect
           key={t.tag}
@@ -172,20 +185,20 @@ interface HeroAnimatedRectProps {
 const HeroAnimatedRect = React.memo(function HeroAnimatedRect({
   to,
 }: HeroAnimatedRectProps) {
-  // TODO: V2 Engine currently does not support animated transform/width/height 
+  // TODO: V2 Engine currently does not support animated transform/width/height
   // via Reanimated SharedValues directly to BoxNode.
   // This will require 'updateRenderNodeTransform' exposed to JS.
   // For now we just render it at the 'to' position.
 
   return (
-    <Box 
+    <Box
       style={{
         position: 'absolute',
         left: to.x,
         top: to.y,
         width: to.width,
         height: to.height,
-        backgroundColor: "rgba(0,0,0,0.2)"
+        backgroundColor: 'rgba(0,0,0,0.2)',
       }}
     />
   );

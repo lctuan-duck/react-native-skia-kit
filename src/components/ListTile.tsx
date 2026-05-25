@@ -54,7 +54,7 @@ export const ListTile = React.memo(function ListTile({
   leading,
   trailing,
   dense = false,
-  
+
   style,
   onPress,
   onLongPress,

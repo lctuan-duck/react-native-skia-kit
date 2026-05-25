@@ -100,7 +100,9 @@ export const Modal = React.memo(function Modal({
   const modalY = (screenHeight - h) / 2;
 
   return (
-    <Box style={{ width: screenWidth, height: screenHeight, position: 'absolute' }}>
+    <Box
+      style={{ width: screenWidth, height: screenHeight, position: 'absolute' }}
+    >
       <Overlay
         visible
         barrierColor={barrierColor}
@@ -173,7 +175,9 @@ export const BottomSheet = React.memo(function BottomSheet({
   const elev = style?.elevation ?? 16;
 
   return (
-    <Box style={{ width: screenWidth, height: screenHeight, position: 'absolute' }}>
+    <Box
+      style={{ width: screenWidth, height: screenHeight, position: 'absolute' }}
+    >
       <Overlay
         visible
         barrierColor={barrierColor}
@@ -255,7 +259,9 @@ export const Drawer = React.memo(function Drawer({
   const drawerX = side === 'left' ? 0 : screenWidth - drawerWidth;
 
   return (
-    <Box style={{ width: screenWidth, height: screenHeight, position: 'absolute' }}>
+    <Box
+      style={{ width: screenWidth, height: screenHeight, position: 'absolute' }}
+    >
       <Overlay
         visible
         barrierColor={barrierColor}

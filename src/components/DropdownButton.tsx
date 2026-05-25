@@ -70,8 +70,14 @@ export const DropdownButton = React.memo(function DropdownButton<
   const widgetId = useWidgetId('DropdownButton');
   const layout = useNativeYogaLayout(widgetId, { width, height });
 
-  const finalWidth = layout?.width > 0 ? layout.width : (typeof width === 'number' ? width : 200);
-  const finalHeight = layout?.height > 0 ? layout.height : (typeof height === 'number' ? height : 48);
+  const finalWidth =
+    layout?.width > 0 ? layout.width : typeof width === 'number' ? width : 200;
+  const finalHeight =
+    layout?.height > 0
+      ? layout.height
+      : typeof height === 'number'
+      ? height
+      : 48;
   const finalY = layout?.y ?? 0;
 
   return (

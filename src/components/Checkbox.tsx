@@ -10,9 +10,15 @@ import type {
   FlexChildStyle,
   SemanticColor,
 } from '../types/style.types';
-import { resolveSemanticColor, parseColor } from '../core/colorUtils';
+import { resolveSemanticColor, parseColor } from '../utils/color';
 import { uiEngine } from '../core/GlobalEngine';
-import { useSharedValue, withTiming, useAnimatedReaction, interpolateColor } from 'react-native-reanimated';
+import {
+  useSharedValue,
+  withTiming,
+  useAnimatedReaction,
+  interpolateColor,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 // === Checkbox Types ===
 
@@ -35,6 +41,28 @@ export interface CheckboxProps extends WidgetProps {
   onPress?: () => void;
 }
 
+const updateCheckboxUI = (
+  widgetId: string,
+  iconId: string,
+  currentBgStr: string,
+  currentBorderStr: string,
+  borderRadius: number,
+  borderWidth: number,
+  opacity: number
+) => {
+  if (!uiEngine) return;
+  uiEngine.updateAnimatedStyles(widgetId, {
+    backgroundColor: parseColor(currentBgStr),
+    borderColor: parseColor(currentBorderStr),
+    borderRadius: borderRadius,
+    borderWidth: borderWidth,
+  });
+
+  // Update Icon opacity
+  uiEngine.updateRenderNodeStyle(iconId, opacity);
+  (global as any).skiaKitScrollRedraw?.();
+};
+
 /**
  * Checkbox — boolean toggle with checkmark.
  * Equivalent to Flutter Checkbox.
@@ -51,16 +79,16 @@ export const Checkbox = React.memo(function Checkbox({
   const theme = useTheme();
   const activeColor =
     style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
-    
+
   const uncheckedBorderColor = theme.colors.outline;
   const disabledBorderColor = theme.colors.textDisabled;
-  
+
   const targetBorderColor = disabled
     ? disabledBorderColor
     : checked
     ? activeColor
     : uncheckedBorderColor;
-    
+
   const targetBgColor = checked
     ? disabled
       ? disabledBorderColor
@@ -75,7 +103,7 @@ export const Checkbox = React.memo(function Checkbox({
 
   const widgetId = useWidgetId('Checkbox');
   const iconId = useWidgetId('CheckboxIcon');
-  
+
   const borderRadius = style?.borderRadius ?? 4;
   const borderWidth = style?.borderWidth ?? 2;
 
@@ -94,29 +122,37 @@ export const Checkbox = React.memo(function Checkbox({
         [0, 1],
         ['transparent', disabled ? disabledBorderColor : activeColor]
       );
-      
+
       const currentBorder = interpolateColor(
         p,
         [0, 1],
-        [disabled ? disabledBorderColor : uncheckedBorderColor, disabled ? disabledBorderColor : activeColor]
+        [
+          disabled ? disabledBorderColor : uncheckedBorderColor,
+          disabled ? disabledBorderColor : activeColor,
+        ]
       );
 
-      // Update Box background and border
-      uiEngine.updateBoxNode(
-        widgetId, 
-        {}, 
-        { 
-          backgroundColor: parseColor(currentBg),
-          borderColor: parseColor(currentBorder),
-          borderRadius: borderRadius,
-          borderWidth: borderWidth,
-        }
+      scheduleOnRN(
+        updateCheckboxUI,
+        widgetId,
+        iconId,
+        currentBg.toString(),
+        currentBorder.toString(),
+        borderRadius,
+        borderWidth,
+        p
       );
-      
-      // Update Icon opacity
-      uiEngine.updateRenderNodeStyle(iconId, p);
     },
-    [activeColor, disabledBorderColor, uncheckedBorderColor, disabled, widgetId, iconId, borderRadius, borderWidth]
+    [
+      activeColor,
+      disabledBorderColor,
+      uncheckedBorderColor,
+      disabled,
+      widgetId,
+      iconId,
+      borderRadius,
+      borderWidth,
+    ]
   );
 
   return (

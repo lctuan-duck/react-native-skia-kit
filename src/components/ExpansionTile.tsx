@@ -60,7 +60,7 @@ export const ExpansionTile = React.memo(function ExpansionTile({
     : style?.collapsedBackgroundColor ?? 'transparent';
 
   return (
-    <Column >
+    <Column>
       <Box
         style={{
           width,

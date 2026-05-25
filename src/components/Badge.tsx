@@ -9,7 +9,7 @@ import type {
   FlexChildStyle,
   SemanticColor,
 } from '../types/style.types';
-import { resolveSemanticColor, resolveOnColor } from '../core/colorUtils';
+import { resolveSemanticColor, resolveOnColor } from '../utils/color';
 
 // === Badge Types ===
 

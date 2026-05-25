@@ -3,7 +3,7 @@ import { DefaultEventPriority } from 'react-reconciler/constants';
 import { uiEngine } from './GlobalEngine';
 import type { NativeYogaStyle } from '../nitro/UIEngine.nitro';
 import type { ViewStyle } from 'react-native';
-import { parseColor } from './colorUtils';
+import { parseColor } from '../utils/color';
 
 // ── Callback registry (JS thread) ────────────────────────────────────────────
 // Lưu trữ gesture/event callbacks riêng biệt với render tree.
@@ -87,7 +87,7 @@ function recursiveUnregister(id: string) {
   // Safe optional call for scroll areas — only scroll nodes are registered
   try {
     (uiEngine as any).unregisterScrollArea?.(id);
-  } catch {}
+  } catch { }
   unregisterJSCallbacks(id);
 }
 
@@ -104,6 +104,49 @@ function isInteractive(props: any): boolean {
 }
 
 // ── Style converters ──────────────────────────────────────────────────────────
+
+import type { NativeBoxProps } from '../nitro/UIEngine.nitro';
+
+function extractBoxProps(props: any): NativeBoxProps {
+  const style = props.style || {};
+  return {
+    backgroundColor: parseColor(style.backgroundColor),
+    
+    borderRadius: style.borderRadius ?? 0,
+    borderTopLeftRadius: style.borderTopLeftRadius,
+    borderTopRightRadius: style.borderTopRightRadius,
+    borderBottomRightRadius: style.borderBottomRightRadius,
+    borderBottomLeftRadius: style.borderBottomLeftRadius,
+    
+    borderWidth: style.borderWidth ?? 0,
+    borderTopWidth: style.borderTopWidth,
+    borderRightWidth: style.borderRightWidth,
+    borderBottomWidth: style.borderBottomWidth,
+    borderLeftWidth: style.borderLeftWidth,
+    
+    borderColor: parseColor(style.borderColor),
+    borderTopColor: parseColor(style.borderTopColor),
+    borderRightColor: parseColor(style.borderRightColor),
+    borderBottomColor: parseColor(style.borderBottomColor),
+    borderLeftColor: parseColor(style.borderLeftColor),
+    
+    borderStyle: style.borderStyle,
+    dashLength: style.dashLength,
+    dashSpacing: style.dashSpacing,
+
+    elevation: props.elevation ?? style.elevation ?? 0,
+    
+    shadowColor: parseColor(style.shadowColor),
+    shadowOffsetX: style.shadowOffsetX,
+    shadowOffsetY: style.shadowOffsetY,
+    shadowBlur: style.shadowBlur,
+    shadowOpacity: style.shadowOpacity,
+    shadowSpread: style.shadowSpread,
+    shadowType: style.shadowType,
+    
+    overflowHidden: style.overflow === 'hidden',
+  };
+}
 
 /**
  * buildNativeStyle — Chuyển React Native ViewStyle → NativeYogaStyle.
@@ -311,7 +354,7 @@ const baseHostConfig = {
   resolveUpdatePriority() {
     return DefaultEventPriority;
   },
-  setCurrentUpdatePriority() {},
+  setCurrentUpdatePriority() { },
   resolveEventTimeStamp() {
     return Date.now();
   },
@@ -325,10 +368,10 @@ const baseHostConfig = {
   resolveEventPriority() {
     return DefaultEventPriority;
   },
-  requestPostPaintCallback() {},
-  trackSchedulerEvent() {},
-  trackSchedulerEventInDEV() {},
-  detachDeletedInstance() {},
+  requestPostPaintCallback() { },
+  trackSchedulerEvent() { },
+  trackSchedulerEventInDEV() { },
+  detachDeletedInstance() { },
   shouldAttemptEagerTransition() {
     return false;
   },
@@ -347,8 +390,8 @@ const baseHostConfig = {
   preloadInstance(_type: string, _props: any) {
     return true;
   }, // true = already loaded
-  startSuspendingCommit() {},
-  suspendInstance(_type: string, _props: any) {},
+  startSuspendingCommit() { },
+  suspendInstance(_type: string, _props: any) { },
   waitForCommitToBeReady() {
     return null;
   }, // null = not suspending
@@ -383,23 +426,14 @@ const baseHostConfig = {
 
     switch (type) {
       case 'Box': {
-        const overflowHidden = props.style?.overflow === 'hidden';
-        const bgColor = parseColor(props.style?.backgroundColor);
-        if (__DEV__ && bgColor !== 0) {
+        const boxProps = extractBoxProps(props);
+        if (__DEV__ && boxProps.backgroundColor !== 0) {
           console.log(
-            `[SkiaKit Box] id=${id} bg=0x${bgColor.toString(16)} raw="${
-              props.style?.backgroundColor
-            }" borderRadius=${props.style?.borderRadius}`
+            `[SkiaKit Box] id=${id} bg=0x${boxProps.backgroundColor?.toString(16)} raw="${props.style?.backgroundColor
+            }" borderRadius=${boxProps.borderRadius}`
           );
         }
-        uiEngine.createBoxNode(id, yogaStyle, {
-          backgroundColor: bgColor,
-          borderRadius: props.style?.borderRadius ?? 0,
-          borderWidth: props.style?.borderWidth ?? 0,
-          borderColor: parseColor(props.style?.borderColor),
-          elevation: props.elevation ?? 0,
-          overflowHidden,
-        });
+        uiEngine.createBoxNode(id, yogaStyle, boxProps);
         // Register HitTest ONLY if interactive
         if (isInteractive(props) || props.hitTestBehavior) {
           const zIndex = props.style?.zIndex ?? 0;
@@ -497,14 +531,8 @@ const baseHostConfig = {
       case 'Flexible':
       case 'Wrap':
       case 'Spacer': {
-        uiEngine.createBoxNode(id, yogaStyle, {
-          backgroundColor: parseColor(props.style?.backgroundColor),
-          borderRadius: props.style?.borderRadius ?? 0,
-          borderWidth: props.style?.borderWidth ?? 0,
-          borderColor: parseColor(props.style?.borderColor),
-          elevation: props.elevation ?? 0,
-          overflowHidden: props.style?.overflow === 'hidden',
-        });
+        const boxProps = extractBoxProps(props);
+        uiEngine.createBoxNode(id, yogaStyle, boxProps);
         if (isInteractive(props) || props.hitTestBehavior) {
           const zIndex = props.style?.zIndex ?? 0;
           const behavior = props.hitTestBehavior === 'opaque' ? 1 : 0;
@@ -630,7 +658,7 @@ const baseHostConfig = {
     if (type === 'Text') {
       const contentChanged =
         (oldProps.text ?? oldProps.children) !==
-          (newProps.text ?? newProps.children) ||
+        (newProps.text ?? newProps.children) ||
         oldProps.numberOfLines !== newProps.numberOfLines;
       const styleChanged =
         oldProps.style?.fontSize !== newProps.style?.fontSize ||
@@ -710,15 +738,8 @@ const baseHostConfig = {
 
     switch (type) {
       case 'Box': {
-        const bgColor = parseColor(newProps.style?.backgroundColor);
-        uiEngine.updateBoxNode(id, yogaStyle, {
-          backgroundColor: bgColor,
-          borderRadius: newProps.style?.borderRadius ?? 0,
-          borderWidth: newProps.style?.borderWidth ?? 0,
-          borderColor: parseColor(newProps.style?.borderColor),
-          elevation: newProps.elevation ?? 0,
-          overflowHidden: newProps.style?.overflow === 'hidden',
-        });
+        const boxProps = extractBoxProps(newProps);
+        uiEngine.updateBoxNode(id, yogaStyle, boxProps);
         break;
       }
 
@@ -810,15 +831,8 @@ const baseHostConfig = {
 
       default: {
         // Fallback BoxNode — cập nhật layout và visual style
-        const bgColor = parseColor(newProps.style?.backgroundColor);
-        uiEngine.updateBoxNode(id, yogaStyle, {
-          backgroundColor: bgColor,
-          borderRadius: newProps.style?.borderRadius ?? 0,
-          borderWidth: newProps.style?.borderWidth ?? 0,
-          borderColor: parseColor(newProps.style?.borderColor),
-          elevation: newProps.elevation ?? 0,
-          overflowHidden: newProps.style?.overflow === 'hidden',
-        });
+        const boxProps = extractBoxProps(newProps);
+        uiEngine.updateBoxNode(id, yogaStyle, boxProps);
         break;
       }
     }
@@ -863,12 +877,12 @@ const baseHostConfig = {
 
   finalizeInitialChildren: () => false,
   shouldSetTextContent: () => false,
-  clearContainer: () => {},
+  clearContainer: () => { },
   getCurrentEventPriority: () => DefaultEventPriority,
   getInstanceFromNode: () => null,
-  beforeActiveInstanceBlur() {},
-  afterActiveInstanceBlur() {},
-  preparePortalMount() {},
+  beforeActiveInstanceBlur() { },
+  afterActiveInstanceBlur() { },
+  preparePortalMount() { },
 } as const;
 
 // ── Factory per CanvasRoot ────────────────────────────────────────────────────

@@ -11,10 +11,10 @@ import {
   Gesture,
 } from 'react-native-gesture-handler';
 import { useOverlayStore } from '../stores/overlayStore';
-import { uiEngine } from './GlobalEngine';
-import { WidgetContext } from './WidgetContext';
+import { uiEngine } from '../core/GlobalEngine';
+import { WidgetContext } from '../core/WidgetContext';
 
-import { createSkiaKitHostConfig } from './SkiaKitReconciler';
+import { createSkiaKitHostConfig } from '../core/SkiaKitReconciler';
 import { updateLayoutSVs } from '../stores/layoutRegistry';
 
 interface CanvasRootProps {
@@ -71,16 +71,7 @@ export const CanvasRoot = React.memo(function CanvasRoot({
         screenHeight
       );
 
-      if (__DEV__) {
-        const allLayouts = uiEngine.getAllLayouts() ?? {};
-        const nodeCount = Object.keys(allLayouts).length;
-        console.log(
-          '[SkiaKit] picture bytes:',
-          buffer?.byteLength ?? 0,
-          'nodes:',
-          nodeCount
-        );
-      }
+      // Removing heavy JNI call in requestRedraw loop
 
       if (buffer && buffer.byteLength > 100) {
         // > 100 bytes = có content thực sự
@@ -116,7 +107,11 @@ export const CanvasRoot = React.memo(function CanvasRoot({
     if (isScrollRedrawingRef.current) return;
     isScrollRedrawingRef.current = true;
     try {
-      const buffer = uiEngine.getRootPicture(canvasId, screenWidth, screenHeight);
+      const buffer = uiEngine.getRootPicture(
+        canvasId,
+        screenWidth,
+        screenHeight
+      );
       if (buffer && buffer.byteLength > 100) {
         const newPicture = Skia.Picture.MakePicture(new Uint8Array(buffer));
         if (newPicture) {
@@ -316,7 +311,7 @@ export const CanvasRoot = React.memo(function CanvasRoot({
 
   const triggerJSCallback = React.useCallback(
     (id: string, type: string, args: any = {}) => {
-      const { getJSCallbacks } = require('./SkiaKitReconciler');
+      const { getJSCallbacks } = require('../core/SkiaKitReconciler');
       const cbs = getJSCallbacks(id);
       if (!cbs) return false;
 
@@ -422,7 +417,11 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       .runOnJS(true)
       .onStart((e) => {
         const hits = uiEngine.hitTest(e.x, e.y);
-        console.log(`[Pan.onStart] touch=(${e.x.toFixed(0)},${e.y.toFixed(0)}) hits=${hits.length} ids=[${hits.map(h => h.id).join(',')}]`);
+        console.log(
+          `[Pan.onStart] touch=(${e.x.toFixed(0)},${e.y.toFixed(0)}) hits=${
+            hits.length
+          } ids=[${hits.map((h: any) => h.id).join(',')}]`
+        );
         for (let i = hits.length - 1; i >= 0; i--) {
           const hit = hits[i]!;
           const ev = {
@@ -462,7 +461,11 @@ export const CanvasRoot = React.memo(function CanvasRoot({
           };
           // Log once per gesture (first update only)
           if (Math.abs(e.translationY) < 15 && Math.abs(e.translationX) < 15) {
-            console.log(`[Pan.onUpdate] id=${globalActivePanIdRef.current} tx=${e.translationX.toFixed(1)} ty=${e.translationY.toFixed(1)}`);
+            console.log(
+              `[Pan.onUpdate] id=${
+                globalActivePanIdRef.current
+              } tx=${e.translationX.toFixed(1)} ty=${e.translationY.toFixed(1)}`
+            );
           }
           triggerJSCallback(globalActivePanIdRef.current, 'panUpdate', ev);
         }

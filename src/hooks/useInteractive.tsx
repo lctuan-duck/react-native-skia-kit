@@ -78,11 +78,14 @@ export function useInteractive(
     return noopResult;
   }
 
-  const updateStyle = useCallback((opacity: number) => {
-    if (uiEngine && widgetId) {
-      uiEngine.updateRenderNodeStyle(widgetId, opacity);
-    }
-  }, [widgetId]);
+  const updateStyle = useCallback(
+    (opacity: number) => {
+      if (uiEngine && widgetId) {
+        uiEngine.updateRenderNodeStyle(widgetId, opacity);
+      }
+    },
+    [widgetId]
+  );
 
   // Sync to C++ via runOnJS (uiEngine is a host object, not shareable to UI thread)
   try {

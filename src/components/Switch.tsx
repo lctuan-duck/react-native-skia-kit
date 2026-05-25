@@ -8,9 +8,15 @@ import type {
   FlexChildStyle,
   SemanticColor,
 } from '../types/style.types';
-import { resolveSemanticColor, parseColor } from '../core/colorUtils';
+import { resolveSemanticColor, parseColor } from '../utils/color';
 import { uiEngine } from '../core/GlobalEngine';
-import { useSharedValue, withTiming, useAnimatedReaction, interpolateColor } from 'react-native-reanimated';
+import {
+  useSharedValue,
+  withTiming,
+  useAnimatedReaction,
+  interpolateColor,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 // === Switch Types ===
 
@@ -36,6 +42,20 @@ export interface SwitchProps extends WidgetProps {
   /** Press callback */
   onPress?: () => void;
 }
+
+const updateSwitchUI = (
+  tid: string,
+  cid: string,
+  colorStr: string,
+  leftPadding: number
+) => {
+  if (!uiEngine) return;
+  uiEngine.updateAnimatedStyles(tid, {
+    backgroundColor: parseColor(colorStr),
+  });
+  uiEngine.updateAnimatedStyles(cid, { translateX: leftPadding });
+  (global as any).skiaKitScrollRedraw?.();
+};
 
 /**
  * Switch — toggle on/off with animated thumb.
@@ -86,26 +106,28 @@ export const Switch = React.memo(function Switch({
         [0, 1],
         [inactiveTrack, disabled ? disabledColor : activeColor]
       );
-      
+
       const currentLeft = p * maxTravel;
 
-      // Update C++ Render Tree for color
-      uiEngine.updateBoxNode(
-        trackId, 
-        {}, 
-        { 
-          backgroundColor: parseColor(currentTrackColor),
-          borderRadius: finalH / 2,
-        }
-      );
-      
-      // Update C++ Layout Tree for thumb position
-      uiEngine.updateLayoutNode(
-        thumbId, 
-        { paddingLeft: currentLeft }
+      // Update C++ Render Tree for color and position via JS thread
+      scheduleOnRN(
+        updateSwitchUI,
+        trackId,
+        thumbId,
+        currentTrackColor.toString(),
+        currentLeft
       );
     },
-    [inactiveTrack, activeColor, disabled, disabledColor, maxTravel, trackId, thumbId, finalH]
+    [
+      inactiveTrack,
+      activeColor,
+      disabled,
+      disabledColor,
+      maxTravel,
+      trackId,
+      thumbId,
+      finalH,
+    ]
   );
 
   return (
@@ -115,10 +137,9 @@ export const Switch = React.memo(function Switch({
         width: finalW,
         height: finalH,
         borderRadius: finalH / 2,
-        // Start with the correct color
-        backgroundColor: value ? (disabled ? disabledColor : activeColor) : inactiveTrack,
         opacity: disabled ? 0.5 : 1,
-        justifyContent: 'center',
+        flexDirection: 'row',
+        alignItems: 'center',
         padding: 2,
       }}
       hitTestBehavior="translucent"
@@ -127,18 +148,15 @@ export const Switch = React.memo(function Switch({
       <Box
         id={thumbId}
         style={{
-          paddingLeft: value ? maxTravel : 0, // start correctly
+          width: thumbSize,
+          height: thumbSize,
+          borderRadius: thumbSize / 2,
+          backgroundColor: thumbClr,
+          shadowColor: theme.colors.shadow,
+          shadowOffsetY: 1,
+          shadowBlur: 2,
         }}
-      >
-        <Box
-          style={{
-            width: thumbSize,
-            height: thumbSize,
-            borderRadius: thumbSize / 2,
-            backgroundColor: thumbClr,
-          }}
-        />
-      </Box>
+      />
     </Box>
   );
 });

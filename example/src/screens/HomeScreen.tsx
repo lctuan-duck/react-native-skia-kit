@@ -144,15 +144,26 @@ export function HomeScreen() {
             style={{
               width: '100%',
               height: 220,
-              borderRadius: 24,
+              borderTopLeftRadius: 32,
+              borderTopRightRadius: 32,
+              borderBottomLeftRadius: 12,
+              borderBottomRightRadius: 12,
               backgroundColor: '#1A1A2E',
-              elevation: 16,
+              elevation: 0,
+              shadowColor: '#00E5FF',
+              shadowBlur: 24,
+              shadowOpacity: 0.5,
+              shadowOffsetY: 8,
               padding: 24,
               flexDirection: 'column',
               justifyContent: 'space-between',
-              // Simple gradient-like feel using dark solid with bright border
-              borderWidth: 1,
-              borderColor: '#00E5FF40',
+              borderTopWidth: 2,
+              borderBottomWidth: 1,
+              borderTopColor: '#00E5FF',
+              borderBottomColor: '#B000FF',
+              borderStyle: 'dashed',
+              dashLength: 10,
+              dashSpacing: 5,
             }}
           >
             <Row style={{ justifyContent: 'space-between', width: '100%' }}>

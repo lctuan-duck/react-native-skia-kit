@@ -215,11 +215,13 @@ export const ScrollView = React.forwardRef<any, ScrollViewProps>(
           // Entered overscroll past bottom boundary.
           if (overscrollEntryDeltaRef.current === null) {
             // Exact delta when content hit maxScroll: delta = startOffset - maxScroll
-            overscrollEntryDeltaRef.current = startOffsetRef.current - currentMaxScroll;
+            overscrollEntryDeltaRef.current =
+              startOffsetRef.current - currentMaxScroll;
           }
           const excess = Math.abs(delta - overscrollEntryDeltaRef.current);
           clampedVal =
-            currentMaxScroll + maxOverscroll * Math.tanh(excess / maxOverscroll);
+            currentMaxScroll +
+            maxOverscroll * Math.tanh(excess / maxOverscroll);
         } else {
           // Back in bounds — reset entry point for next overscroll
           overscrollEntryDeltaRef.current = null;

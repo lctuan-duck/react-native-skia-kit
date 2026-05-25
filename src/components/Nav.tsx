@@ -65,7 +65,8 @@ export const Nav = React.memo(function Nav({
   const [currentScreen, setCurrentScreen] = useState(initial);
 
   // Sync với navStore khi store thay đổi
-  const storeScreenName = useNavStore((s) => s.getCurrentScreenName('main')) ?? initial;
+  const storeScreenName =
+    useNavStore((s) => s.getCurrentScreenName('main')) ?? initial;
   const storeSetCurrentScreen = useNavStore((s) => s.setCurrentScreen);
 
   useEffect(() => {
@@ -91,7 +92,12 @@ export const Nav = React.memo(function Nav({
   });
 
   if (__DEV__) {
-    console.log('[Nav] rendering screen:', currentScreen, 'has node:', !!currentScreenNode);
+    console.log(
+      '[Nav] rendering screen:',
+      currentScreen,
+      'has node:',
+      !!currentScreenNode
+    );
   }
 
   // Nav container dùng Box (SkiaKit host element) thay vì Group (Shopify Skia)

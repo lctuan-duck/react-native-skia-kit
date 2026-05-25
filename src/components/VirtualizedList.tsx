@@ -11,7 +11,11 @@ import { useMemo, useState } from 'react';
 import { Box } from './Box';
 import { ScrollView } from './ScrollView';
 import type { WidgetProps } from '../types/widget.types';
-import type { LayoutStyle, SpacingStyle, FlexChildStyle } from '../types/style.types';
+import type {
+  LayoutStyle,
+  SpacingStyle,
+  FlexChildStyle,
+} from '../types/style.types';
 
 export interface VirtualizedListProps<T> extends WidgetProps {
   /** Data array */
@@ -40,13 +44,16 @@ export const VirtualizedList = React.memo(function VirtualizedList<T>({
   separatorHeight = 0,
 }: VirtualizedListProps<T>) {
   const [scrollOffset, setScrollOffset] = useState(0);
-  
+
   const totalItemHeight = itemHeight + separatorHeight;
   const contentHeight = data.length * totalItemHeight;
   const numHeight = (style?.height as number) || 800; // rough estimate if no style.height
 
   // Render only visible items
-  const visibleStart = Math.max(0, Math.floor(scrollOffset / totalItemHeight) - bufferCount);
+  const visibleStart = Math.max(
+    0,
+    Math.floor(scrollOffset / totalItemHeight) - bufferCount
+  );
 
   const visibleItems = useMemo(() => {
     const items: React.ReactNode[] = [];
@@ -61,26 +68,39 @@ export const VirtualizedList = React.memo(function VirtualizedList<T>({
       const key = keyExtractor ? keyExtractor(item, i) : String(i);
       const itemY = i * totalItemHeight;
       items.push(
-        <Box 
-          key={key} 
-          style={{ position: 'absolute', top: itemY, left: 0, right: 0, height: itemHeight }}
+        <Box
+          key={key}
+          style={{
+            position: 'absolute',
+            top: itemY,
+            left: 0,
+            right: 0,
+            height: itemHeight,
+          }}
         >
           {renderItem(item, i)}
         </Box>
       );
     }
     return items;
-  }, [data, totalItemHeight, numHeight, bufferCount, visibleStart, keyExtractor, renderItem, itemHeight]);
+  }, [
+    data,
+    totalItemHeight,
+    numHeight,
+    bufferCount,
+    visibleStart,
+    keyExtractor,
+    renderItem,
+    itemHeight,
+  ]);
 
   return (
-    <ScrollView 
-      style={style} 
+    <ScrollView
+      style={style}
       contentSize={contentHeight}
       onScroll={setScrollOffset}
     >
-      <Box style={{ width: '100%', height: contentHeight }}>
-        {visibleItems}
-      </Box>
+      <Box style={{ width: '100%', height: contentHeight }}>{visibleItems}</Box>
     </ScrollView>
   );
 }) as <T>(props: VirtualizedListProps<T>) => React.ReactElement;

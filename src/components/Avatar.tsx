@@ -10,7 +10,7 @@ import type {
   FlexChildStyle,
   SemanticColor,
 } from '../types/style.types';
-import { resolveSemanticColor } from '../core/colorUtils';
+import { resolveSemanticColor } from '../utils/color';
 
 // === Avatar Types ===
 
@@ -50,7 +50,7 @@ export const Avatar = React.memo(function Avatar({
   color = 'neutral',
   status,
   style,
-  
+
   onPress,
 }: AvatarProps) {
   const theme = useTheme();

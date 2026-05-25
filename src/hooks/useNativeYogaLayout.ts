@@ -15,7 +15,12 @@ export interface NativeComputedLayout {
 // Re-export để backward compat với các import cũ
 export type ComponentYogaStyle = Record<string, any>;
 
-export const DEFAULT_LAYOUT: NativeComputedLayout = { x: 0, y: 0, width: 0, height: 0 };
+export const DEFAULT_LAYOUT: NativeComputedLayout = {
+  x: 0,
+  y: 0,
+  width: 0,
+  height: 0,
+};
 
 /**
  * useNativeYogaLayout — Đọc computed layout từ C++ Yoga engine.

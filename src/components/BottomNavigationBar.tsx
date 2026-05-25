@@ -39,7 +39,6 @@ export interface BottomNavigationBarProps extends WidgetProps {
   /** Style override */
   style?: BottomNavigationBarStyle;
   onChange?: (index: number) => void;
-
 }
 
 export const BottomNavigationBar = React.memo(function BottomNavigationBar({
@@ -60,7 +59,6 @@ export const BottomNavigationBar = React.memo(function BottomNavigationBar({
   // Use screen height instead of hardcoded 800
   const barY = screenHeight - numHeight;
 
-
   const widgetId = useWidgetId('BottomNavigationBar');
 
   // Participate in Yoga layout tree
@@ -72,7 +70,6 @@ export const BottomNavigationBar = React.memo(function BottomNavigationBar({
 
   const finalX = layoutResult?.x ?? 0;
   const finalY = layoutResult?.y ?? barY;
-
 
   return (
     <Box

@@ -76,20 +76,20 @@ export function contrastColor(hex: string): string {
 export function parseColor(color?: string): number {
   'worklet';
   if (!color || color === 'transparent') return 0x00000000;
-  if (color === 'white') return 0xFFFFFFFF;
-  if (color === 'black') return 0xFF000000;
-  
+  if (color === 'white') return 0xffffffff;
+  if (color === 'black') return 0xff000000;
+
   if (color.startsWith('#')) {
     const hex = color.slice(1);
     if (hex.length === 3) {
       const r = parseInt(hex[0]! + hex[0]!, 16);
       const g = parseInt(hex[1]! + hex[1]!, 16);
       const b = parseInt(hex[2]! + hex[2]!, 16);
-      return (0xFF000000 | (r << 16) | (g << 8) | b) >>> 0;
+      return (0xff000000 | (r << 16) | (g << 8) | b) >>> 0;
     }
     if (hex.length === 6) {
       const n = parseInt(hex, 16);
-      return (0xFF000000 | n) >>> 0;
+      return (0xff000000 | n) >>> 0;
     }
     if (hex.length === 8) {
       // #RRGGBBAA → AARRGGBB (SkColor is ARGB)
@@ -103,8 +103,10 @@ export function parseColor(color?: string): number {
   if (color.startsWith('rgb')) {
     const m = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
     if (m) {
-      const r = parseInt(m[1]!), g = parseInt(m[2]!), b = parseInt(m[3]!);
-      const a = Math.round((parseFloat(m[4] ?? '1')) * 255);
+      const r = parseInt(m[1]!),
+        g = parseInt(m[2]!),
+        b = parseInt(m[3]!);
+      const a = Math.round(parseFloat(m[4] ?? '1') * 255);
       return ((a << 24) | (r << 16) | (g << 8) | b) >>> 0;
     }
   }

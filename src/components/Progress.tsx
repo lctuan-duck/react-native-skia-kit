@@ -9,9 +9,16 @@ import type {
   FlexChildStyle,
   SemanticColor,
 } from '../types/style.types';
-import { resolveSemanticColor } from '../core/colorUtils';
+import { resolveSemanticColor } from '../utils/color';
 import { uiEngine } from '../core/GlobalEngine';
-import { useSharedValue, withTiming, withRepeat, withSequence, useAnimatedReaction } from 'react-native-reanimated';
+import {
+  useSharedValue,
+  withTiming,
+  withRepeat,
+  withSequence,
+  useAnimatedReaction,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 // === Progress Types ===
 
@@ -36,6 +43,32 @@ export interface ProgressProps extends WidgetProps {
   /** Style override */
   style?: ProgressStyle;
 }
+
+const updateProgressUI = (
+  fillId: string,
+  isDeterminate: boolean,
+  p: number,
+  finalWidth: number,
+  variant: 'linear' | 'circular'
+) => {
+  if (!uiEngine) return;
+  if (variant === 'circular') {
+    uiEngine.updateAnimatedStyles(fillId, { rotateZ: p * 360 });
+  } else {
+    if (isDeterminate) {
+      uiEngine.updateLayoutNode(fillId, { width: p * finalWidth });
+    } else {
+      // Indeterminate: fixed width, animate left position
+      const fillW = finalWidth * 0.4;
+      const maxLeft = finalWidth - fillW;
+      uiEngine.updateLayoutNode(fillId, {
+        width: fillW,
+        left: p * maxLeft,
+      });
+    }
+  }
+  (global as any).skiaKitScrollRedraw?.();
+};
 
 /**
  * Progress — linear bar or circular spinner.
@@ -64,12 +97,13 @@ export const Progress = React.memo(function Progress({
 
   const widgetId = useWidgetId('Progress');
   const fillId = useWidgetId('ProgressFill');
-  const layout = useNativeYogaLayout(widgetId, { 
-    width: variant === 'linear' ? width : size, 
-    height: variant === 'linear' ? height : size 
+  const layout = useNativeYogaLayout(widgetId, {
+    width: variant === 'linear' ? width : size,
+    height: variant === 'linear' ? height : size,
   });
-  
-  const finalWidth = layout?.width > 0 ? layout.width : (typeof width === 'number' ? width : 200);
+
+  const finalWidth =
+    layout?.width > 0 ? layout.width : typeof width === 'number' ? width : 200;
 
   const safeValue = isDeterminate ? Math.max(0, Math.min(1, value)) : 0;
   const progress = useSharedValue(safeValue);
@@ -81,10 +115,7 @@ export const Progress = React.memo(function Progress({
     } else {
       // Indeterminate animation
       indetProgress.value = withRepeat(
-        withSequence(
-          withTiming(1, { duration: 1000 }),
-          withTiming(0, { duration: 1000 })
-        ),
+        withTiming(1, { duration: 1000 }),
         -1, // infinite
         false
       );
@@ -92,30 +123,18 @@ export const Progress = React.memo(function Progress({
   }, [isDeterminate, safeValue, progress, indetProgress]);
 
   useAnimatedReaction(
-    () => isDeterminate ? progress.value : indetProgress.value,
+    () => (isDeterminate ? progress.value : indetProgress.value),
     (p) => {
-      if (variant !== 'linear') return;
-      
-      if (isDeterminate) {
-        uiEngine.updateLayoutNode(fillId, { width: p * finalWidth });
-      } else {
-        // Indeterminate: fixed width, animate left position
-        const fillW = finalWidth * 0.4;
-        const maxLeft = finalWidth - fillW;
-        uiEngine.updateLayoutNode(fillId, { 
-          width: fillW,
-          left: p * maxLeft
-        });
-      }
+      scheduleOnRN(updateProgressUI, fillId, isDeterminate, p, finalWidth, variant);
     },
     [isDeterminate, finalWidth, fillId, variant]
   );
 
-  if (variant === 'linear') {
-    const initialFillWidth = isDeterminate
-      ? finalWidth * safeValue
-      : finalWidth * 0.4;
+  React.useLayoutEffect(() => {
+    updateProgressUI(fillId, isDeterminate, safeValue, finalWidth, variant);
+  }, [fillId, isDeterminate, safeValue, finalWidth, variant]);
 
+  if (variant === 'linear') {
     return (
       <Box
         id={widgetId}
@@ -130,12 +149,10 @@ export const Progress = React.memo(function Progress({
         <Box
           id={fillId}
           style={{
-            width: initialFillWidth,
             height: '100%',
             backgroundColor: resolvedColor,
             borderRadius: height / 2,
             position: 'absolute',
-            left: 0,
           }}
         />
       </Box>
@@ -143,8 +160,6 @@ export const Progress = React.memo(function Progress({
   }
 
   // === CIRCULAR ===
-  // In V2 without Skia primitives, we simulate circular progress with a styled Box
-  // Without transform: rotate, indeterminate circular animation is static for now.
   return (
     <Box
       id={widgetId}
@@ -158,14 +173,16 @@ export const Progress = React.memo(function Progress({
         alignItems: 'center',
       }}
     >
-      <Box 
+      <Box
+        id={fillId}
         style={{
           width: size,
           height: size,
           borderRadius: size / 2,
           borderWidth: strokeW,
           borderColor: resolvedColor,
-          opacity: 0.5,
+          borderTopColor: 'transparent',
+          borderRightColor: 'transparent',
           position: 'absolute',
         }}
       />

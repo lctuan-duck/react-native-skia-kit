@@ -99,7 +99,10 @@ export const Dismissible = React.memo(function Dismissible({
       style={{ width, height, backgroundColor: 'transparent' }}
       hitTestBehavior="opaque"
       onPanEnd={(e: PanEvent) => {
-        const delta = direction === 'horizontal' ? Math.abs(e.translationX) : Math.abs(e.translationY);
+        const delta =
+          direction === 'horizontal'
+            ? Math.abs(e.translationX)
+            : Math.abs(e.translationY);
         if (delta > threshold) {
           onDismiss();
         }

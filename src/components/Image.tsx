@@ -1,6 +1,10 @@
 import * as React from 'react';
 import type { WidgetProps } from '../types/widget.types';
-import type { ColorStyle, BorderStyle, FlexChildStyle } from '../types/style.types';
+import type {
+  ColorStyle,
+  BorderStyle,
+  FlexChildStyle,
+} from '../types/style.types';
 
 export type ImageStyle = ColorStyle &
   BorderStyle &

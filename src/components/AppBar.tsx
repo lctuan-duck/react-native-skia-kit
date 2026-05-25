@@ -64,7 +64,6 @@ export const AppBar = React.memo(function AppBar({
   const finalX = layoutResult?.x ?? 0;
   const finalY = layoutResult?.y ?? 0;
 
-
   const leadingWidget =
     leading ??
     (onBack || nav.canGoBack() ? (

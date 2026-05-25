@@ -8,7 +8,7 @@ import type {
   LayoutStyle,
 } from '../types/style.types';
 import { useTheme } from '../hooks/useTheme';
-import { resolveSemanticColor } from '../core/colorUtils';
+import { resolveSemanticColor } from '../utils/color';
 
 // === Divider Types ===
 
@@ -46,14 +46,8 @@ export const Divider = React.memo(function Divider({
   const thickness = style?.thickness ?? 1;
 
   // Yoga layout dimensions: horizontal divider stretches width, vertical stretches height
-  const yogaWidth = orientation === 'horizontal' ? (length ?? '100%') : thickness;
-  const yogaHeight = orientation === 'vertical' ? (length ?? '100%') : thickness;
-
-  
-  
-
-  
-  
+  const yogaWidth = orientation === 'horizontal' ? length ?? '100%' : thickness;
+  const yogaHeight = orientation === 'vertical' ? length ?? '100%' : thickness;
 
   if (orientation === 'horizontal') {
     return (

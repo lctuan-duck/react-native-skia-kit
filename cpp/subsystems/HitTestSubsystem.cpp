@@ -84,6 +84,27 @@ namespace margelo::nitro::skiakit {
     }
   }
 
+  void HitTestSubsystem::updatePointerEvents(const std::string& id, const std::string& pointerEvents) {
+    auto it = _allWidgets.find(id);
+    if (it != _allWidgets.end()) {
+      WidgetNode updatedNode = it->second;
+      updatedNode.pointerEvents = pointerEvents;
+      _allWidgets[id] = updatedNode;
+
+      if (_dynamicStatusMap[id]) {
+        for (auto& n : _dynamicNodes) {
+          if (n.id == id) {
+            n = updatedNode;
+            break;
+          }
+        }
+      } else {
+        _staticTree.remove(id);
+        _staticTree.insert(updatedNode);
+      }
+    }
+  }
+
   void HitTestSubsystem::unregisterWidget(const std::string& id) {
     _allWidgets.erase(id);
     _dynamicStatusMap.erase(id);
@@ -190,6 +211,9 @@ namespace margelo::nitro::skiakit {
 
     std::vector<NativeHitResult> result;
     for (const auto& node : hits) {
+      if (node.pointerEvents == "none") {
+        continue;
+      }
       result.push_back(NativeHitResult(node.id, adjustedX - node.x, adjustedY - node.y));
       // behavior 1 = opaque, stops propagation
       if (node.behavior == 1.0) {

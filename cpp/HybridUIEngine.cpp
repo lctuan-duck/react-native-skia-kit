@@ -71,7 +71,7 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
     // AUTO-BRIDGE 1: Layout → HitTest (needs ABSOLUTE positions for hit testing)
     auto allLayouts = _layoutSubsystem.getAllLayouts();
     for (const auto& [id, rect] : allLayouts) {
-      _hitTestSubsystem.updateWidgetLayout(id, rect.x, rect.y, rect.width, rect.height);
+      _hitTestSubsystem.updateWidgetLayout(id, rect.x.value_or(0), rect.y.value_or(0), rect.width, rect.height);
     }
 
     // AUTO-BRIDGE 2: Layout → RenderSubsystem (needs RELATIVE positions for recursive canvas translate)
@@ -79,7 +79,7 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
     std::unordered_map<std::string, CachedLayout> renderLayouts;
     renderLayouts.reserve(relLayouts.size());
     for (const auto& [id, rect] : relLayouts) {
-      renderLayouts[id] = { static_cast<float>(rect.x), static_cast<float>(rect.y), static_cast<float>(rect.width), static_cast<float>(rect.height) };
+      renderLayouts[id] = { static_cast<float>(rect.x.value_or(0)), static_cast<float>(rect.y.value_or(0)), static_cast<float>(rect.width), static_cast<float>(rect.height) };
     }
     _renderSubsystem.syncLayoutResults(renderLayouts);
   }
@@ -94,12 +94,41 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
 
   BoxProps HybridUIEngine::toBoxProps(const NativeBoxProps& p) {
     return {
-      .backgroundColor = static_cast<uint32_t>(p.backgroundColor.value_or(0x00000000)),
-      .borderRadius    = static_cast<float>(p.borderRadius.value_or(0)),
-      .borderWidth     = static_cast<float>(p.borderWidth.value_or(0)),
-      .borderColor     = static_cast<uint32_t>(p.borderColor.value_or(0xFF000000)),
-      .elevation        = (float)p.elevation.value_or(0.0),
-      .overflowHidden   = p.overflowHidden.value_or(false),
+      .backgroundColor         = static_cast<uint32_t>(p.backgroundColor.value_or(0x00000000)),
+      
+      .borderRadius            = static_cast<float>(p.borderRadius.value_or(0)),
+      .borderTopLeftRadius     = static_cast<float>(p.borderTopLeftRadius.value_or(-1)),
+      .borderTopRightRadius    = static_cast<float>(p.borderTopRightRadius.value_or(-1)),
+      .borderBottomRightRadius = static_cast<float>(p.borderBottomRightRadius.value_or(-1)),
+      .borderBottomLeftRadius  = static_cast<float>(p.borderBottomLeftRadius.value_or(-1)),
+      
+      .borderWidth             = static_cast<float>(p.borderWidth.value_or(0)),
+      .borderTopWidth          = static_cast<float>(p.borderTopWidth.value_or(-1)),
+      .borderRightWidth        = static_cast<float>(p.borderRightWidth.value_or(-1)),
+      .borderBottomWidth       = static_cast<float>(p.borderBottomWidth.value_or(-1)),
+      .borderLeftWidth         = static_cast<float>(p.borderLeftWidth.value_or(-1)),
+      
+      .borderColor             = static_cast<uint32_t>(p.borderColor.value_or(0x00000000)),
+      .borderTopColor          = static_cast<uint32_t>(p.borderTopColor.value_or(0)),
+      .borderRightColor        = static_cast<uint32_t>(p.borderRightColor.value_or(0)),
+      .borderBottomColor       = static_cast<uint32_t>(p.borderBottomColor.value_or(0)),
+      .borderLeftColor         = static_cast<uint32_t>(p.borderLeftColor.value_or(0)),
+      
+      .borderStyle             = p.borderStyle.value_or("solid"),
+      .dashLength              = static_cast<float>(p.dashLength.value_or(-1)),
+      .dashSpacing             = static_cast<float>(p.dashSpacing.value_or(-1)),
+
+      .elevation               = static_cast<float>(p.elevation.value_or(0.0)),
+      
+      .shadowColor             = static_cast<uint32_t>(p.shadowColor.value_or(0x00000000)),
+      .shadowOffsetX           = static_cast<float>(p.shadowOffsetX.value_or(0)),
+      .shadowOffsetY           = static_cast<float>(p.shadowOffsetY.value_or(0)),
+      .shadowBlur              = static_cast<float>(p.shadowBlur.value_or(0)),
+      .shadowOpacity           = static_cast<float>(p.shadowOpacity.value_or(1.0)),
+      .shadowSpread            = static_cast<float>(p.shadowSpread.value_or(0)),
+      .shadowType              = p.shadowType.value_or("outer"),
+      
+      .overflowHidden          = p.overflowHidden.value_or(false),
     };
   }
 
@@ -140,8 +169,12 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
     _layoutSubsystem.markDirty(id);
   }
 
-  void HybridUIEngine::createImageNode(const std::string& id, const std::string& uri) {
+  void HybridUIEngine::createImageNode(const std::string& id, const std::string& uri, const std::string& fit, double borderRadius) {
     _renderSubsystem.createImageNode(id, uri);
+  }
+  
+  void HybridUIEngine::updateImageNode(const std::string& id, const std::string& uri, const std::string& fit, double borderRadius) {
+    // Tạm thời chưa xử lý update image
   }
 
   void HybridUIEngine::startImageLoad(const std::string& id) {
@@ -160,9 +193,13 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
     _renderSubsystem.updateIconNode(id, pathStr, static_cast<uint32_t>(color), isStroke, (float)strokeWidth);
   }
 
-  void HybridUIEngine::createScrollNode(const std::string& id, bool horizontal) {
+  void HybridUIEngine::createScrollNode(const std::string& id, bool horizontal, double contentPadding) {
     _layoutSubsystem.updateLayoutNode(id, {});  // Empty style — JS sẽ update sau
     _renderSubsystem.createScrollNode(id, horizontal);
+  }
+
+  void HybridUIEngine::updateScrollNode(const std::string& id, bool horizontal, double contentPadding) {
+    // Tạm thời chưa xử lý update layout contentPadding
   }
 
   void HybridUIEngine::addRenderChild(const std::string& parentId, const std::string& childId) {
@@ -193,9 +230,49 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
     std::unordered_map<std::string, CachedLayout> renderLayouts;
     renderLayouts.reserve(layouts.size());
     for (const auto& [id, rect] : layouts) {
-      renderLayouts[id] = { static_cast<float>(rect.x), static_cast<float>(rect.y), static_cast<float>(rect.width), static_cast<float>(rect.height) };
+      renderLayouts[id] = { static_cast<float>(rect.x.value_or(0)), static_cast<float>(rect.y.value_or(0)), static_cast<float>(rect.width), static_cast<float>(rect.height) };
     }
     _renderSubsystem.syncLayoutResults(renderLayouts);
+  }
+
+  void HybridUIEngine::updateAnimatedStyles(const std::string& id, const NativeAnimatedStyle& style) {
+    // 1. Cập nhật Render properties (Transform, Opacity, Colors, v.v...)
+    _renderSubsystem.updateAnimatedStyles(id, style);
+    
+    if (style.pointerEvents.has_value()) {
+      _hitTestSubsystem.updatePointerEvents(id, style.pointerEvents.value());
+    }
+
+    // 2. Phân loại Paint vs Layout-Affecting properties
+    bool isLayoutAffecting = false;
+    NativeYogaStyle layoutStyle;
+
+    if (style.width.has_value()) { layoutStyle.width = style.width; isLayoutAffecting = true; }
+    if (style.height.has_value()) { layoutStyle.height = style.height; isLayoutAffecting = true; }
+    // margin/padding is handled by explicit layout props in YogaStyle
+    // No direct mapping available for shorthand margin/padding in NativeYogaStyle.
+    if (style.marginTop.has_value()) { layoutStyle.marginTop = style.marginTop; isLayoutAffecting = true; }
+    if (style.marginRight.has_value()) { layoutStyle.marginRight = style.marginRight; isLayoutAffecting = true; }
+    if (style.marginBottom.has_value()) { layoutStyle.marginBottom = style.marginBottom; isLayoutAffecting = true; }
+    if (style.marginLeft.has_value()) { layoutStyle.marginLeft = style.marginLeft; isLayoutAffecting = true; }
+    // No direct mapping for shorthand padding either.
+    if (style.paddingTop.has_value()) { layoutStyle.paddingTop = style.paddingTop; isLayoutAffecting = true; }
+    if (style.paddingRight.has_value()) { layoutStyle.paddingRight = style.paddingRight; isLayoutAffecting = true; }
+    if (style.paddingBottom.has_value()) { layoutStyle.paddingBottom = style.paddingBottom; isLayoutAffecting = true; }
+    if (style.paddingLeft.has_value()) { layoutStyle.paddingLeft = style.paddingLeft; isLayoutAffecting = true; }
+    if (style.flex.has_value()) { layoutStyle.flex = style.flex; isLayoutAffecting = true; }
+    if (style.flexGrow.has_value()) { layoutStyle.flexGrow = style.flexGrow; isLayoutAffecting = true; }
+    if (style.flexShrink.has_value()) { layoutStyle.flexShrink = style.flexShrink; isLayoutAffecting = true; }
+    if (style.flexBasis.has_value()) { layoutStyle.flexBasis = style.flexBasis; isLayoutAffecting = true; }
+    if (style.top.has_value()) { layoutStyle.top = style.top; isLayoutAffecting = true; }
+    if (style.bottom.has_value()) { layoutStyle.bottom = style.bottom; isLayoutAffecting = true; }
+    if (style.left.has_value()) { layoutStyle.left = style.left; isLayoutAffecting = true; }
+    if (style.right.has_value()) { layoutStyle.right = style.right; isLayoutAffecting = true; }
+
+    if (isLayoutAffecting) {
+      _layoutSubsystem.updateLayoutNode(id, layoutStyle);
+      _layoutSubsystem.markDirty(id); // Ép Yoga tính toán lại
+    }
   }
 
   void HybridUIEngine::updateScrollNodeOffset(const std::string& id, double offset) {

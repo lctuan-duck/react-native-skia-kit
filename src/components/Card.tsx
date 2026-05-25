@@ -51,7 +51,7 @@ export const Card = React.memo(function Card({
   variant = 'solid',
   color: _color = 'primary',
   style,
-  
+
   children,
   onPress,
   onLongPress,
@@ -74,7 +74,9 @@ export const Card = React.memo(function Card({
     <Box
       style={{
         ...style,
-        width: w, height: h, borderRadius: borderR,
+        width: w,
+        height: h,
+        borderRadius: borderR,
         backgroundColor: bgColor,
         elevation: elev,
         borderWidth: borderW,

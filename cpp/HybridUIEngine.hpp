@@ -65,11 +65,13 @@ namespace margelo::nitro::skiakit {
     void createTextNode(const std::string& id, const NativeYogaStyle& yogaStyle, const NativeTextProps& props) override;
     void updateTextNode(const std::string& id, const NativeYogaStyle& yogaStyle, const NativeTextProps& props) override;
 
-    void createImageNode(const std::string& id, const std::string& uri) override;
+    void createImageNode(const std::string& id, const std::string& uri, const std::string& fit, double borderRadius) override;
+    void updateImageNode(const std::string& id, const std::string& uri, const std::string& fit, double borderRadius) override;
     void startImageLoad(const std::string& id) override;
     void createIconNode(const std::string& id, const NativeYogaStyle& yogaStyle, const std::string& pathStr, double color, bool isStroke, double strokeWidth) override;
     void updateIconNode(const std::string& id, const NativeYogaStyle& yogaStyle, const std::string& pathStr, double color, bool isStroke, double strokeWidth) override;
-    void createScrollNode(const std::string& id, bool horizontal) override;
+    void createScrollNode(const std::string& id, bool horizontal, double contentPadding) override;
+    void updateScrollNode(const std::string& id, bool horizontal, double contentPadding) override;
 
     void addRenderChild(const std::string& parentId, const std::string& childId) override;
     void insertRenderChildBefore(const std::string& parentId, const std::string& childId, const std::string& beforeChildId) override;
@@ -77,6 +79,7 @@ namespace margelo::nitro::skiakit {
     void removeRenderNode(const std::string& id) override;
 
     void syncLayoutResults(const std::unordered_map<std::string, NativeLayoutRect>& layouts) override;
+    void updateAnimatedStyles(const std::string& id, const NativeAnimatedStyle& style) override;
     void updateScrollNodeOffset(const std::string& id, double offset) override;
     void updateRenderNodeStyle(const std::string& id, double opacity) override;
     void markDirty(const std::string& rootId) override;
