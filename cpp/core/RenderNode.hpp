@@ -70,6 +70,23 @@ public:
     YGNodeInsertChild(yogaNode, child->yogaNode, index);
   }
 
+  void insertChildBefore(const std::shared_ptr<RenderNode>& child, const std::string& beforeId) {
+    std::unique_lock<std::shared_mutex> lock(_childrenMutex);
+    auto it = std::find_if(children.begin(), children.end(), 
+                           [&beforeId](const std::shared_ptr<RenderNode>& c) { return c->id == beforeId; });
+    if (it != children.end()) {
+      auto index = static_cast<uint32_t>(std::distance(children.begin(), it));
+      children.insert(it, child);
+      child->parent = shared_from_this();
+      YGNodeInsertChild(yogaNode, child->yogaNode, index);
+    } else {
+      children.push_back(child);
+      child->parent = shared_from_this();
+      auto index = static_cast<uint32_t>(children.size() - 1);
+      YGNodeInsertChild(yogaNode, child->yogaNode, index);
+    }
+  }
+
   void removeChild(const std::shared_ptr<RenderNode>& child) {
     std::unique_lock<std::shared_mutex> lock(_childrenMutex);
     auto it = std::find(children.begin(), children.end(), child);

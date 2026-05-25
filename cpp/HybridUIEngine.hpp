@@ -72,6 +72,7 @@ namespace margelo::nitro::skiakit {
     void createScrollNode(const std::string& id, bool horizontal) override;
 
     void addRenderChild(const std::string& parentId, const std::string& childId) override;
+    void insertRenderChildBefore(const std::string& parentId, const std::string& childId, const std::string& beforeChildId) override;
     void removeRenderChild(const std::string& parentId, const std::string& childId) override;
     void removeRenderNode(const std::string& id) override;
 

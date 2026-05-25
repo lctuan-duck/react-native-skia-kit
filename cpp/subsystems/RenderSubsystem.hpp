@@ -169,6 +169,22 @@ public:
     _isDirty.store(true);
   }
 
+  void insertRenderChildBefore(const std::string& parentId, const std::string& childId, const std::string& beforeChildId) {
+    std::unique_lock<std::shared_mutex> lock(_nodesMutex);
+    auto pit = _nodes.find(parentId);
+    auto cit = _nodes.find(childId);
+    if (pit == _nodes.end() || cit == _nodes.end()) {
+      SKIAKIT_LOG("insertRenderChildBefore FAILED: parent=%s(%s) child=%s(%s)",
+        parentId.c_str(), pit == _nodes.end() ? "NOT FOUND" : "OK",
+        childId.c_str(), cit == _nodes.end() ? "NOT FOUND" : "OK");
+      return;
+    }
+    pit->second->insertChildBefore(cit->second, beforeChildId);
+    SKIAKIT_LOG("insertRenderChildBefore OK: parent=%s now has %zu children",
+      parentId.c_str(), pit->second->children.size());
+    _isDirty.store(true);
+  }
+
   void removeRenderChild(const std::string& parentId, const std::string& childId) {
     std::unique_lock<std::shared_mutex> lock(_nodesMutex);
     auto pit = _nodes.find(parentId);

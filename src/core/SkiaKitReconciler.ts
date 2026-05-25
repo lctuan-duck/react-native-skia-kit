@@ -80,12 +80,14 @@ function recursiveUnregister(id: string) {
     }
     nodeChildren.delete(id);
   }
-  
+
   // 2. Cleanup this node — C++ removeRenderNode handles render tree recursively
   uiEngine.removeRenderNode(id);
   uiEngine.unregisterWidget(id);
   // Safe optional call for scroll areas — only scroll nodes are registered
-  try { (uiEngine as any).unregisterScrollArea?.(id); } catch (_) {}
+  try {
+    (uiEngine as any).unregisterScrollArea?.(id);
+  } catch {}
   unregisterJSCallbacks(id);
 }
 
@@ -101,7 +103,6 @@ function isInteractive(props: any): boolean {
   );
 }
 
-
 // ── Style converters ──────────────────────────────────────────────────────────
 
 /**
@@ -113,17 +114,19 @@ function isInteractive(props: any): boolean {
  * Hỗ trợ shorthand padding/margin: style.padding và style.paddingVertical/Horizontal
  * được expand thành per-edge values để C++ nhận đúng.
  */
-export function buildNativeStyle(style?: ViewStyle & {
-  padding?: any;
-  paddingHorizontal?: any;
-  paddingVertical?: any;
-  margin?: any;
-  marginHorizontal?: any;
-  marginVertical?: any;
-  gap?: any;
-  rowGap?: any;
-  columnGap?: any;
-}): NativeYogaStyle {
+export function buildNativeStyle(
+  style?: ViewStyle & {
+    padding?: any;
+    paddingHorizontal?: any;
+    paddingVertical?: any;
+    margin?: any;
+    marginHorizontal?: any;
+    marginVertical?: any;
+    gap?: any;
+    rowGap?: any;
+    columnGap?: any;
+  }
+): NativeYogaStyle {
   if (!style) return {};
 
   // Expand padding shorthand: per-edge > axis > all
@@ -173,10 +176,13 @@ export function buildNativeStyle(style?: ViewStyle & {
   const result: NativeYogaStyle = {};
 
   // Container flex
-  if (style.flexDirection != null) result.flexDirection = style.flexDirection as string;
-  if (style.justifyContent != null) result.justifyContent = style.justifyContent as string;
+  if (style.flexDirection != null)
+    result.flexDirection = style.flexDirection as string;
+  if (style.justifyContent != null)
+    result.justifyContent = style.justifyContent as string;
   if (style.alignItems != null) result.alignItems = style.alignItems as string;
-  if (style.alignContent != null) result.alignContent = style.alignContent as string;
+  if (style.alignContent != null)
+    result.alignContent = style.alignContent as string;
   if (style.flexWrap != null) result.flexWrap = style.flexWrap as string;
   if (style.gap != null) result.gap = style.gap as number;
   if (style.rowGap != null) result.rowGap = style.rowGap as number;
@@ -186,17 +192,23 @@ export function buildNativeStyle(style?: ViewStyle & {
   if (style.flex != null) result.flex = style.flex as number;
   if (style.flexGrow != null) result.flexGrow = style.flexGrow as number;
   if (style.flexShrink != null) result.flexShrink = style.flexShrink as number;
-  if (style.flexBasis != null) result.flexBasis = style.flexBasis as number | string;
+  if (style.flexBasis != null)
+    result.flexBasis = style.flexBasis as number | string;
   if (style.alignSelf != null) result.alignSelf = style.alignSelf as string;
 
   // Dimensions
   if (style.width != null) result.width = style.width as number | string;
   if (style.height != null) result.height = style.height as number | string;
-  if (style.minWidth != null) result.minWidth = style.minWidth as number | string;
-  if (style.maxWidth != null) result.maxWidth = style.maxWidth as number | string;
-  if (style.minHeight != null) result.minHeight = style.minHeight as number | string;
-  if (style.maxHeight != null) result.maxHeight = style.maxHeight as number | string;
-  if (style.aspectRatio != null) result.aspectRatio = style.aspectRatio as number;
+  if (style.minWidth != null)
+    result.minWidth = style.minWidth as number | string;
+  if (style.maxWidth != null)
+    result.maxWidth = style.maxWidth as number | string;
+  if (style.minHeight != null)
+    result.minHeight = style.minHeight as number | string;
+  if (style.maxHeight != null)
+    result.maxHeight = style.maxHeight as number | string;
+  if (style.aspectRatio != null)
+    result.aspectRatio = style.aspectRatio as number;
 
   // Layout rules
   if (style.display != null) result.display = style.display as string;
@@ -230,15 +242,47 @@ export function buildNativeStyle(style?: ViewStyle & {
  */
 function shallowEqualYogaStyle(a?: ViewStyle, b?: ViewStyle): boolean {
   const keys: (keyof ViewStyle)[] = [
-    'flex', 'flexGrow', 'flexShrink', 'flexBasis', 'flexDirection',
-    'justifyContent', 'alignItems', 'alignSelf', 'alignContent', 'flexWrap',
-    'width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight',
-    'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
-    'paddingHorizontal', 'paddingVertical', 'padding',
-    'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
-    'marginHorizontal', 'marginVertical', 'margin',
-    'position', 'top', 'left', 'right', 'bottom',
-    'gap', 'rowGap', 'columnGap', 'aspectRatio', 'display', 'overflow',
+    'flex',
+    'flexGrow',
+    'flexShrink',
+    'flexBasis',
+    'flexDirection',
+    'justifyContent',
+    'alignItems',
+    'alignSelf',
+    'alignContent',
+    'flexWrap',
+    'width',
+    'height',
+    'minWidth',
+    'maxWidth',
+    'minHeight',
+    'maxHeight',
+    'paddingTop',
+    'paddingRight',
+    'paddingBottom',
+    'paddingLeft',
+    'paddingHorizontal',
+    'paddingVertical',
+    'padding',
+    'marginTop',
+    'marginRight',
+    'marginBottom',
+    'marginLeft',
+    'marginHorizontal',
+    'marginVertical',
+    'margin',
+    'position',
+    'top',
+    'left',
+    'right',
+    'bottom',
+    'gap',
+    'rowGap',
+    'columnGap',
+    'aspectRatio',
+    'display',
+    'overflow',
   ];
   for (const k of keys) {
     if ((a as any)?.[k] !== (b as any)?.[k]) return false;
@@ -261,40 +305,62 @@ const baseHostConfig = {
   isPrimaryRenderer: false, // Coexist với React Native renderer
 
   // ── Scheduling ────────────────────────────────────────────────────────────
-  getCurrentUpdatePriority() { return DefaultEventPriority; },
-  resolveUpdatePriority() { return DefaultEventPriority; },
-  setCurrentUpdatePriority() { },
-  resolveEventTimeStamp() { return Date.now(); },
+  getCurrentUpdatePriority() {
+    return DefaultEventPriority;
+  },
+  resolveUpdatePriority() {
+    return DefaultEventPriority;
+  },
+  setCurrentUpdatePriority() {},
+  resolveEventTimeStamp() {
+    return Date.now();
+  },
   scheduleTimeout: setTimeout,
   cancelTimeout: clearTimeout,
   noTimeout: -1,
   warnsIfNotActing: true,
-  resolveEventType() { return null; },
-  resolveEventPriority() { return DefaultEventPriority; },
-  requestPostPaintCallback() { },
-  trackSchedulerEvent() { },
-  trackSchedulerEventInDEV() { },
-  detachDeletedInstance() { },
-  shouldAttemptEagerTransition() { return false; },
+  resolveEventType() {
+    return null;
+  },
+  resolveEventPriority() {
+    return DefaultEventPriority;
+  },
+  requestPostPaintCallback() {},
+  trackSchedulerEvent() {},
+  trackSchedulerEventInDEV() {},
+  detachDeletedInstance() {},
+  shouldAttemptEagerTransition() {
+    return false;
+  },
 
   // ── React 19: Commit suspension (must all return false/null for custom renderers) ──
   // These are NEW in React 19. If missing, React calls undefined() → TypeError → commit aborts.
-  maySuspendCommit(_type: string, _props: any) { return false; },
-  maySuspendCommitOnUpdate(_type: string, _oldProps: any, _newProps: any) { return false; },
-  maySuspendCommitInSyncRender(_type: string, _props: any) { return false; },
-  preloadInstance(_type: string, _props: any) { return true; }, // true = already loaded
-  startSuspendingCommit() { },
-  suspendInstance(_type: string, _props: any) { },
-  waitForCommitToBeReady() { return null; }, // null = not suspending
+  maySuspendCommit(_type: string, _props: any) {
+    return false;
+  },
+  maySuspendCommitOnUpdate(_type: string, _oldProps: any, _newProps: any) {
+    return false;
+  },
+  maySuspendCommitInSyncRender(_type: string, _props: any) {
+    return false;
+  },
+  preloadInstance(_type: string, _props: any) {
+    return true;
+  }, // true = already loaded
+  startSuspendingCommit() {},
+  suspendInstance(_type: string, _props: any) {},
+  waitForCommitToBeReady() {
+    return null;
+  }, // null = not suspending
 
   // ── React 19: Microtask scheduling ────────────────────────────────────────
   supportsMicrotasks: true,
   scheduleMicrotask: queueMicrotask,
 
   // ── React 19: getSuspendedCommitReason (for debugging) ────────────────────
-  getSuspendedCommitReason() { return null; },
-
-
+  getSuspendedCommitReason() {
+    return null;
+  },
 
   // ── Node creation ─────────────────────────────────────────────────────────
 
@@ -311,7 +377,8 @@ const baseHostConfig = {
     _rootContainer: { canvasId: string },
     _hostContext: { canvasId: string }
   ): string {
-    const id: string = props.id || `w_${Math.random().toString(36).substr(2, 9)}`;
+    const id: string =
+      props.id || `w_${Math.random().toString(36).substr(2, 9)}`;
     const yogaStyle = buildNativeStyle(props.style);
 
     switch (type) {
@@ -319,7 +386,11 @@ const baseHostConfig = {
         const overflowHidden = props.style?.overflow === 'hidden';
         const bgColor = parseColor(props.style?.backgroundColor);
         if (__DEV__ && bgColor !== 0) {
-          console.log(`[SkiaKit Box] id=${id} bg=0x${bgColor.toString(16)} raw="${props.style?.backgroundColor}" borderRadius=${props.style?.borderRadius}`);
+          console.log(
+            `[SkiaKit Box] id=${id} bg=0x${bgColor.toString(16)} raw="${
+              props.style?.backgroundColor
+            }" borderRadius=${props.style?.borderRadius}`
+          );
         }
         uiEngine.createBoxNode(id, yogaStyle, {
           backgroundColor: bgColor,
@@ -339,9 +410,10 @@ const baseHostConfig = {
       }
 
       case 'Text': {
-        const fontWeight = typeof props.style?.fontWeight === 'string'
-          ? (parseInt(props.style.fontWeight, 10) || 400)
-          : (props.style?.fontWeight ?? 400);
+        const fontWeight =
+          typeof props.style?.fontWeight === 'string'
+            ? parseInt(props.style.fontWeight, 10) || 400
+            : props.style?.fontWeight ?? 400;
         uiEngine.createTextNode(id, yogaStyle, {
           content: String(props.text ?? props.children ?? ''),
           fontSize: props.style?.fontSize ?? 14,
@@ -391,8 +463,13 @@ const baseHostConfig = {
       }
 
       case 'Scroll': {
-        const contentPadding = props.contentPadding ?? props.style?.padding ?? 0;
-        uiEngine.createScrollNode(id, props.horizontal ?? false, contentPadding);
+        const contentPadding =
+          props.contentPadding ?? props.style?.padding ?? 0;
+        uiEngine.createScrollNode(
+          id,
+          props.horizontal ?? false,
+          contentPadding
+        );
         // CRITICAL: Force overflow:hidden so Yoga constrains the ScrollNode
         // to its allocated size and does NOT expand it to fit content.
         // Without this, viewportSize == contentSize and maxScroll == 0.
@@ -463,14 +540,18 @@ const baseHostConfig = {
    */
   createTextInstance(text: string, _rootContainer: any): string {
     const id = `t_${Math.random().toString(36).substr(2, 9)}`;
-    uiEngine.createTextNode(id, {}, {
-      content: text,
-      fontSize: 14,
-      color: 0xFF000000,
-      fontFamily: '',
-      fontWeight: 400,
-      numberOfLines: 0,
-    });
+    uiEngine.createTextNode(
+      id,
+      {},
+      {
+        content: text,
+        fontSize: 14,
+        color: 0xff000000,
+        fontFamily: '',
+        fontWeight: 400,
+        numberOfLines: 0,
+      }
+    );
     return id;
   },
 
@@ -495,19 +576,28 @@ const baseHostConfig = {
     // Recursively cleanup child and all its descendants
     recursiveUnregister(childId);
   },
-  removeChildFromContainer(containerInfo: { canvasId: string }, childId: string) {
+  removeChildFromContainer(
+    containerInfo: { canvasId: string },
+    childId: string
+  ) {
     uiEngine.removeRenderChild(containerInfo.canvasId, childId);
     // Recursively cleanup child and all its descendants
     recursiveUnregister(childId);
   },
 
-  insertBefore(parentId: string, childId: string, _beforeChildId: string) {
-    // C++ addChild append — không hỗ trợ insert at index hiện tại.
-    // Reconciler sẽ reorder bằng remove + re-append nếu thứ tự thay đổi.
-    uiEngine.addRenderChild(parentId, childId);
+  insertBefore(parentId: string, childId: string, beforeChildId: string) {
+    uiEngine.insertRenderChildBefore(parentId, childId, beforeChildId);
   },
-  insertInContainerBefore(containerInfo: { canvasId: string }, childId: string, _beforeChildId: string) {
-    uiEngine.addRenderChild(containerInfo.canvasId, childId);
+  insertInContainerBefore(
+    containerInfo: { canvasId: string },
+    childId: string,
+    beforeChildId: string
+  ) {
+    uiEngine.insertRenderChildBefore(
+      containerInfo.canvasId,
+      childId,
+      beforeChildId
+    );
   },
 
   // ── Update ────────────────────────────────────────────────────────────────
@@ -527,7 +617,10 @@ const baseHostConfig = {
         oldProps.style?.borderColor !== newProps.style?.borderColor ||
         oldProps.style?.overflow !== newProps.style?.overflow ||
         oldProps.elevation !== newProps.elevation;
-      const layoutChanged = !shallowEqualYogaStyle(oldProps.style, newProps.style);
+      const layoutChanged = !shallowEqualYogaStyle(
+        oldProps.style,
+        newProps.style
+      );
       const interactionChanged =
         oldProps.hitTestBehavior !== newProps.hitTestBehavior ||
         isInteractive(oldProps) !== isInteractive(newProps);
@@ -536,15 +629,28 @@ const baseHostConfig = {
     }
     if (type === 'Text') {
       const contentChanged =
-        (oldProps.text ?? oldProps.children) !== (newProps.text ?? newProps.children) ||
+        (oldProps.text ?? oldProps.children) !==
+          (newProps.text ?? newProps.children) ||
         oldProps.numberOfLines !== newProps.numberOfLines;
       const styleChanged =
         oldProps.style?.fontSize !== newProps.style?.fontSize ||
         oldProps.style?.color !== newProps.style?.color ||
         oldProps.style?.fontFamily !== newProps.style?.fontFamily ||
         oldProps.style?.fontWeight !== newProps.style?.fontWeight;
-      const layoutChanged = !shallowEqualYogaStyle(oldProps.style, newProps.style);
-      if (!contentChanged && !styleChanged && !layoutChanged) return null;
+      const layoutChanged = !shallowEqualYogaStyle(
+        oldProps.style,
+        newProps.style
+      );
+      const interactionChanged =
+        oldProps.hitTestBehavior !== newProps.hitTestBehavior ||
+        isInteractive(oldProps) !== isInteractive(newProps);
+      if (
+        !contentChanged &&
+        !styleChanged &&
+        !layoutChanged &&
+        !interactionChanged
+      )
+        return null;
       return { type };
     }
     if (type === 'Icon') {
@@ -554,13 +660,19 @@ const baseHostConfig = {
         oldProps.pathStyle !== newProps.pathStyle ||
         oldProps.strokeWidth !== newProps.strokeWidth ||
         !shallowEqualYogaStyle(oldProps.style, newProps.style);
-      if (!changed) return null;
+      const interactionChanged =
+        oldProps.hitTestBehavior !== newProps.hitTestBehavior ||
+        isInteractive(oldProps) !== isInteractive(newProps);
+      if (!changed && !interactionChanged) return null;
       return { type };
     }
     if (type === 'Image') {
       const srcOld = oldProps.src ?? oldProps.source?.uri ?? oldProps.uri ?? '';
       const srcNew = newProps.src ?? newProps.source?.uri ?? newProps.uri ?? '';
-      if (srcOld === srcNew) return null;
+      const interactionChanged =
+        oldProps.hitTestBehavior !== newProps.hitTestBehavior ||
+        isInteractive(oldProps) !== isInteractive(newProps);
+      if (srcOld === srcNew && !interactionChanged) return null;
       return { type };
     }
     if (type === 'Scroll') {
@@ -607,21 +719,14 @@ const baseHostConfig = {
           elevation: newProps.elevation ?? 0,
           overflowHidden: newProps.style?.overflow === 'hidden',
         });
-        // Update HitTestSubsystem registration khi interactivity thay đổi
-        if (isInteractive(newProps) || newProps.hitTestBehavior) {
-          const zIndex = newProps.style?.zIndex ?? 0;
-          const behavior = newProps.hitTestBehavior === 'opaque' ? 1 : 0;
-          uiEngine.registerWidget(id, 0, 0, 0, 0, zIndex, behavior);
-        } else {
-          uiEngine.unregisterWidget(id);
-        }
         break;
       }
 
       case 'Text': {
-        const fontWeight = typeof newProps.style?.fontWeight === 'string'
-          ? (parseInt(newProps.style.fontWeight, 10) || 400)
-          : (newProps.style?.fontWeight ?? 400);
+        const fontWeight =
+          typeof newProps.style?.fontWeight === 'string'
+            ? parseInt(newProps.style.fontWeight, 10) || 400
+            : newProps.style?.fontWeight ?? 400;
         uiEngine.updateTextNode(id, yogaStyle, {
           content: String(newProps.text ?? newProps.children ?? ''),
           fontSize: newProps.style?.fontSize ?? 14,
@@ -662,16 +767,20 @@ const baseHostConfig = {
         // ScrollNode to match content → viewportSize = contentSize → maxScroll = 0.
         const scrollUpdateStyle = { ...yogaStyle, overflow: 'hidden' };
         uiEngine.updateLayoutNode(id, scrollUpdateStyle);
-        const contentPadding = newProps.contentPadding ?? newProps.style?.padding ?? 0;
-        uiEngine.updateScrollNode(id, newProps.horizontal ?? false, contentPadding);
-        
+        const contentPadding =
+          newProps.contentPadding ?? newProps.style?.padding ?? 0;
+        uiEngine.updateScrollNode(
+          id,
+          newProps.horizontal ?? false,
+          contentPadding
+        );
+
         // Scroll is ALWAYS interactive (pan handlers always present).
         // Never unregister — that would break hit testing.
         const zIndex = newProps.style?.zIndex ?? 0;
         uiEngine.registerWidget(id, 0, 0, 0, 0, zIndex, 0);
         break;
       }
-
 
       // ── Layout container aliases ──────────────────────────────────────────
       // case 'Column':
@@ -754,12 +863,12 @@ const baseHostConfig = {
 
   finalizeInitialChildren: () => false,
   shouldSetTextContent: () => false,
-  clearContainer: () => { },
+  clearContainer: () => {},
   getCurrentEventPriority: () => DefaultEventPriority,
   getInstanceFromNode: () => null,
-  beforeActiveInstanceBlur() { },
-  afterActiveInstanceBlur() { },
-  preparePortalMount() { },
+  beforeActiveInstanceBlur() {},
+  afterActiveInstanceBlur() {},
+  preparePortalMount() {},
 } as const;
 
 // ── Factory per CanvasRoot ────────────────────────────────────────────────────

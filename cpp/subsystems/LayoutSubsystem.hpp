@@ -19,6 +19,7 @@ namespace margelo::nitro::skiakit {
     void removeLayoutNode(const std::string& id);
     void setChildren(const std::string& parentId, const std::vector<std::string>& childrenIds);
     void addChild(const std::string& parentId, const std::string& childId);
+    void insertChildBefore(const std::string& parentId, const std::string& childId, const std::string& beforeChildId);
     void removeChild(const std::string& parentId, const std::string& childId);
     void calculateLayout(const std::string& rootId, double width, double height);
     NativeLayoutRect getNodeLayout(const std::string& id);

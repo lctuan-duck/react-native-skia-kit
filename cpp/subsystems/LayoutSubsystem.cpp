@@ -235,6 +235,32 @@ namespace margelo::nitro::skiakit {
     YGNodeInsertChild(parent, child, count);
   }
 
+  void LayoutSubsystem::insertChildBefore(const std::string& parentId, const std::string& childId, const std::string& beforeChildId) {
+    YGNodeRef parent = static_cast<YGNodeRef>(getOrCreateYogaNode(parentId));
+    YGNodeRef child = static_cast<YGNodeRef>(getOrCreateYogaNode(childId));
+    
+    YGNodeRef oldParent = YGNodeGetParent(child);
+    if (oldParent) {
+      YGNodeRemoveChild(oldParent, child);
+    }
+
+    uint32_t count = YGNodeGetChildCount(parent);
+    uint32_t index = count;
+    
+    auto itBefore = _yogaNodes.find(beforeChildId);
+    if (itBefore != _yogaNodes.end()) {
+      YGNodeRef beforeChild = static_cast<YGNodeRef>(itBefore->second->node);
+      for (uint32_t i = 0; i < count; i++) {
+        if (YGNodeGetChild(parent, i) == beforeChild) {
+          index = i;
+          break;
+        }
+      }
+    }
+    
+    YGNodeInsertChild(parent, child, index);
+  }
+
   void LayoutSubsystem::removeChild(const std::string& parentId, const std::string& childId) {
     auto pit = _yogaNodes.find(parentId);
     auto cit = _yogaNodes.find(childId);

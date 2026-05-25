@@ -79,8 +79,8 @@ export interface NativeBoxProps {
   backgroundColor?: number; // SkColor ARGB
   borderRadius?: number;
   borderWidth?: number;
-  borderColor?: number;     // SkColor ARGB
-  elevation?: number;       // Android shadow / iOS drop shadow
+  borderColor?: number; // SkColor ARGB
+  elevation?: number; // Android shadow / iOS drop shadow
   overflowHidden?: boolean;
 }
 
@@ -90,10 +90,10 @@ export interface NativeBoxProps {
 export interface NativeTextProps {
   content: string;
   fontSize?: number;
-  color?: number;         // SkColor ARGB
+  color?: number; // SkColor ARGB
   fontFamily?: string;
-  fontWeight?: number;    // 100 – 900
-  textAlign?: string;     // 'left' | 'center' | 'right'
+  fontWeight?: number; // 100 – 900
+  textAlign?: string; // 'left' | 'center' | 'right'
   numberOfLines?: number; // 0 = unlimited
 }
 
@@ -101,13 +101,22 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   // ================= HIT TESTING ================= //
 
   registerWidget(
-    id: string, x: number, y: number, w: number, h: number,
-    zIndex: number, behavior: number
+    id: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    zIndex: number,
+    behavior: number
   ): void;
   unregisterWidget(id: string): void;
   setWidgetDynamic(id: string, isDynamic: boolean): void;
   registerScrollArea(
-    id: string, x: number, y: number, w: number, h: number,
+    id: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
     horizontal: boolean
   ): void;
   unregisterScrollArea(id: string): void;
@@ -134,12 +143,28 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   initRenderEngine(): void;
 
   // Box
-  createBoxNode(id: string, yogaStyle: NativeYogaStyle, props: NativeBoxProps): void;
-  updateBoxNode(id: string, yogaStyle: NativeYogaStyle, props: NativeBoxProps): void;
+  createBoxNode(
+    id: string,
+    yogaStyle: NativeYogaStyle,
+    props: NativeBoxProps
+  ): void;
+  updateBoxNode(
+    id: string,
+    yogaStyle: NativeYogaStyle,
+    props: NativeBoxProps
+  ): void;
 
   // Text
-  createTextNode(id: string, yogaStyle: NativeYogaStyle, props: NativeTextProps): void;
-  updateTextNode(id: string, yogaStyle: NativeYogaStyle, props: NativeTextProps): void;
+  createTextNode(
+    id: string,
+    yogaStyle: NativeYogaStyle,
+    props: NativeTextProps
+  ): void;
+  updateTextNode(
+    id: string,
+    yogaStyle: NativeYogaStyle,
+    props: NativeTextProps
+  ): void;
 
   // Image — load async ngay khi create
   createImageNode(
@@ -175,11 +200,24 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   ): void;
 
   // Scroll
-  createScrollNode(id: string, horizontal: boolean, contentPadding: number): void;
-  updateScrollNode(id: string, horizontal: boolean, contentPadding: number): void;
+  createScrollNode(
+    id: string,
+    horizontal: boolean,
+    contentPadding: number
+  ): void;
+  updateScrollNode(
+    id: string,
+    horizontal: boolean,
+    contentPadding: number
+  ): void;
 
   // Tree structure
   addRenderChild(parentId: string, childId: string): void;
+  insertRenderChildBefore(
+    parentId: string,
+    childId: string,
+    beforeChildId: string
+  ): void;
   removeRenderChild(parentId: string, childId: string): void;
   /** Recursive cleanup — xóa node + toàn bộ descendant */
   removeRenderNode(id: string): void;

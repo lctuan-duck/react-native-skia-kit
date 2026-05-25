@@ -171,6 +171,11 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
     _layoutSubsystem.addChild(parentId, childId);
   }
 
+  void HybridUIEngine::insertRenderChildBefore(const std::string& parentId, const std::string& childId, const std::string& beforeChildId) {
+    _renderSubsystem.insertRenderChildBefore(parentId, childId, beforeChildId);
+    _layoutSubsystem.insertChildBefore(parentId, childId, beforeChildId);
+  }
+
   void HybridUIEngine::removeRenderChild(const std::string& parentId, const std::string& childId) {
     _renderSubsystem.removeRenderChild(parentId, childId);
     _layoutSubsystem.removeChild(parentId, childId);

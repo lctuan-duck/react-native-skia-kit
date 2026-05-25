@@ -366,6 +366,12 @@ const hostConfig: Reconciler.HostConfig<
         elevation: props.elevation ?? 0,
         overflowHidden: props.style?.overflow === 'hidden',
       });
+      // [FIX] Đăng ký HitTest động nếu interactive
+      if (isInteractive(props) || props.hitTestBehavior) {
+        const zIndex = props.style?.zIndex ?? 0;
+        const behavior = props.hitTestBehavior === 'opaque' ? 1 : 0;
+        uiEngine.registerWidget(id, 0, 0, 0, 0, zIndex, behavior);
+      }
     } else if (type === 'Text') {
       uiEngine.createTextNode(id, yogaStyle, {
         content: String(props.text ?? props.children ?? ''),
@@ -395,29 +401,35 @@ const hostConfig: Reconciler.HostConfig<
   },
 
   // [NEW] appendChildToContainer: gọn root-level node vào cây — container = canvasId
-  appendChildToContainer(container: string, childInstance: string) {
-    uiEngine.addRenderChild(container, childInstance);
+  appendChildToContainer(containerInfo: { canvasId: string }, childInstance: string) {
+    uiEngine.addRenderChild(containerInfo.canvasId, childInstance);
   },
 
   removeChild(parentInstance, childInstance) {
-    // [FIX] removeRenderNode xử lý recursive cleanup trong C++ — không lịp nững gọi ở JS
+    // [FIX] removeRenderNode xử lý recursive cleanup trong C++
     uiEngine.removeRenderChild(parentInstance, childInstance);
-    uiEngine.removeRenderNode(childInstance);  // Recursive trong C++
-    unregisterJSCallbacks(childInstance);
+    // [FIX] Phải đệ quy xoá cả HitTest & Event JS để tránh Ghost Hit Target
+    recursiveUnregister(childInstance); 
   },
 
   // [NEW] removeChildFromContainer: xóa root-level node
-  removeChildFromContainer(container: string, childInstance: string) {
-    uiEngine.removeRenderChild(container, childInstance);
-    uiEngine.removeRenderNode(childInstance);
-    unregisterJSCallbacks(childInstance);
+  removeChildFromContainer(containerInfo: { canvasId: string }, childInstance: string) {
+    uiEngine.removeRenderChild(containerInfo.canvasId, childInstance);
+    recursiveUnregister(childInstance);
   },
 
-  commitUpdate(instance, updatePayload, type, _oldProps, newProps) {
-    if (!updatePayload) return;
-    const yogaStyle = buildNativeStyle(newProps.style);
-    const bg = parseColor(newProps.style?.backgroundColor);
-    const bc = parseColor(newProps.style?.borderColor);
+  // [FIX] Chuyển đổi hỗ trợ React 18/19 signature (không còn updatePayload)
+  commitUpdate(...args: any[]) {
+    let instance, type, newProps;
+    if (typeof args[1] === 'string') { // React 18+
+      instance = args[0]; type = args[1]; newProps = args[3];
+    } else { // React 17
+      instance = args[0]; type = args[2]; newProps = args[4];
+    }
+
+    const yogaStyle = buildNativeStyle(newProps?.style);
+    const bg = parseColor(newProps?.style?.backgroundColor);
+    const bc = parseColor(newProps?.style?.borderColor);
 
     if (type === 'Box') {
       uiEngine.updateBoxNode(instance, yogaStyle, {
@@ -428,6 +440,14 @@ const hostConfig: Reconciler.HostConfig<
         elevation: newProps.elevation ?? 0,
         overflowHidden: newProps.style?.overflow === 'hidden',
       });
+      // [FIX] Cập nhật lại HitTest nếu user đổi props onPress/...
+      if (isInteractive(newProps) || newProps.hitTestBehavior) {
+        const zIndex = newProps.style?.zIndex ?? 0;
+        const behavior = newProps.hitTestBehavior === 'opaque' ? 1 : 0;
+        uiEngine.registerWidget(instance, 0, 0, 0, 0, zIndex, behavior);
+      } else {
+        uiEngine.unregisterWidget(instance);
+      }
     } else if (type === 'Text') {
       uiEngine.updateTextNode(instance, yogaStyle, {
         content: String(newProps.text ?? newProps.children ?? ''),
@@ -444,13 +464,24 @@ const hostConfig: Reconciler.HostConfig<
 
   // ── Boilerplate ──────────────────────────────────────────────
 
-  // canvasId được forward xuống toàn cây qua context — createInstance dùng để định danh canvas
-  getRootHostContext(rootContainerInstance: string) {
-    return { canvasId: rootContainerInstance };
+  // canvasId được forward xuống toàn cây qua context
+  getRootHostContext(rootContainerInstance: { canvasId: string }) {
+    return { canvasId: rootContainerInstance.canvasId };
   },
   getChildHostContext(parentHostContext: { canvasId: string }) {
     return parentHostContext;
   },
+
+  // [FIX] Bắt buộc phải có các hàm này trong React 19 để tránh crash custom reconciler
+  maySuspendCommit() { return false; },
+  maySuspendCommitOnUpdate() { return false; },
+  maySuspendCommitInSyncRender() { return false; },
+  preloadInstance() { return true; },
+  startSuspendingCommit() { },
+  suspendInstance() { },
+  waitForCommitToBeReady() { return null; },
+  supportsMicrotasks: true,
+  scheduleMicrotask: queueMicrotask,
   shouldSetTextContent: () => false,
 
   createTextInstance(text: string) {
@@ -499,15 +530,12 @@ const hostConfig: Reconciler.HostConfig<
   afterActiveInstanceBlur() {},
   preparePortalMount() {},
 
-  prepareForCommit(containerInfo: string) {
-    return containerInfo;
+  prepareForCommit(containerInfo: { canvasId: string }) {
+    return containerInfo; // Trả về để resetAfterCommit nhận được
   },
 
-  resetAfterCommit(containerInfo: string) {
-    if (containerInfo) {
-      uiEngine.markDirty(containerInfo);
-      // requestRedraw được inject qua closure từ createSkiaKitHostConfig — xem bên dưới
-    }
+  resetAfterCommit(_containerInfo: { canvasId: string }) {
+    // Được override ở createSkiaKitHostConfig
   },
 
   clearContainer() {},
@@ -521,17 +549,17 @@ const hostConfig: Reconciler.HostConfig<
  */
 export function createSkiaKitHostConfig(
   requestRedraw: () => void
-): typeof hostConfig {
+) {
   return {
     ...hostConfig,
     // Override chỉ phần cần per-canvas closure — tất cả method khác kế thừa từ hostConfig
-    resetAfterCommit(containerInfo: string) {
-      if (containerInfo) {
-        uiEngine.markDirty(containerInfo);  // C++ rebuild SkPicture ở frame tiếp theo
+    resetAfterCommit(containerInfo: { canvasId: string }) {
+      if (containerInfo?.canvasId) {
+        uiEngine.markDirty(containerInfo.canvasId);  // C++ rebuild SkPicture ở frame tiếp theo
         requestRedraw();                    // Shopify canvas repaint — closure per CanvasRoot
       }
     },
-  } as typeof hostConfig;
+  } as any;
 }
 
 // Export singleton để dùng khi chỉ có 1 CanvasRoot (common case)
