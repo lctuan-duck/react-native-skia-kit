@@ -36,10 +36,8 @@ function UIComponentsGallery() {
   const contentWidth = width - p * 2;
 
   // A helper to draw a section
-  const Section = ({ title, children, x, y, style }: any) => (
+  const Section = ({ title, children, style }: any) => (
     <Column
-      x={x}
-      y={y}
       style={{
         ...style,
         width: contentWidth,
@@ -65,10 +63,8 @@ function UIComponentsGallery() {
   );
 
   return (
-    <SafeArea x={0} y={0} style={{ width, height, backgroundColor: '#F3F4F6' }}>
+    <SafeArea style={{ width, height, backgroundColor: '#F3F4F6' }}>
       <ScrollView
-        x={0}
-        y={0}
         style={{ width, height, padding: p, gap: 24 }}
         contentSize={2200}
       >
@@ -108,7 +104,11 @@ function UIComponentsGallery() {
             <Avatar size={48} variant="square" color="success" />
             <Stack>
               <Avatar size={56} variant="circle" color="warning" />
-              <Badge value={3} color="error" x={42} y={0} />
+              <Badge
+                value={3}
+                color="error"
+                style={{ position: 'absolute', left: 42, top: 0 }}
+              />
             </Stack>
           </Row>
         </Section>

@@ -73,9 +73,10 @@ export const BottomNavigationBar = React.memo(function BottomNavigationBar({
 
   return (
     <Box
-      x={finalX}
-      y={finalY}
       style={{
+        position: 'absolute',
+        left: finalX,
+        top: finalY,
         width,
         height,
         backgroundColor: bgColor,

@@ -47,8 +47,6 @@ export interface ChipProps extends WidgetProps {
  * Tương đương Flutter Chip / FilterChip / ChoiceChip.
  */
 export const Chip = React.memo(function Chip({
-  x: _x = 0,
-  y: _y = 0,
   label,
   selected = false,
   variant = 'solid',

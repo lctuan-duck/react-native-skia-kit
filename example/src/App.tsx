@@ -11,6 +11,7 @@ import {
 
 import { HomeScreen } from './screens/HomeScreen';
 import { CardDetailScreen } from './screens/CardDetailScreen';
+import { ShaderTestScreen } from './screens/ShaderTestScreen';
 
 enableThemePersistence();
 
@@ -35,6 +36,9 @@ function RootApp() {
           </Screen>
           <Screen name="CardDetail">
             <CardDetailScreen />
+          </Screen>
+          <Screen name="ShaderTest">
+            <ShaderTestScreen />
           </Screen>
         </Nav>
         {/* Render Hero transitions on top of everything */}

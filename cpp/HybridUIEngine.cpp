@@ -93,7 +93,7 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
   // ── Render Subsystem ───────────────────────────────────────────────────────
 
   BoxProps HybridUIEngine::toBoxProps(const NativeBoxProps& p) {
-    return {
+    BoxProps result = {
       .backgroundColor         = static_cast<uint32_t>(p.backgroundColor.value_or(0x00000000)),
       
       .borderRadius            = static_cast<float>(p.borderRadius.value_or(0)),
@@ -130,6 +130,49 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
       
       .overflowHidden          = p.overflowHidden.value_or(false),
     };
+
+    // Phase 3: Gradient
+    if (p.gradient.has_value()) {
+      const auto& g = p.gradient.value();
+      GradientData gd;
+      if (g.type == "linear")      gd.type = GradientType::Linear;
+      else if (g.type == "radial") gd.type = GradientType::Radial;
+      else if (g.type == "sweep")  gd.type = GradientType::Sweep;
+
+      gd.colors = std::vector<SkColor>(g.colors.begin(), g.colors.end());
+      if (g.positions.has_value()) {
+        gd.positions = std::vector<SkScalar>(g.positions.value().begin(), g.positions.value().end());
+      }
+      gd.startX  = static_cast<float>(g.startX.value_or(0.f));
+      gd.startY  = static_cast<float>(g.startY.value_or(0.5f));
+      gd.endX    = static_cast<float>(g.endX.value_or(1.f));
+      gd.endY    = static_cast<float>(g.endY.value_or(0.5f));
+      gd.centerX = static_cast<float>(g.centerX.value_or(0.5f));
+      gd.centerY = static_cast<float>(g.centerY.value_or(0.5f));
+      gd.radius  = static_cast<float>(g.radius.value_or(0.5f));
+      gd.startAngle = static_cast<float>(g.startAngle.value_or(0.f));
+      gd.endAngle   = static_cast<float>(g.endAngle.value_or(360.f));
+      if (g.tileMode.has_value()) gd.tileMode = parseTileMode(g.tileMode.value());
+      result.gradient = gd;
+    }
+
+    // Phase 3: Backdrop blur
+    result.backdropBlurRadius = static_cast<float>(p.backdropBlurRadius.value_or(0.f));
+
+    // Phase 3: Blend mode
+    if (p.blendMode.has_value()) {
+      result.blendMode = parseBlendMode(p.blendMode.value());
+    }
+
+    // Phase 3: Color filter matrix
+    if (p.colorFilter.has_value()) {
+      result.colorFilter = std::vector<float>(
+        p.colorFilter.value().begin(),
+        p.colorFilter.value().end()
+      );
+    }
+
+    return result;
   }
 
   TextProps HybridUIEngine::toTextProps(const NativeTextProps& p) {

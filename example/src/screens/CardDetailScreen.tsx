@@ -58,7 +58,7 @@ export function CardDetailScreen() {
         />
       </Row>
 
-      <ScrollView x={0} y={132} style={{ width: '100%', flex: 1 }}>
+      <ScrollView style={{ width: '100%', flex: 1 }}>
         <Column
           style={{ width: '100%', alignItems: 'center', gap: 32, padding: 24 }}
         >

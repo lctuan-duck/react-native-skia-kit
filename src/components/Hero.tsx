@@ -27,19 +27,17 @@ export interface HeroProps extends WidgetProps {
  *
  * @example
  * // Screen A
- * <Hero tag="product-image" x={16} y={100} width={80} height={80}>
+ * <Hero tag="product-image" width={80} height={80}>
  *   <Image src={product.image} ... />
  * </Hero>
  *
  * // Screen B
- * <Hero tag="product-image" x={0} y={0} width={360} height={300}>
+ * <Hero tag="product-image" width={360} height={300}>
  *   <Image src={product.image} ... />
  * </Hero>
  */
 export const Hero = React.memo(function Hero({
   tag,
-  x: _x = 0,
-  y: _y = 0,
   width,
   height,
   children,
@@ -147,7 +145,7 @@ export const HeroOverlay = React.memo(function HeroOverlay({
     }
     prevHeroesRef.current = snapshot;
     return undefined;
-  }, [isTransitioning, duration]);
+  }, [isTransitioning, duration, progress]);
 
   if (!isTransitioning || transitions.length === 0) return null;
 

@@ -42,8 +42,6 @@ export interface AvatarProps extends WidgetProps {
  * Equivalent to Flutter CircleAvatar.
  */
 export const Avatar = React.memo(function Avatar({
-  x: _x = 0,
-  y: _y = 0,
   size = 48,
   variant = 'circle',
   src,

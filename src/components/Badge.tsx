@@ -43,8 +43,6 @@ export interface BadgeProps extends WidgetProps {
  * Equivalent to Flutter Badge / Badge.count.
  */
 export const Badge = React.memo(function Badge({
-  x: _x = 0,
-  y: _y = 0,
   variant = 'standard',
   value = 1,
   size,

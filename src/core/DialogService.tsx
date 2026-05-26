@@ -85,30 +85,35 @@ export function showDialog(options: DialogOptions): () => void {
     >
       {/* Title */}
       {title && (
-        <Text
-          x={20}
-          y={16}
-          text={title}
-          style={{ fontSize: 18, fontWeight: '600', width: width - 40 }}
-        />
+        <Box style={{ paddingLeft: 20, paddingTop: 16 }}>
+          <Text
+            text={title}
+            style={{ fontSize: 18, fontWeight: '600', width: width - 40 }}
+          />
+        </Box>
       )}
       {/* Content */}
       {typeof content === 'string' ? (
-        <Text
-          x={20}
-          y={title ? 48 : 16}
-          text={content}
-          style={{ fontSize: 14, width: width - 40, color: 'rgba(0,0,0,0.6)' }}
-        />
+        <Box style={{ paddingLeft: 20, paddingTop: title ? 8 : 16 }}>
+          <Text
+            text={content}
+            style={{
+              fontSize: 14,
+              width: width - 40,
+              color: 'rgba(0,0,0,0.6)',
+            }}
+          />
+        </Box>
       ) : (
         content
       )}
       {/* Actions */}
       {actions.length > 0 && (
         <Box
-          x={0}
-          y={height - 52}
           style={{
+            position: 'absolute',
+            left: 0,
+            top: height - 52,
             width,
             height: 52,
             flexDirection: 'row',
@@ -224,9 +229,10 @@ export function showSnackBar(options: SnackBarOptions): () => void {
 
   const snackNode = (
     <Box
-      x={16}
-      y={screenHeight - 80}
       style={{
+        position: 'absolute',
+        left: 16,
+        top: screenHeight - 80,
         width: screenWidth - 32,
         height: 48,
         borderRadius: 8,

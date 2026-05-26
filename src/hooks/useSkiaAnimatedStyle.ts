@@ -4,7 +4,10 @@ import type { SharedValue } from 'react-native-reanimated';
 import { uiEngine } from '../core/GlobalEngine';
 import type { NativeAnimatedStyle } from '../nitro/UIEngine.nitro';
 
-const updateAnimatedStyleJS = (id: string | undefined, data: NativeAnimatedStyle) => {
+const updateAnimatedStyleJS = (
+  id: string | undefined,
+  data: NativeAnimatedStyle
+) => {
   if (id && uiEngine) {
     uiEngine.updateAnimatedStyles(id, data);
   }
@@ -21,18 +24,21 @@ const updateAnimatedStyleJS = (id: string | undefined, data: NativeAnimatedStyle
  *
  * @example
  * const scale = useSharedValue(1);
- * 
+ *
  * // Dùng useDerivedValue (tự động workletized bởi Reanimated)
  * const animatedStyle = useDerivedValue(() => ({
  *   scale: scale.value,
  *   opacity: withSpring(scale.value)
  * }));
- * 
+ *
  * useSkiaAnimatedStyle(widgetId, animatedStyle);
  */
 export function useSkiaAnimatedStyle(
   widgetId: string | undefined,
-  style: SharedValue<NativeAnimatedStyle> | (() => NativeAnimatedStyle) | undefined
+  style:
+    | SharedValue<NativeAnimatedStyle>
+    | (() => NativeAnimatedStyle)
+    | undefined
 ) {
   // Biến cờ đánh dấu widgetId hiện tại để tránh cập nhật lầm khi component unmount
   const _widgetIdRef = useRef(widgetId);

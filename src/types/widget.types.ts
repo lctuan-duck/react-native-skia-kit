@@ -5,6 +5,7 @@ import type {
   ColorStyle,
   BorderStyle,
   ShadowStyle,
+  GradientStyle,
   FlexChildStyle,
   FlexContainerStyle,
 } from './style.types';
@@ -23,10 +24,6 @@ export interface HitSlop {
 export interface WidgetProps {
   /** Optional manual ID for the widget */
   id?: string;
-  /** Top-left X position (injected by parent flex layout) */
-  x?: number;
-  /** Top-left Y position (injected by parent flex layout) */
-  y?: number;
   /** Accessibility label */
   accessibilityLabel?: string;
   /** Extra touch area around the widget */
@@ -109,6 +106,7 @@ export type BoxStyle = LayoutStyle &
   ColorStyle &
   BorderStyle &
   ShadowStyle &
+  GradientStyle &
   FlexChildStyle &
   FlexContainerStyle;
 
@@ -131,15 +129,6 @@ export interface BoxProps extends GestureCallbacks {
 
   /** Layout + visual styles */
   style?: BoxStyle;
-
-  /**
-   * Absolute X position — shorthand cho `style.left`.
-   * Một số components (Scaffold, SnackBar, Dialog) truyền trực tiếp qua prop này.
-   * Yoga xử lý positioning, Reconciler map sang `style.left` nếu `style.position === 'absolute'`.
-   */
-  x?: number;
-  /** Absolute Y position — shorthand cho `style.top`. */
-  y?: number;
 
   /**
    * Elevation — tạo drop shadow (Android Material elevation semantics).

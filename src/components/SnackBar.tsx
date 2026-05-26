@@ -63,9 +63,10 @@ export const SnackBar = React.memo(function SnackBar({
 
   return (
     <Box
-      x={8}
-      y={screenHeight - 72}
       style={{
+        position: 'absolute',
+        left: 8,
+        top: screenHeight - 72,
         width: screenWidth - 16,
         height: 48,
         borderRadius: 8,

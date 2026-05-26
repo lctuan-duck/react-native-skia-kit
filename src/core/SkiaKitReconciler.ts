@@ -4,10 +4,11 @@ import { uiEngine } from './GlobalEngine';
 import type { NativeYogaStyle } from '../nitro/UIEngine.nitro';
 import type { ViewStyle } from 'react-native';
 import { parseColor } from '../utils/color';
+import { toNativeGradient } from '../utils/gradient';
 
 // ── Callback registry (JS thread) ────────────────────────────────────────────
-// Lưu trữ gesture/event callbacks riêng biệt với render tree.
-// Tránh JSI roundtrips bằng cách lookup JS Map thay vì query C++.
+// Stores gesture/event callbacks separately from the render tree.
+// Avoids JSI roundtrips by using a JS Map lookup instead of querying C++.
 type GestureCallbacks = {
   onPress?: (localX?: number, localY?: number) => void;
   onPressIn?: (localX?: number, localY?: number) => void;
@@ -37,7 +38,7 @@ function registerJSCallbacks(id: string, props: any) {
   if (Object.keys(cbs).length > 0) {
     jsCallbacks.set(id, cbs);
   } else {
-    // Xóa entry nếu không còn callback nào → tránh memory leak
+    // Remove entry if no callbacks remain → prevents memory leak
     jsCallbacks.delete(id);
   }
 }
@@ -87,7 +88,7 @@ function recursiveUnregister(id: string) {
   // Safe optional call for scroll areas — only scroll nodes are registered
   try {
     (uiEngine as any).unregisterScrollArea?.(id);
-  } catch { }
+  } catch {}
   unregisterJSCallbacks(id);
 }
 
@@ -107,35 +108,47 @@ function isInteractive(props: any): boolean {
 
 import type { NativeBoxProps } from '../nitro/UIEngine.nitro';
 
+/**
+ * extractBoxProps — Converts JS BoxStyle → NativeBoxProps for the C++ bridge.
+ *
+ * Phase 3: gradient colors (hex strings) are converted to SkColor (uint32)
+ * via `toNativeGradient()` before being passed to C++.
+ */
 function extractBoxProps(props: any): NativeBoxProps {
   const style = props.style || {};
+
+  // Phase 3: convert GradientProps (hex strings) → NativeGradientProps (SkColor uint32)
+  const gradient = style.gradient
+    ? toNativeGradient(style.gradient)
+    : undefined;
+
   return {
     backgroundColor: parseColor(style.backgroundColor),
-    
+
     borderRadius: style.borderRadius ?? 0,
     borderTopLeftRadius: style.borderTopLeftRadius,
     borderTopRightRadius: style.borderTopRightRadius,
     borderBottomRightRadius: style.borderBottomRightRadius,
     borderBottomLeftRadius: style.borderBottomLeftRadius,
-    
+
     borderWidth: style.borderWidth ?? 0,
     borderTopWidth: style.borderTopWidth,
     borderRightWidth: style.borderRightWidth,
     borderBottomWidth: style.borderBottomWidth,
     borderLeftWidth: style.borderLeftWidth,
-    
+
     borderColor: parseColor(style.borderColor),
     borderTopColor: parseColor(style.borderTopColor),
     borderRightColor: parseColor(style.borderRightColor),
     borderBottomColor: parseColor(style.borderBottomColor),
     borderLeftColor: parseColor(style.borderLeftColor),
-    
+
     borderStyle: style.borderStyle,
     dashLength: style.dashLength,
     dashSpacing: style.dashSpacing,
 
     elevation: props.elevation ?? style.elevation ?? 0,
-    
+
     shadowColor: parseColor(style.shadowColor),
     shadowOffsetX: style.shadowOffsetX,
     shadowOffsetY: style.shadowOffsetY,
@@ -143,19 +156,25 @@ function extractBoxProps(props: any): NativeBoxProps {
     shadowOpacity: style.shadowOpacity,
     shadowSpread: style.shadowSpread,
     shadowType: style.shadowType,
-    
+
     overflowHidden: style.overflow === 'hidden',
+
+    // Phase 3: Shaders & Filters
+    gradient,
+    backdropBlurRadius: style.backdropBlurRadius,
+    blendMode: style.blendMode,
+    colorFilter: style.colorFilter,
   };
 }
 
 /**
- * buildNativeStyle — Chuyển React Native ViewStyle → NativeYogaStyle.
+ * buildNativeStyle — Converts React Native ViewStyle to NativeYogaStyle.
  *
- * QUAN TRỌNG: Chỉ map layout props (flex, padding, margin, dimensions...).
- * Visual props (backgroundColor, borderRadius...) được pass riêng qua NativeBoxProps.
+ * IMPORTANT: Only maps layout props (flex, padding, margin, dimensions...).
+ * Visual props (backgroundColor, borderRadius...) are passed separately via NativeBoxProps.
  *
- * Hỗ trợ shorthand padding/margin: style.padding và style.paddingVertical/Horizontal
- * được expand thành per-edge values để C++ nhận đúng.
+ * Supports padding/margin shorthands: style.padding and style.paddingVertical/Horizontal
+ * are expanded to per-edge values so C++ receives the correct values.
  */
 export function buildNativeStyle(
   style?: ViewStyle & {
@@ -280,8 +299,8 @@ export function buildNativeStyle(
 }
 
 /**
- * shallowEqualYogaStyle — So sánh 2 styles để xác định layout có thay đổi không.
- * Dùng trong prepareUpdate để tránh commitUpdate thừa.
+ * shallowEqualYogaStyle — Compares two styles to determine if layout has changed.
+ * Used in prepareUpdate to avoid unnecessary commitUpdate calls.
  */
 function shallowEqualYogaStyle(a?: ViewStyle, b?: ViewStyle): boolean {
   const keys: (keyof ViewStyle)[] = [
@@ -336,8 +355,8 @@ function shallowEqualYogaStyle(a?: ViewStyle, b?: ViewStyle): boolean {
 // ── Host Config (base) ────────────────────────────────────────────────────────
 
 /**
- * baseHostConfig — Tất cả hostConfig methods không cần per-canvas closure.
- * createSkiaKitHostConfig() spread object này và override resetAfterCommit.
+ * baseHostConfig — All hostConfig methods that don't need a per-canvas closure.
+ * createSkiaKitHostConfig() spreads this object and overrides resetAfterCommit.
  *
  * Type params: Container = { canvasId: string }, Instance = string (nodeId)
  */
@@ -354,7 +373,7 @@ const baseHostConfig = {
   resolveUpdatePriority() {
     return DefaultEventPriority;
   },
-  setCurrentUpdatePriority() { },
+  setCurrentUpdatePriority() {},
   resolveEventTimeStamp() {
     return Date.now();
   },
@@ -368,10 +387,10 @@ const baseHostConfig = {
   resolveEventPriority() {
     return DefaultEventPriority;
   },
-  requestPostPaintCallback() { },
-  trackSchedulerEvent() { },
-  trackSchedulerEventInDEV() { },
-  detachDeletedInstance() { },
+  requestPostPaintCallback() {},
+  trackSchedulerEvent() {},
+  trackSchedulerEventInDEV() {},
+  detachDeletedInstance() {},
   shouldAttemptEagerTransition() {
     return false;
   },
@@ -390,8 +409,8 @@ const baseHostConfig = {
   preloadInstance(_type: string, _props: any) {
     return true;
   }, // true = already loaded
-  startSuspendingCommit() { },
-  suspendInstance(_type: string, _props: any) { },
+  startSuspendingCommit() {},
+  suspendInstance(_type: string, _props: any) {},
   waitForCommitToBeReady() {
     return null;
   }, // null = not suspending
@@ -408,11 +427,11 @@ const baseHostConfig = {
   // ── Node creation ─────────────────────────────────────────────────────────
 
   /**
-   * createInstance — Tạo C++ node khi Reconciler mount component.
-   * Trả về nodeId (string) — Reconciler dùng làm `instance` trong toàn bộ lifecycle.
+   * createInstance — Creates a C++ node when the Reconciler mounts a component.
+   * Returns nodeId (string) — used by the Reconciler as `instance` throughout the lifecycle.
    *
-   * Quan trọng: mỗi type map sang một C++ node type khác nhau.
-   * Fallback (Column/Row/Scaffold/...): transparent BoxNode để giữ cây không bị gãy.
+   * Each type maps to a different C++ node type.
+   * Fallback (Column/Row/Scaffold/...): transparent BoxNode to keep the tree intact.
    */
   createInstance(
     type: string,
@@ -429,8 +448,11 @@ const baseHostConfig = {
         const boxProps = extractBoxProps(props);
         if (__DEV__ && boxProps.backgroundColor !== 0) {
           console.log(
-            `[SkiaKit Box] id=${id} bg=0x${boxProps.backgroundColor?.toString(16)} raw="${props.style?.backgroundColor
-            }" borderRadius=${boxProps.borderRadius}`
+            `[SkiaKit Box] id=${id} bg=0x${boxProps.backgroundColor?.toString(
+              16
+            )} raw="${props.style?.backgroundColor}" borderRadius=${
+              boxProps.borderRadius
+            }`
           );
         }
         uiEngine.createBoxNode(id, yogaStyle, boxProps);
@@ -563,8 +585,8 @@ const baseHostConfig = {
   },
 
   /**
-   * createTextInstance — Xử lý plain text string trong JSX.
-   * Ví dụ: <Box>Hello {name}</Box> → tự động wrap thành TextNode.
+   * createTextInstance — Handles plain text strings in JSX.
+   * Example: <Box>Hello {name}</Box> automatically wrapped as a TextNode.
    */
   createTextInstance(text: string, _rootContainer: any): string {
     const id = `t_${Math.random().toString(36).substr(2, 9)}`;
@@ -631,10 +653,11 @@ const baseHostConfig = {
   // ── Update ────────────────────────────────────────────────────────────────
 
   /**
-   * prepareUpdate — Diff props và trả về update payload.
-   * Trả về null nếu không có thay đổi → commitUpdate bị bỏ qua hoàn toàn.
+   * prepareUpdate — Diffs props and returns an update payload.
+   * Returns null if nothing changed, so commitUpdate is skipped entirely.
    *
-   * Tối ưu: tránh JSI call thừa khi state thay đổi nhưng visual/layout không đổi.
+   * Optimization: avoids unnecessary JSI calls when state changes
+   * but visual/layout props are unchanged.
    */
   prepareUpdate(_id: string, type: string, oldProps: any, newProps: any) {
     if (type === 'Box') {
@@ -644,7 +667,13 @@ const baseHostConfig = {
         oldProps.style?.borderWidth !== newProps.style?.borderWidth ||
         oldProps.style?.borderColor !== newProps.style?.borderColor ||
         oldProps.style?.overflow !== newProps.style?.overflow ||
-        oldProps.elevation !== newProps.elevation;
+        oldProps.elevation !== newProps.elevation ||
+        // Phase 3: detect shader/filter changes
+        oldProps.style?.gradient !== newProps.style?.gradient ||
+        oldProps.style?.backdropBlurRadius !==
+          newProps.style?.backdropBlurRadius ||
+        oldProps.style?.blendMode !== newProps.style?.blendMode ||
+        oldProps.style?.colorFilter !== newProps.style?.colorFilter;
       const layoutChanged = !shallowEqualYogaStyle(
         oldProps.style,
         newProps.style
@@ -658,7 +687,7 @@ const baseHostConfig = {
     if (type === 'Text') {
       const contentChanged =
         (oldProps.text ?? oldProps.children) !==
-        (newProps.text ?? newProps.children) ||
+          (newProps.text ?? newProps.children) ||
         oldProps.numberOfLines !== newProps.numberOfLines;
       const styleChanged =
         oldProps.style?.fontSize !== newProps.style?.fontSize ||
@@ -715,8 +744,8 @@ const baseHostConfig = {
   },
 
   /**
-   * commitUpdate — Cập nhật C++ node khi props thay đổi.
-   * Chỉ chạy khi prepareUpdate trả về non-null payload.
+   * commitUpdate — Updates the C++ node when props change.
+   * Only runs when prepareUpdate returns a non-null payload.
    */
   commitUpdate(...args: any[]) {
     // React 18+ react-reconciler signature: commitUpdate(instance, type, oldProps, newProps, internalHandle)
@@ -877,12 +906,12 @@ const baseHostConfig = {
 
   finalizeInitialChildren: () => false,
   shouldSetTextContent: () => false,
-  clearContainer: () => { },
+  clearContainer: () => {},
   getCurrentEventPriority: () => DefaultEventPriority,
   getInstanceFromNode: () => null,
-  beforeActiveInstanceBlur() { },
-  afterActiveInstanceBlur() { },
-  preparePortalMount() { },
+  beforeActiveInstanceBlur() {},
+  afterActiveInstanceBlur() {},
+  preparePortalMount() {},
 } as const;
 
 // ── Factory per CanvasRoot ────────────────────────────────────────────────────

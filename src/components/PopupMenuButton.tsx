@@ -63,21 +63,19 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
   offset = { dx: 0, dy: 0 },
   screenWidth = 360,
   screenHeight = 800,
-  ...props
 }: PopupMenuButtonProps<T>) {
   const theme = useTheme();
   const bgColor = menuColor ?? theme.colors.surface;
   const showOverlay = useOverlayStore((s) => s.showOverlay);
   const hideOverlay = useOverlayStore((s) => s.hideOverlay);
-  const x = props.x ?? 0;
-  const y = props.y ?? 0;
-  const menuId = `popup-menu-${x}-${y}`;
+  const menuId = useWidgetId('PopupMenu');
 
   useWidgetId('PopupMenuButton');
 
   const openMenu = useCallback(() => {
-    const menuX = x + offset.dx;
-    const menuY = y + 40 + offset.dy;
+    // Default menu position: use offset as absolute anchor
+    const menuX = offset.dx;
+    const menuY = offset.dy;
 
     showOverlay(
       menuId,
@@ -92,9 +90,10 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
         />
         {/* Menu */}
         <Box
-          x={menuX}
-          y={menuY}
           style={{
+            position: 'absolute',
+            left: menuX,
+            top: menuY,
             width: menuWidth,
             borderRadius: menuBorderRadius,
             backgroundColor: bgColor,

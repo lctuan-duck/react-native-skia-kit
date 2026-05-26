@@ -131,6 +131,18 @@ export function HomeScreen() {
             onPress={theme.toggleTheme}
           />
           <Button icon="bell" variant="icon" color="primary" />
+          <Button
+            text="Shaders"
+            variant="solid"
+            color="primary"
+            onPress={() => nav.push('ShaderTest')}
+            style={{
+              height: 36,
+              borderRadius: 18,
+              paddingLeft: 12,
+              paddingRight: 12,
+            }}
+          />
         </Row>
       </Row>
 

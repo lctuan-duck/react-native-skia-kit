@@ -72,11 +72,53 @@ export interface NativeYogaStyle {
 // ── Render Tree props ──────────────────────────────────────────────────────
 
 /**
- * NativeBoxProps — Visual props cho BoxNode.
- * Màu sắc dùng SkColor format (ARGB packed uint32, ví dụ: 0xFF2196F3).
+ * Gradient configuration for BoxNode.
+ *
+ * Coordinates `startX/Y`, `endX/Y`, `centerX/Y` use a normalized system (0–1).
+ * C++ multiplies them by the Box width/height when rendering.
+ *
+ * @example
+ * // Horizontal linear (startX=0 → endX=1, Y fixed at 0.5)
+ * { type: 'linear', colors: [0xFFFF6B6B, 0xFFFFE66D], startX: 0, startY: 0.5, endX: 1, endY: 0.5 }
+ */
+export interface NativeGradientProps {
+  /** Gradient type: linear, radial, or sweep */
+  type: 'linear' | 'radial' | 'sweep';
+  /** Array of SkColor values (ARGB packed uint32). Minimum 2 colors. */
+  colors: number[];
+  /**
+   * Stop positions corresponding to each color in `colors`, values 0.0–1.0.
+   * If omitted, Skia distributes stops evenly.
+   */
+  positions?: number[];
+  /** X coordinate of start point (normalized 0–1). Used for `linear`. Default: 0 */
+  startX?: number;
+  /** Y coordinate of start point (normalized 0–1). Used for `linear`. Default: 0.5 */
+  startY?: number;
+  /** X coordinate of end point (normalized 0–1). Used for `linear`. Default: 1 */
+  endX?: number;
+  /** Y coordinate of end point (normalized 0–1). Used for `linear`. Default: 0.5 */
+  endY?: number;
+  /** X coordinate of center (normalized 0–1). Used for `radial` and `sweep`. Default: 0.5 */
+  centerX?: number;
+  /** Y coordinate of center (normalized 0–1). Used for `radial` and `sweep`. Default: 0.5 */
+  centerY?: number;
+  /** Radius (normalized 0–1, relative to width). Used for `radial`. Default: 0.5 */
+  radius?: number;
+  /** Start angle in degrees. Used for `sweep`. Default: 0 */
+  startAngle?: number;
+  /** End angle in degrees. Used for `sweep`. Default: 360 */
+  endAngle?: number;
+  /** Tile mode when gradient extends beyond its bounds. Default: 'clamp' */
+  tileMode?: 'clamp' | 'repeat' | 'mirror';
+}
+
+/**
+ * NativeAnimatedStyle — animated style props passed from JS → C++ RenderNode.
+ * Colors use SkColor format (ARGB packed uint32, e.g. 0xFF2196F3).
  */
 export interface NativeAnimatedStyle {
-  // Kích thước & Layout Bounds
+  // Dimensions & Layout Bounds
   width?: number | string;
   height?: number | string;
   margin?: number | string;
@@ -119,14 +161,14 @@ export interface NativeAnimatedStyle {
   zIndex?: number;
   pointerEvents?: string; // 'auto' | 'none' | 'box-none' | 'box-only'
 
-  // Bo góc (Radius)
+  // Border radius
   borderRadius?: number;
   borderTopLeftRadius?: number;
   borderTopRightRadius?: number;
   borderBottomRightRadius?: number;
   borderBottomLeftRadius?: number;
 
-  // Viền (Border)
+  // Border
   borderWidth?: number;
   borderTopWidth?: number;
   borderRightWidth?: number;
@@ -141,7 +183,7 @@ export interface NativeAnimatedStyle {
   dashLength?: number;
   dashSpacing?: number;
 
-  // Bóng đổ (Shadow)
+  // Shadow
   shadowColor?: number;
   shadowOffsetX?: number;
   shadowOffsetY?: number;
@@ -149,35 +191,55 @@ export interface NativeAnimatedStyle {
   shadowOpacity?: number;
   shadowSpread?: number;
   shadowType?: string; // 'outer' | 'inner'
+
+  // Phase 3: Shaders & Filters
+  /** Gradient shader for the background. Overrides `backgroundColor` when set. */
+  gradient?: NativeGradientProps;
+  /** Backdrop blur radius (frosted glass / glassmorphism). Unit: logical pixels. */
+  backdropBlurRadius?: number;
+  /**
+   * Blend mode when this BoxNode composites over content behind it.
+   * Supports all SkBlendMode values: 'srcOver' | 'multiply' | 'screen' | 'overlay' |
+   * 'darken' | 'lighten' | 'colorDodge' | 'colorBurn' | 'hardLight' |
+   * 'softLight' | 'difference' | 'exclusion' | 'hue' | 'saturation' |
+   * 'color' | 'luminosity'
+   */
+  blendMode?: string;
+  /**
+   * Color filter matrix (4×5 = 20 elements).
+   * Applied to all content rendered inside the Box.
+   * Order: [R-row(5), G-row(5), B-row(5), A-row(5)].
+   */
+  colorFilter?: number[];
 }
 
 export interface NativeBoxProps {
   backgroundColor?: number; // SkColor ARGB
-  
+
   borderRadius?: number;
   borderTopLeftRadius?: number;
   borderTopRightRadius?: number;
   borderBottomRightRadius?: number;
   borderBottomLeftRadius?: number;
-  
+
   borderWidth?: number;
   borderTopWidth?: number;
   borderRightWidth?: number;
   borderBottomWidth?: number;
   borderLeftWidth?: number;
-  
+
   borderColor?: number; // SkColor ARGB
   borderTopColor?: number;
   borderRightColor?: number;
   borderBottomColor?: number;
   borderLeftColor?: number;
-  
+
   borderStyle?: string; // 'solid' | 'dashed' | 'dotted'
   dashLength?: number;
   dashSpacing?: number;
 
   elevation?: number; // Android shadow / iOS drop shadow
-  
+
   shadowColor?: number;
   shadowOffsetX?: number;
   shadowOffsetY?: number;
@@ -185,8 +247,26 @@ export interface NativeBoxProps {
   shadowOpacity?: number;
   shadowSpread?: number;
   shadowType?: string; // 'outer' | 'inner'
-  
+
   overflowHidden?: boolean;
+
+  // Phase 3: Shaders & Filters
+  /** Gradient shader for the background. Overrides `backgroundColor` when set. */
+  gradient?: NativeGradientProps;
+  /** Backdrop blur radius (frosted glass / glassmorphism). Unit: logical pixels. */
+  backdropBlurRadius?: number;
+  /**
+   * Blend mode when this BoxNode composites over content behind it.
+   * Supports: 'srcOver' | 'multiply' | 'screen' | 'overlay' | 'darken' |
+   * 'lighten' | 'colorDodge' | 'colorBurn' | 'hardLight' | 'softLight' |
+   * 'difference' | 'exclusion' | 'hue' | 'saturation' | 'color' | 'luminosity'
+   */
+  blendMode?: string;
+  /**
+   * Color filter matrix (4×5 = 20 elements).
+   * Applied to all content rendered inside the Box.
+   */
+  colorFilter?: number[];
 }
 
 /**

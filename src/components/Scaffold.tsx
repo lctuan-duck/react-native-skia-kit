@@ -75,9 +75,10 @@ export const Scaffold = React.memo(function Scaffold({
 
   return (
     <Box
-      x={finalX}
-      y={finalY}
       style={{
+        position: 'absolute',
+        left: finalX,
+        top: finalY,
         width,
         height,
         backgroundColor: bgColor,

@@ -74,8 +74,6 @@ export interface ButtonProps extends WidgetProps {
  * → 2 trục độc lập, kết hợp tự do.
  */
 export const Button = React.memo(function Button({
-  x: _x = 0,
-  y: _y = 0,
   text,
   icon,
   variant = 'solid',

@@ -42,13 +42,10 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
   displacement = 40,
   screenWidth,
   style,
-  ...props
 }: RefreshIndicatorProps) {
-  const x = props.x ?? 0;
-  const y = props.y ?? 0;
   const containerWidth = style?.width ?? screenWidth ?? 360;
   const spinnerX =
-    x + (typeof containerWidth === 'number' ? containerWidth : 360) / 2 - 14;
+    (typeof containerWidth === 'number' ? containerWidth : 360) / 2 - 14;
   const [refreshing, setRefreshing] = useState(false);
 
   useWidgetId('RefreshIndicator');
@@ -71,10 +68,14 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
       {refreshing && (
         <Progress
           variant="circular"
-          x={spinnerX}
-          y={y + displacement}
           color={color}
-          style={{ width: 28, height: 28 }}
+          style={{
+            width: 28,
+            height: 28,
+            position: 'absolute',
+            left: spinnerX,
+            top: displacement,
+          }}
         />
       )}
       {children}

@@ -3,6 +3,7 @@
 #include "RenderNode.hpp"
 #include <mutex>
 #include <algorithm>
+#include <array>
 #include <android/log.h>
 
 #pragma clang diagnostic push
@@ -14,9 +15,63 @@
 #include <include/core/SkMaskFilter.h>
 #include <include/core/SkBlurTypes.h>
 #include <include/effects/SkDashPathEffect.h>
+// Phase 3: Shaders, Gradients & Filters
+#include <include/effects/SkGradientShader.h>
+#include <include/effects/SkImageFilters.h>
+#include <include/core/SkColorFilter.h>
+#include <include/core/SkBlendMode.h>
 #pragma clang diagnostic pop
 
 namespace margelo::nitro::skiakit {
+
+// ─── Phase 3: Gradient Data ───────────────────────────────────────────────
+
+/** Supported gradient types */
+enum class GradientType { None, Linear, Radial, Sweep };
+
+/** Gradient data stored in BoxProps — coordinates already normalized (0–1) */
+struct GradientData {
+  GradientType type = GradientType::None;
+  std::vector<SkColor> colors;     // Already converted to SkColor (ARGB)
+  std::vector<SkScalar> positions; // Stop positions 0.0–1.0 (empty = evenly distributed)
+  // Linear
+  float startX = 0.f, startY = 0.5f;
+  float endX   = 1.f, endY   = 0.5f;
+  // Radial
+  float centerX = 0.5f, centerY = 0.5f;
+  float radius  = 0.5f;
+  // Sweep
+  float startAngle = 0.f, endAngle = 360.f;
+  // Shared
+  SkTileMode tileMode = SkTileMode::kClamp;
+};
+
+/** Helper: parse tileMode string → SkTileMode */
+inline SkTileMode parseTileMode(const std::string& s) {
+  if (s == "repeat") return SkTileMode::kRepeat;
+  if (s == "mirror") return SkTileMode::kMirror;
+  return SkTileMode::kClamp;
+}
+
+/** Helper: parse blendMode string → SkBlendMode */
+inline SkBlendMode parseBlendMode(const std::string& s) {
+  if (s == "multiply")   return SkBlendMode::kMultiply;
+  if (s == "screen")     return SkBlendMode::kScreen;
+  if (s == "overlay")    return SkBlendMode::kOverlay;
+  if (s == "darken")     return SkBlendMode::kDarken;
+  if (s == "lighten")    return SkBlendMode::kLighten;
+  if (s == "colorDodge") return SkBlendMode::kColorDodge;
+  if (s == "colorBurn")  return SkBlendMode::kColorBurn;
+  if (s == "hardLight")  return SkBlendMode::kHardLight;
+  if (s == "softLight")  return SkBlendMode::kSoftLight;
+  if (s == "difference") return SkBlendMode::kDifference;
+  if (s == "exclusion")  return SkBlendMode::kExclusion;
+  if (s == "hue")        return SkBlendMode::kHue;
+  if (s == "saturation") return SkBlendMode::kSaturation;
+  if (s == "color")      return SkBlendMode::kColor;
+  if (s == "luminosity") return SkBlendMode::kLuminosity;
+  return SkBlendMode::kSrcOver; // default
+}
 
 struct BoxProps {
   uint32_t backgroundColor = 0x00000000;
@@ -54,7 +109,14 @@ struct BoxProps {
   std::string shadowType = "outer";
 
   bool overflowHidden = false;
+
+  // Phase 3: Shaders & Filters
+  GradientData gradient;                         // type==None → skip gradient
+  float backdropBlurRadius = 0.f;                // 0 = disabled
+  SkBlendMode blendMode = SkBlendMode::kSrcOver;
+  std::vector<float> colorFilter;                // 20-element 4x5 matrix (empty = disabled)
 };
+
 
 struct AnimatedBoxProps {
   std::optional<uint32_t> backgroundColor;
@@ -88,7 +150,14 @@ struct AnimatedBoxProps {
   std::optional<float> shadowOpacity;
   std::optional<float> shadowSpread;
   std::optional<std::string> shadowType;
+
+  // Phase 3: Shaders & Filters
+  std::optional<GradientData> gradient;
+  std::optional<float> backdropBlurRadius;
+  std::optional<std::string> blendMode;
+  std::optional<std::vector<float>> colorFilter;
 };
+
 
 /**
  * BoxNode — Container drawable with Advanced Visuals (Phase 2).
@@ -153,7 +222,44 @@ public:
     if (style.shadowOpacity.has_value()) _animatedProps.shadowOpacity = static_cast<float>(style.shadowOpacity.value());
     if (style.shadowSpread.has_value()) _animatedProps.shadowSpread = static_cast<float>(style.shadowSpread.value());
     if (style.shadowType.has_value()) _animatedProps.shadowType = style.shadowType.value();
+
+    // Phase 3: Gradient
+    if (style.gradient.has_value()) {
+      const auto& g = style.gradient.value();
+      GradientData gd;
+      if (g.type == "linear")      gd.type = GradientType::Linear;
+      else if (g.type == "radial") gd.type = GradientType::Radial;
+      else if (g.type == "sweep")  gd.type = GradientType::Sweep;
+      gd.colors = std::vector<SkColor>(g.colors.begin(), g.colors.end());
+      if (g.positions.has_value()) {
+        gd.positions = std::vector<SkScalar>(g.positions.value().begin(), g.positions.value().end());
+      }
+      gd.startX  = g.startX.value_or(0.f);
+      gd.startY  = g.startY.value_or(0.5f);
+      gd.endX    = g.endX.value_or(1.f);
+      gd.endY    = g.endY.value_or(0.5f);
+      gd.centerX = g.centerX.value_or(0.5f);
+      gd.centerY = g.centerY.value_or(0.5f);
+      gd.radius  = g.radius.value_or(0.5f);
+      gd.startAngle = g.startAngle.value_or(0.f);
+      gd.endAngle   = g.endAngle.value_or(360.f);
+      if (g.tileMode.has_value()) gd.tileMode = parseTileMode(g.tileMode.value());
+      _animatedProps.gradient = gd;
+    }
+
+    // Phase 3: Backdrop blur
+    if (style.backdropBlurRadius.has_value())
+      _animatedProps.backdropBlurRadius = static_cast<float>(style.backdropBlurRadius.value());
+
+    // Phase 3: Blend mode
+    if (style.blendMode.has_value())
+      _animatedProps.blendMode = style.blendMode.value();
+
+    // Phase 3: Color filter matrix
+    if (style.colorFilter.has_value())
+      _animatedProps.colorFilter = std::vector<float>(style.colorFilter.value().begin(), style.colorFilter.value().end());
   }
+
 
   void draw(SkCanvas* canvas) override {
     BoxProps props;
@@ -207,6 +313,12 @@ public:
     if (animatedProps.shadowSpread.has_value()) props.shadowSpread = animatedProps.shadowSpread.value();
     if (animatedProps.shadowType.has_value()) props.shadowType = animatedProps.shadowType.value();
 
+    // Phase 3: merge animated shader props
+    if (animatedProps.gradient.has_value())          props.gradient = animatedProps.gradient.value();
+    if (animatedProps.backdropBlurRadius.has_value()) props.backdropBlurRadius = animatedProps.backdropBlurRadius.value();
+    if (animatedProps.blendMode.has_value())          props.blendMode = parseBlendMode(animatedProps.blendMode.value());
+    if (animatedProps.colorFilter.has_value())        props.colorFilter = animatedProps.colorFilter.value();
+
     const SkRect bounds = SkRect::MakeWH(w, h);
 
     // 1. Resolve Radii
@@ -223,7 +335,7 @@ public:
     SkRRect rrect;
     rrect.setRectRadii(bounds, radii);
 
-    // 2. Outer / Inner Shadow
+    // 2. Outer Shadow
     float blur = props.shadowBlur > 0 ? props.shadowBlur : (props.elevation > 0 ? props.elevation * 2.f : 0.f);
     uint32_t sColor = props.shadowColor != 0 ? props.shadowColor : (props.elevation > 0 ? 0x40000000 : 0);
     
@@ -248,7 +360,6 @@ public:
         if (!isInner) {
           SkRect shadowBounds = bounds.makeOutset(spread, spread).makeOffset(dx, dy);
           SkRRect shadowRRect;
-          // Simple spread logic for radii
           SkVector spreadRadii[4] = {
             {std::max(0.f, tl + spread), std::max(0.f, tl + spread)},
             {std::max(0.f, tr + spread), std::max(0.f, tr + spread)},
@@ -258,7 +369,6 @@ public:
           shadowRRect.setRectRadii(shadowBounds, spreadRadii);
 
           canvas->save();
-          // Difference Clip for translucent boxes or boxes with large radii
           if ((props.backgroundColor >> 24) < 255 || tl > 0 || tr > 0 || br > 0 || bl > 0) {
             canvas->clipRRect(rrect, SkClipOp::kDifference, true);
           }
@@ -268,17 +378,10 @@ public:
           // Inner shadow
           canvas->save();
           canvas->clipRRect(rrect, SkClipOp::kIntersect, true);
-          
           float extraInflate = blur * 2.f + std::abs(spread) * 2.f + 10.f;
-          SkRect innerBounds = bounds.makeOutset(extraInflate, extraInflate);
-          SkRRect innerRRect;
-          innerRRect.setRectRadii(innerBounds, radii); // doesn't matter much outside
-
           shadowPaint.setStyle(SkPaint::kStroke_Style);
-          shadowPaint.setStrokeWidth(extraInflate * 2.f); 
-          // Translate to create the inner cast
+          shadowPaint.setStrokeWidth(extraInflate * 2.f);
           canvas->translate(dx, dy);
-          // Draw a huge stroke that bleeds inwards
           SkRect drawBounds = bounds.makeInset(spread, spread);
           SkRRect drawRRect;
           drawRRect.setRectRadii(drawBounds, radii);
@@ -288,13 +391,72 @@ public:
       }
     }
 
-    // 3. Clip
+    // 3. Clip (overflow hidden)
     if (props.overflowHidden) {
       canvas->clipRRect(rrect, true);
     }
 
-    // 4. Background
-    if ((props.backgroundColor >> 24) != 0) {
+    // ── Phase 3: Backdrop Blur ────────────────────────────────────────────
+    // saveLayer with SkImageFilters::Blur BEFORE drawing the background.
+    // Effect: content behind the Box is blurred → frosted glass / glassmorphism.
+    // IMPORTANT: always pass bounds (not nullptr) to avoid blurring the entire screen.
+    bool hasBackdropBlur = props.backdropBlurRadius > 0.f;
+    if (hasBackdropBlur) {
+      SkPaint backdropPaint;
+      backdropPaint.setImageFilter(
+        SkImageFilters::Blur(props.backdropBlurRadius, props.backdropBlurRadius, nullptr)
+      );
+      canvas->saveLayer(SkCanvas::SaveLayerRec(&bounds, &backdropPaint, SkCanvas::kInitWithPrevious_SaveLayerFlag));
+    }
+
+    // ── Phase 3: Color Filter Layer ───────────────────────────────────────
+    // Wraps background + children in a saveLayer with a ColorFilter applied.
+    bool hasColorFilter = (props.colorFilter.size() == 20);
+    if (hasColorFilter) {
+      SkPaint cfPaint;
+      cfPaint.setColorFilter(
+        SkColorFilters::Matrix(props.colorFilter.data())
+      );
+      cfPaint.setBlendMode(props.blendMode);
+      canvas->saveLayer(&bounds, &cfPaint);
+    } else if (props.blendMode != SkBlendMode::kSrcOver) {
+      // BlendMode without ColorFilter
+      SkPaint blendPaint;
+      blendPaint.setBlendMode(props.blendMode);
+      canvas->saveLayer(&bounds, &blendPaint);
+    }
+
+    // 4. Background: Gradient or Solid Color
+    if (props.gradient.type != GradientType::None && !props.gradient.colors.empty()) {
+      // ── Gradient Background ──────────────────────────────────────────────
+      const GradientData& g = props.gradient;
+      const SkScalar* pos = g.positions.empty() ? nullptr : g.positions.data();
+      const int colorCount = static_cast<int>(g.colors.size());
+      sk_sp<SkShader> shader;
+
+      if (g.type == GradientType::Linear) {
+        SkPoint pts[2] = {
+          {g.startX * w, g.startY * h},
+          {g.endX   * w, g.endY   * h},
+        };
+        shader = SkGradientShader::MakeLinear(pts, g.colors.data(), pos, colorCount, g.tileMode);
+      } else if (g.type == GradientType::Radial) {
+        SkPoint center = {g.centerX * w, g.centerY * h};
+        shader = SkGradientShader::MakeRadial(center, g.radius * w, g.colors.data(), pos, colorCount, g.tileMode);
+      } else if (g.type == GradientType::Sweep) {
+        SkPoint center = {g.centerX * w, g.centerY * h};
+        shader = SkGradientShader::MakeSweep(center.x(), center.y(), g.colors.data(), pos, colorCount,
+                                              g.tileMode, g.startAngle, g.endAngle, 0, nullptr);
+      }
+
+      if (shader) {
+        SkPaint gradPaint;
+        gradPaint.setAntiAlias(true);
+        gradPaint.setShader(shader);
+        canvas->drawRRect(rrect, gradPaint);
+      }
+    } else if ((props.backgroundColor >> 24) != 0) {
+      // ── Solid Color Background ───────────────────────────────────────────
       SkPaint bgPaint;
       bgPaint.setAntiAlias(true);
       bgPaint.setColor(props.backgroundColor);
@@ -390,6 +552,14 @@ public:
       drawEdgeWithClip(rc, rw, {w, 0}, {w, h});       // Right
       drawEdgeWithClip(bc, bw, {w, h}, {0, h});       // Bottom
       drawEdgeWithClip(lc, lw, {0, h}, {0, 0});       // Left
+    }
+
+    // Restore Phase 3 layers (in reverse order of saveLayer calls)
+    if (hasColorFilter || props.blendMode != SkBlendMode::kSrcOver) {
+      canvas->restore(); // restore color filter / blend mode layer
+    }
+    if (hasBackdropBlur) {
+      canvas->restore(); // restore backdrop blur layer
     }
   }
 

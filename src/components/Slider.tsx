@@ -49,7 +49,12 @@ export interface SliderProps extends WidgetProps {
   onSlidingComplete?: (value: number) => void;
 }
 
-const updateSliderUI = (fillId: string, thumbId: string, fillW: number, thumbLeft: number) => {
+const updateSliderUI = (
+  fillId: string,
+  thumbId: string,
+  fillW: number,
+  thumbLeft: number
+) => {
   if (uiEngine) {
     uiEngine.updateLayoutNode(fillId, { width: fillW });
     uiEngine.updateLayoutNode(thumbId, { left: thumbLeft });
@@ -93,8 +98,10 @@ export const Slider = React.memo(function Slider({
   const [internalValue, setInternalValue] = React.useState(value);
   const isDragging = React.useRef(false);
 
-  const getRatio = (v: number) =>
-    Math.max(0, Math.min(1, (v - min) / (max - min)));
+  const getRatio = React.useCallback(
+    (v: number) => Math.max(0, Math.min(1, (v - min) / (max - min))),
+    [min, max]
+  );
 
   const animatedRatio = useSharedValue(getRatio(value));
 
@@ -103,7 +110,7 @@ export const Slider = React.memo(function Slider({
       setInternalValue(value);
       animatedRatio.value = withTiming(getRatio(value), { duration: 200 });
     }
-  }, [value, min, max, animatedRatio]);
+  }, [value, min, max, animatedRatio, getRatio]);
 
   useAnimatedReaction(
     () => animatedRatio.value,

@@ -15,7 +15,6 @@ import {
   useSharedValue,
   withTiming,
   withRepeat,
-  withSequence,
   useAnimatedReaction,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -125,7 +124,14 @@ export const Progress = React.memo(function Progress({
   useAnimatedReaction(
     () => (isDeterminate ? progress.value : indetProgress.value),
     (p) => {
-      scheduleOnRN(updateProgressUI, fillId, isDeterminate, p, finalWidth, variant);
+      scheduleOnRN(
+        updateProgressUI,
+        fillId,
+        isDeterminate,
+        p,
+        finalWidth,
+        variant
+      );
     },
     [isDeterminate, finalWidth, fillId, variant]
   );

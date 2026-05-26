@@ -57,7 +57,7 @@ const updateRadioUI = (
   });
 
   // Since dotId has width: dotSize statically in React, we scale it
-  const scale = currentDotSize / r; 
+  const scale = currentDotSize / r;
   uiEngine.updateAnimatedStyles(dotId, {
     scaleX: scale,
     scaleY: scale,

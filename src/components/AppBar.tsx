@@ -77,9 +77,10 @@ export const AppBar = React.memo(function AppBar({
 
   return (
     <Box
-      x={finalX}
-      y={finalY}
       style={{
+        position: 'absolute',
+        left: finalX,
+        top: finalY,
         width,
         height,
         backgroundColor: bgColor,
