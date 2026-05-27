@@ -119,8 +119,15 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   children,
 }: CanvasRootProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  // BUG-2 Fix: \u0111\u1ecdc overlays theo canvasId \u2014 m\u1ed7i CanvasRoot ch\u1ec9 hi\u1ec3n overlay c\u1ee7a m\u00ecnh
-  const sortedOverlays = useOverlayStore((s) => s.getOverlays(canvasId));
+
+  // BUG-2 Fix: đọc overlays theo canvasId — mỗi CanvasRoot chỉ hiển overlay của mình.
+  // INFINITE-LOOP FIX: chọn raw Map (stable ref khi không có thay đổi) thay vì gọi
+  // getOverlays() (tạo array mới mỗi call → useSyncExternalStore báo "getSnapshot not cached").
+  const rawCanvasOverlays = useOverlayStore((s) => s.overlaysByCanvas.get(canvasId));
+  const sortedOverlays = useMemo(() => {
+    const entries = Array.from(rawCanvasOverlays?.values() ?? []);
+    return entries.sort((a, b) => a.zIndex - b.zIndex);
+  }, [rawCanvasOverlays]);
 
   // Phase 4: per-instance engine — mỗi CanvasRoot tạo 1 UIEngine riêng
   // Thay thế GlobalEngine singleton. Engine bị destroy khi CanvasRoot unmount.
@@ -131,6 +138,11 @@ export const CanvasRoot = React.memo(function CanvasRoot({
 
   // Phase 3: engineId cho SkiaKitNativeView multi-instance lookup
   const engineId = useMemo(() => engine.getEngineId(), [engine]);
+
+  // CONTEXT-STABILITY FIX: memoize để tránh tạo object mới mỗi render.
+  // { engine, engineId } inline trong JSX sẽ tạo object mới mỗi render
+  // → tất cả consumer của EngineContext sẽ re-render không cần thiết.
+  const engineContextValue = useMemo(() => ({ engine, engineId }), [engine, engineId]);
 
   // ── requestRedraw — Phase 3: C++ tự layout + render + notify JS ───────────
   //
@@ -258,13 +270,19 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   // Dùng useLayoutEffect KHÔNG có sortedOverlays trong deps để tránh infinite loop.
   // sortedOverlays được đọc qua ref. children là stable (memoized bởi parent).
   useLayoutEffect(() => {
+    // SECONDARY-RECONCILER CONTEXT FIX:
+    // React context từ primary renderer tree KHÔNG tự động có trong secondary reconciler tree.
+    // Cần wrap skiaChildren với các context providers để components (TabBar, Button...)
+    // có thể gọi useEngineContext() / useCanvasId() khi render trong secondary reconciler.
     const skiaChildren = (
-      <>
-        {children}
-        {sortedOverlaysRef.current.map((o) => (
-          <React.Fragment key={o.id}>{o.node}</React.Fragment>
-        ))}
-      </>
+      <EngineContext.Provider value={engineContextValue}>
+        <WidgetContext.Provider value={canvasId}>
+          {children}
+          {sortedOverlaysRef.current.map((o) => (
+            <React.Fragment key={o.id}>{o.node}</React.Fragment>
+          ))}
+        </WidgetContext.Provider>
+      </EngineContext.Provider>
     );
 
 
@@ -301,7 +319,7 @@ export const CanvasRoot = React.memo(function CanvasRoot({
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [children, reconciler]); // sortedOverlays intentionally via ref
+  }, [children, reconciler, engineContextValue, canvasId]); // sortedOverlays intentionally via ref
 
   // Re-run layout khi screen thay đổi
   React.useEffect(() => {
@@ -527,7 +545,7 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   );
 
   return (
-    <EngineContext.Provider value={{ engine, engineId }}>
+    <EngineContext.Provider value={engineContextValue}>
       <WidgetContext.Provider value={canvasId}>
         <RNGestureDetector gesture={gesture}>
           {/* Phase 3: SkiaKitNativeView là renderer duy nhất — C++ vẽ trực tiếp lên GPU */}
