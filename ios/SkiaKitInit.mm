@@ -1,28 +1,14 @@
 #import "SkiaKitInit.h"
-#import <React/RCTBridge+Private.h>
 
-// C++ headers — dùng .mm để Obj-C++ compiler xử lý C++ includes
-#include "HybridUIEngine.hpp"
-
-// Shopify RNSkia iOS — RNSkiOSPlatformContext cung cấp FontMgr + image loading
-#include "RNSkiOSPlatformContext.h"
-#include "RNSkManager.h"
-
+// SkiaKitInitializePlatformContext đã được deprecated.
+//
+// iOS FIX: PlatformContext không còn được inject qua singleton RNSkManager::getInstance().
+// Thay vào đó, SkiaKitNativeView.mm tự tạo RNSkApplePlatformContext từ RCTBridge
+// mỗi khi engine cần — giống pattern của SkiaManager.mm trong RNSkia.
+//
+// Hàm này được giữ lại để tránh linker errors nếu ai đó đã gọi nó,
+// nhưng thực tế là no-op.
 void SkiaKitInitializePlatformContext(void) {
-  // Lấy PlatformContext từ RNSkManager singleton (được init bởi Shopify)
-  auto& manager = RNSkia::RNSkManager::getInstance();
-  auto platformContext = manager.getPlatformContext();
-
-  if (!platformContext) {
-    NSLog(@"[SkiaKit] WARNING: RNSkia PlatformContext not available at init time. "
-          @"Ensure @shopify/react-native-skia is loaded before SkiaKit.");
-    return;
-  }
-
-  // Lưu platformContext vào static để factory (constructor) dùng khi tạo engine (iOS pattern)
-  // Phase 3: Engine tự đăng ký vào _sRegistry trong registerSelf() sau make_shared
-  // → không cần postInitCallback hay skiakit_setFactoryEngineiOS nữa
-  margelo::nitro::skiakit::HybridUIEngine::setPendingPlatformContext(platformContext);
-
-  NSLog(@"[SkiaKit] PlatformContext set. Engine will register in global registry on creation.");
+  // No-op: PlatformContext creation moved to SkiaKitNativeView._createPlatformContext
+  // See: ios/SkiaKitNativeView.mm _setupMetalProviderIfNeeded
 }
