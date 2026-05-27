@@ -120,6 +120,9 @@ private:
   std::atomic<bool> _renderPending{false};
   // Guard: ngăn doRender() tự gọi đệ quy (paint → scheduleRender → doRender → ...)
   std::atomic<bool> _isRendering{false};
+  // EGL throttle: đếm số lần renderToCanvas() trả về false liên tiếp.
+  // Khi >= kMaxEglFailBeforeThrottle → dừng busy-loop, chờ surface lifecycle event.
+  std::atomic<int> _eglFailCount{0};
   // Flag: cần chạy calculateLayout trước khi draw
   std::atomic<bool> _needsLayout{false};
 

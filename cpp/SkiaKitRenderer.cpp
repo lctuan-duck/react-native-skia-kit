@@ -36,6 +36,8 @@ void SkiaKitRenderer::attachCanvasProvider(
     _width          = width;
     _height         = height;
   }
+  // Reset EGL throttle — surface mới đã sẵn sàng, cho phép render ngay
+  _eglFailCount.store(0, std::memory_order_release);
   RENDERER_LOG("attachCanvasProvider: canvasId=%s w=%.0f h=%.0f", canvasId.c_str(), width, height);
 
   // Initial render ngay sau khi attach
@@ -186,24 +188,40 @@ void SkiaKitRenderer::doRender() {
       });
     }
   } else {
-    // EGL/surface không ready — mark layout dirty lại để retry khi surface available.
-    _needsLayout.store(true, std::memory_order_release);
-    RENDERER_LOG("renderToCanvas returned false (EGL not ready) — will retry on next dirty");
+    // EGL/surface không ready — KHÔNG reset _needsLayout.
+    // Layout results đã cached trong RenderSubsystem._nodes (cachedX/Y/W/H).
+    // Reset _needsLayout → layout tính lại từ 0 khi EGL recover → flicker (values jump).
+    // Chỉ cần đợi EGL attach, sau đó draw với layout cũ.
+    _eglFailCount.fetch_add(1, std::memory_order_relaxed);
+    RENDERER_LOG("renderToCanvas returned false (EGL not ready), fail#%d",
+      _eglFailCount.load(std::memory_order_relaxed));
+  }
+
+  if (rendered) {
+    // Reset EGL fail counter sau khi draw thành công
+    _eglFailCount.store(0, std::memory_order_relaxed);
   }
 
   // ── Cleanup _isRendering và xử lý deferred scheduleRender ────────────────
-  // Clear _isRendering TRƯỚC khi check _renderPending để tránh race condition
-  // giữa 2 threads: nếu clear sau post-task, 1 thread khác có thể đã gọi
-  // scheduleRender() và thấy _isRendering=true → không post → task bị mất.
   _isRendering.store(false, std::memory_order_release);
 
-  // Nếu paint() hoặc bất kỳ callback nào đã set _renderPending=true trong lúc
-  // chúng ta đang render (bị block bởi _isRendering guard), schedule 1 frame mới.
-  // Dùng compare_exchange để tránh race với scheduleRender() từ thread khác.
+  // THROTTLE khi EGL liên tục fail: nếu đã fail nhiều lần liên tiếp,
+  // dừng busy-loop — chỉ render lại khi có external dirty event
+  // (attachCanvasProvider, resize, reconciler commit, scroll...).
+  // Khi EGL recover, nativeOnSurfaceAvailable → attachCanvasProvider
+  // → scheduleLayoutAndRender() sẽ kick-start render lại.
+  constexpr int kMaxEglFailBeforeThrottle = 3;
+  if (_eglFailCount.load(std::memory_order_relaxed) >= kMaxEglFailBeforeThrottle) {
+    // Surface không ready — dừng polling, đợi surface lifecycle event.
+    // _renderPending và _needsLayout vẫn giữ nguyên để render ngay khi EGL ready.
+    return;
+  }
+
+  // Nếu paint() hoặc callback đã set _renderPending=true trong lúc render,
+  // schedule 1 frame mới. EGL fail count vẫn < threshold → vẫn cần thử.
   bool pendingAfterRender = true;
   if (_renderPending.compare_exchange_strong(pendingAfterRender, false,
         std::memory_order_acq_rel, std::memory_order_relaxed)) {
-    // Có dirty request trong lúc render — schedule thêm 1 frame
     auto weakSelf = weak_from_this();
     _platformContext->runOnMainThread([weakSelf]() {
       if (auto self = weakSelf.lock()) {
