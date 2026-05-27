@@ -313,71 +313,154 @@ public:
     return getYInternal();
   }
 
-  virtual void updateAnimatedStyles(const NativeAnimatedStyle& style) {
-    if (style.opacity.has_value()) _opacity.store(style.opacity.value(), std::memory_order_relaxed);
-    
+  virtual bool updateAnimatedStyles(const NativeAnimatedStyle& style) {
+    // Phase 6 OPT-2: Value dedup — only report changed = true if any field
+    // actually differs from its current stored value.
+    //
+    // For floats:  sub-pixel threshold kEps=0.01f (< 1/100 pixel, invisible to user)
+    // For uint32/int32: exact comparison (color, zIndex must be exact)
+    //
+    // Returns true if ANY field changed — caller uses this to decide markDirty().
+    // When animation stabilizes (same value every frame), changed=false →
+    // no markDirty() → no rebuildPicture() → no GPU work. ≈ 0 cost for idle animation.
+    constexpr float kEps = 0.01f;
+    bool changed = false;
+
+    auto storeFloat = [&](std::atomic<float>& field, float newVal) {
+      float oldVal = field.load(std::memory_order_relaxed);
+      if (std::abs(newVal - oldVal) > kEps) {
+        field.store(newVal, std::memory_order_relaxed);
+        changed = true;
+      }
+    };
+
+    if (style.opacity.has_value())   storeFloat(_opacity,   style.opacity.value());
+
     if (style.scale.has_value()) {
-      _scaleX.store(style.scale.value(), std::memory_order_relaxed);
-      _scaleY.store(style.scale.value(), std::memory_order_relaxed);
+      float v = style.scale.value();
+      float oldX = _scaleX.load(std::memory_order_relaxed);
+      float oldY = _scaleY.load(std::memory_order_relaxed);
+      if (std::abs(v - oldX) > kEps || std::abs(v - oldY) > kEps) {
+        _scaleX.store(v, std::memory_order_relaxed);
+        _scaleY.store(v, std::memory_order_relaxed);
+        changed = true;
+      }
     }
-    if (style.scaleX.has_value()) _scaleX.store(style.scaleX.value(), std::memory_order_relaxed);
-    if (style.scaleY.has_value()) _scaleY.store(style.scaleY.value(), std::memory_order_relaxed);
-    
-    if (style.translateX.has_value()) _translateX.store(style.translateX.value(), std::memory_order_relaxed);
-    if (style.translateY.has_value()) _translateY.store(style.translateY.value(), std::memory_order_relaxed);
-    
-    if (style.rotateZ.has_value()) _rotateZ.store(style.rotateZ.value(), std::memory_order_relaxed);
-    if (style.rotateX.has_value()) _rotateX.store(style.rotateX.value(), std::memory_order_relaxed);
-    if (style.rotateY.has_value()) _rotateY.store(style.rotateY.value(), std::memory_order_relaxed);
-    
-    if (style.skewX.has_value()) _skewX.store(style.skewX.value(), std::memory_order_relaxed);
-    if (style.skewY.has_value()) _skewY.store(style.skewY.value(), std::memory_order_relaxed);
-    
-    if (style.perspective.has_value()) _perspective.store(style.perspective.value(), std::memory_order_relaxed);
-    if (style.transformOriginX.has_value()) _transformOriginX.store(style.transformOriginX.value(), std::memory_order_relaxed);
-    if (style.transformOriginY.has_value()) _transformOriginY.store(style.transformOriginY.value(), std::memory_order_relaxed);
-    
-    if (style.backgroundColor.has_value()) _backgroundColor.store(style.backgroundColor.value(), std::memory_order_relaxed);
-    if (style.zIndex.has_value()) _zIndex.store(style.zIndex.value(), std::memory_order_relaxed);
-    
-    if (style.pointerEvents.has_value()) {
-      std::lock_guard<std::mutex> lock(_pointerEventsMutex);
-      _pointerEvents = style.pointerEvents.value();
+    if (style.scaleX.has_value())    storeFloat(_scaleX,    style.scaleX.value());
+    if (style.scaleY.has_value())    storeFloat(_scaleY,    style.scaleY.value());
+
+    if (style.translateX.has_value()) storeFloat(_translateX, style.translateX.value());
+    if (style.translateY.has_value()) storeFloat(_translateY, style.translateY.value());
+
+    if (style.rotateZ.has_value())   storeFloat(_rotateZ,   style.rotateZ.value());
+    if (style.rotateX.has_value())   storeFloat(_rotateX,   style.rotateX.value());
+    if (style.rotateY.has_value())   storeFloat(_rotateY,   style.rotateY.value());
+
+    if (style.skewX.has_value())     storeFloat(_skewX,     style.skewX.value());
+    if (style.skewY.has_value())     storeFloat(_skewY,     style.skewY.value());
+
+    if (style.perspective.has_value())     storeFloat(_perspective,     style.perspective.value());
+    if (style.transformOriginX.has_value()) storeFloat(_transformOriginX, style.transformOriginX.value());
+    if (style.transformOriginY.has_value()) storeFloat(_transformOriginY, style.transformOriginY.value());
+
+    // backgroundColor: uint32 — exact comparison (color must be pixel-perfect)
+    if (style.backgroundColor.has_value()) {
+      uint32_t newColor = style.backgroundColor.value();
+      uint32_t oldColor = _backgroundColor.load(std::memory_order_relaxed);
+      if (newColor != oldColor) {
+        _backgroundColor.store(newColor, std::memory_order_relaxed);
+        changed = true;
+      }
     }
 
-    // Phase 4: Layout animated overrides
+    // zIndex: int32 — exact comparison
+    if (style.zIndex.has_value()) {
+      int32_t newZ = style.zIndex.value();
+      int32_t oldZ = _zIndex.load(std::memory_order_relaxed);
+      if (newZ != oldZ) {
+        _zIndex.store(newZ, std::memory_order_relaxed);
+        changed = true;
+      }
+    }
+
+    if (style.pointerEvents.has_value()) {
+      const std::string& newPE = style.pointerEvents.value();
+      {
+        std::lock_guard<std::mutex> lock(_pointerEventsMutex);
+        if (newPE != _pointerEvents) {
+          _pointerEvents = newPE;
+          changed = true;
+        }
+      }
+    }
+
+    // Phase 4: Layout animated overrides — use same epsilon logic
     if (style.left.has_value()) {
       if (std::holds_alternative<double>(style.left.value())) {
-        _animLeft.store(static_cast<float>(std::get<double>(style.left.value())), std::memory_order_relaxed);
-        _hasAnimLeft.store(true, std::memory_order_relaxed);
+        float newVal = static_cast<float>(std::get<double>(style.left.value()));
+        float oldVal = _animLeft.load(std::memory_order_relaxed);
+        if (!_hasAnimLeft.load(std::memory_order_relaxed) || std::abs(newVal - oldVal) > kEps) {
+          _animLeft.store(newVal, std::memory_order_relaxed);
+          _hasAnimLeft.store(true, std::memory_order_relaxed);
+          changed = true;
+        }
       } else {
-        _hasAnimLeft.store(false, std::memory_order_relaxed);
+        if (_hasAnimLeft.load(std::memory_order_relaxed)) {
+          _hasAnimLeft.store(false, std::memory_order_relaxed);
+          changed = true;
+        }
       }
     }
     if (style.top.has_value()) {
       if (std::holds_alternative<double>(style.top.value())) {
-        _animTop.store(static_cast<float>(std::get<double>(style.top.value())), std::memory_order_relaxed);
-        _hasAnimTop.store(true, std::memory_order_relaxed);
+        float newVal = static_cast<float>(std::get<double>(style.top.value()));
+        float oldVal = _animTop.load(std::memory_order_relaxed);
+        if (!_hasAnimTop.load(std::memory_order_relaxed) || std::abs(newVal - oldVal) > kEps) {
+          _animTop.store(newVal, std::memory_order_relaxed);
+          _hasAnimTop.store(true, std::memory_order_relaxed);
+          changed = true;
+        }
       } else {
-        _hasAnimTop.store(false, std::memory_order_relaxed);
+        if (_hasAnimTop.load(std::memory_order_relaxed)) {
+          _hasAnimTop.store(false, std::memory_order_relaxed);
+          changed = true;
+        }
       }
     }
     if (style.width.has_value()) {
       if (std::holds_alternative<double>(style.width.value())) {
-        _animWidth.store(static_cast<float>(std::get<double>(style.width.value())), std::memory_order_relaxed);
-        _hasAnimWidth.store(true, std::memory_order_relaxed);
+        float newVal = static_cast<float>(std::get<double>(style.width.value()));
+        float oldVal = _animWidth.load(std::memory_order_relaxed);
+        if (!_hasAnimWidth.load(std::memory_order_relaxed) || std::abs(newVal - oldVal) > kEps) {
+          _animWidth.store(newVal, std::memory_order_relaxed);
+          _hasAnimWidth.store(true, std::memory_order_relaxed);
+          changed = true;
+        }
       } else {
-        _hasAnimWidth.store(false, std::memory_order_relaxed);
+        if (_hasAnimWidth.load(std::memory_order_relaxed)) {
+          _hasAnimWidth.store(false, std::memory_order_relaxed);
+          changed = true;
+        }
       }
     }
     if (style.height.has_value()) {
       if (std::holds_alternative<double>(style.height.value())) {
-        _animHeight.store(static_cast<float>(std::get<double>(style.height.value())), std::memory_order_relaxed);
-        _hasAnimHeight.store(true, std::memory_order_relaxed);
+        float newVal = static_cast<float>(std::get<double>(style.height.value()));
+        float oldVal = _animHeight.load(std::memory_order_relaxed);
+        if (!_hasAnimHeight.load(std::memory_order_relaxed) || std::abs(newVal - oldVal) > kEps) {
+          _animHeight.store(newVal, std::memory_order_relaxed);
+          _hasAnimHeight.store(true, std::memory_order_relaxed);
+          changed = true;
+        }
       } else {
-        _hasAnimHeight.store(false, std::memory_order_relaxed);
+        if (_hasAnimHeight.load(std::memory_order_relaxed)) {
+          _hasAnimHeight.store(false, std::memory_order_relaxed);
+          changed = true;
+        }
       }
     }
+
+    return changed;
   }
 
   // ── Render loop (Skia Render thread) ───────────────────────────────────────────

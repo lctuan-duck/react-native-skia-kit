@@ -176,52 +176,57 @@ public:
     _props = props;
   }
 
-  void updateAnimatedStyles(const NativeAnimatedStyle& style) override {
-    RenderNode::updateAnimatedStyles(style);
-    
+  bool updateAnimatedStyles(const NativeAnimatedStyle& style) override {
+    // Phase 6 OPT-2: propagate base class dedup result.
+    // Transform/opacity/translate dedup is handled by RenderNode::updateAnimatedStyles.
+    // BoxNode-specific fields (border, shadow, gradient) mark changed when any is set.
+    // Full value dedup for box-specific fields is future work — these are compound structs.
+    bool changed = RenderNode::updateAnimatedStyles(style);
+
     std::lock_guard<std::mutex> lock(_propMutex);
 
-    // Prevent RenderNode from drawing a square background, 
+    // Prevent RenderNode from drawing a square background,
     // we handle animated background color here with border radius!
     if (style.backgroundColor.has_value()) {
       _animatedProps.backgroundColor = static_cast<uint32_t>(style.backgroundColor.value());
       _backgroundColor.store(0, std::memory_order_relaxed);
+      changed = true;
     }
-    
+
     // Radii
-    if (style.borderRadius.has_value()) _animatedProps.borderRadius = static_cast<float>(style.borderRadius.value());
-    if (style.borderTopLeftRadius.has_value()) _animatedProps.borderTopLeftRadius = static_cast<float>(style.borderTopLeftRadius.value());
-    if (style.borderTopRightRadius.has_value()) _animatedProps.borderTopRightRadius = static_cast<float>(style.borderTopRightRadius.value());
-    if (style.borderBottomRightRadius.has_value()) _animatedProps.borderBottomRightRadius = static_cast<float>(style.borderBottomRightRadius.value());
-    if (style.borderBottomLeftRadius.has_value()) _animatedProps.borderBottomLeftRadius = static_cast<float>(style.borderBottomLeftRadius.value());
-    
+    if (style.borderRadius.has_value())            { _animatedProps.borderRadius            = static_cast<float>(style.borderRadius.value()); changed = true; }
+    if (style.borderTopLeftRadius.has_value())     { _animatedProps.borderTopLeftRadius     = static_cast<float>(style.borderTopLeftRadius.value()); changed = true; }
+    if (style.borderTopRightRadius.has_value())    { _animatedProps.borderTopRightRadius    = static_cast<float>(style.borderTopRightRadius.value()); changed = true; }
+    if (style.borderBottomRightRadius.has_value()) { _animatedProps.borderBottomRightRadius = static_cast<float>(style.borderBottomRightRadius.value()); changed = true; }
+    if (style.borderBottomLeftRadius.has_value())  { _animatedProps.borderBottomLeftRadius  = static_cast<float>(style.borderBottomLeftRadius.value()); changed = true; }
+
     // Border Widths
-    if (style.borderWidth.has_value()) _animatedProps.borderWidth = static_cast<float>(style.borderWidth.value());
-    if (style.borderTopWidth.has_value()) _animatedProps.borderTopWidth = static_cast<float>(style.borderTopWidth.value());
-    if (style.borderRightWidth.has_value()) _animatedProps.borderRightWidth = static_cast<float>(style.borderRightWidth.value());
-    if (style.borderBottomWidth.has_value()) _animatedProps.borderBottomWidth = static_cast<float>(style.borderBottomWidth.value());
-    if (style.borderLeftWidth.has_value()) _animatedProps.borderLeftWidth = static_cast<float>(style.borderLeftWidth.value());
-    
+    if (style.borderWidth.has_value())       { _animatedProps.borderWidth       = static_cast<float>(style.borderWidth.value()); changed = true; }
+    if (style.borderTopWidth.has_value())    { _animatedProps.borderTopWidth    = static_cast<float>(style.borderTopWidth.value()); changed = true; }
+    if (style.borderRightWidth.has_value())  { _animatedProps.borderRightWidth  = static_cast<float>(style.borderRightWidth.value()); changed = true; }
+    if (style.borderBottomWidth.has_value()) { _animatedProps.borderBottomWidth = static_cast<float>(style.borderBottomWidth.value()); changed = true; }
+    if (style.borderLeftWidth.has_value())   { _animatedProps.borderLeftWidth   = static_cast<float>(style.borderLeftWidth.value()); changed = true; }
+
     // Border Colors
-    if (style.borderColor.has_value()) _animatedProps.borderColor = static_cast<uint32_t>(style.borderColor.value());
-    if (style.borderTopColor.has_value()) _animatedProps.borderTopColor = static_cast<uint32_t>(style.borderTopColor.value());
-    if (style.borderRightColor.has_value()) _animatedProps.borderRightColor = static_cast<uint32_t>(style.borderRightColor.value());
-    if (style.borderBottomColor.has_value()) _animatedProps.borderBottomColor = static_cast<uint32_t>(style.borderBottomColor.value());
-    if (style.borderLeftColor.has_value()) _animatedProps.borderLeftColor = static_cast<uint32_t>(style.borderLeftColor.value());
-    
+    if (style.borderColor.has_value())       { _animatedProps.borderColor       = static_cast<uint32_t>(style.borderColor.value()); changed = true; }
+    if (style.borderTopColor.has_value())    { _animatedProps.borderTopColor    = static_cast<uint32_t>(style.borderTopColor.value()); changed = true; }
+    if (style.borderRightColor.has_value())  { _animatedProps.borderRightColor  = static_cast<uint32_t>(style.borderRightColor.value()); changed = true; }
+    if (style.borderBottomColor.has_value()) { _animatedProps.borderBottomColor = static_cast<uint32_t>(style.borderBottomColor.value()); changed = true; }
+    if (style.borderLeftColor.has_value())   { _animatedProps.borderLeftColor   = static_cast<uint32_t>(style.borderLeftColor.value()); changed = true; }
+
     // Border Style
-    if (style.borderStyle.has_value()) _animatedProps.borderStyle = style.borderStyle.value();
-    if (style.dashLength.has_value()) _animatedProps.dashLength = static_cast<float>(style.dashLength.value());
-    if (style.dashSpacing.has_value()) _animatedProps.dashSpacing = static_cast<float>(style.dashSpacing.value());
-    
+    if (style.borderStyle.has_value())  { _animatedProps.borderStyle  = style.borderStyle.value(); changed = true; }
+    if (style.dashLength.has_value())   { _animatedProps.dashLength    = static_cast<float>(style.dashLength.value()); changed = true; }
+    if (style.dashSpacing.has_value())  { _animatedProps.dashSpacing   = static_cast<float>(style.dashSpacing.value()); changed = true; }
+
     // Shadows
-    if (style.shadowColor.has_value()) _animatedProps.shadowColor = static_cast<uint32_t>(style.shadowColor.value());
-    if (style.shadowOffsetX.has_value()) _animatedProps.shadowOffsetX = static_cast<float>(style.shadowOffsetX.value());
-    if (style.shadowOffsetY.has_value()) _animatedProps.shadowOffsetY = static_cast<float>(style.shadowOffsetY.value());
-    if (style.shadowBlur.has_value()) _animatedProps.shadowBlur = static_cast<float>(style.shadowBlur.value());
-    if (style.shadowOpacity.has_value()) _animatedProps.shadowOpacity = static_cast<float>(style.shadowOpacity.value());
-    if (style.shadowSpread.has_value()) _animatedProps.shadowSpread = static_cast<float>(style.shadowSpread.value());
-    if (style.shadowType.has_value()) _animatedProps.shadowType = style.shadowType.value();
+    if (style.shadowColor.has_value())   { _animatedProps.shadowColor   = static_cast<uint32_t>(style.shadowColor.value()); changed = true; }
+    if (style.shadowOffsetX.has_value()) { _animatedProps.shadowOffsetX = static_cast<float>(style.shadowOffsetX.value()); changed = true; }
+    if (style.shadowOffsetY.has_value()) { _animatedProps.shadowOffsetY = static_cast<float>(style.shadowOffsetY.value()); changed = true; }
+    if (style.shadowBlur.has_value())    { _animatedProps.shadowBlur    = static_cast<float>(style.shadowBlur.value()); changed = true; }
+    if (style.shadowOpacity.has_value()) { _animatedProps.shadowOpacity = static_cast<float>(style.shadowOpacity.value()); changed = true; }
+    if (style.shadowSpread.has_value())  { _animatedProps.shadowSpread  = static_cast<float>(style.shadowSpread.value()); changed = true; }
+    if (style.shadowType.has_value())    { _animatedProps.shadowType    = style.shadowType.value(); changed = true; }
 
     // Phase 3: Gradient
     if (style.gradient.has_value()) {
@@ -245,19 +250,28 @@ public:
       gd.endAngle   = g.endAngle.value_or(360.f);
       if (g.tileMode.has_value()) gd.tileMode = parseTileMode(g.tileMode.value());
       _animatedProps.gradient = gd;
+      changed = true;
     }
 
     // Phase 3: Backdrop blur
-    if (style.backdropBlurRadius.has_value())
+    if (style.backdropBlurRadius.has_value()) {
       _animatedProps.backdropBlurRadius = static_cast<float>(style.backdropBlurRadius.value());
+      changed = true;
+    }
 
     // Phase 3: Blend mode
-    if (style.blendMode.has_value())
+    if (style.blendMode.has_value()) {
       _animatedProps.blendMode = style.blendMode.value();
+      changed = true;
+    }
 
     // Phase 3: Color filter matrix
-    if (style.colorFilter.has_value())
+    if (style.colorFilter.has_value()) {
       _animatedProps.colorFilter = std::vector<float>(style.colorFilter.value().begin(), style.colorFilter.value().end());
+      changed = true;
+    }
+
+    return changed;
   }
 
 

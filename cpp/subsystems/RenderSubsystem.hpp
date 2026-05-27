@@ -17,6 +17,8 @@
 #include <vector>
 #include <functional>
 #include <cstdint>
+#include <algorithm>
+#include <cmath>
 
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -235,8 +237,22 @@ public:
     std::shared_lock<std::shared_mutex> lock(_nodesMutex);
     auto it = _nodes.find(id);
     if (it != _nodes.end()) {
-      it->second->updateAnimatedStyles(style);
-      markDirty();
+      // Phase 6 OPT-2: value dedup — only mark dirty if any value actually changed.
+      // Avoids unnecessary rebuildPicture when worklet sends identical values
+      // (e.g., animation stabilized at final value).
+      bool changed = it->second->updateAnimatedStyles(style);
+      if (changed) {
+        markDirty();
+        // Phase 6 OPT-3: record dirty rect for this node for culled redraw
+        float x = it->second->_cachedX;
+        float y = it->second->_cachedY;
+        float w = it->second->_cachedW;
+        float h = it->second->_cachedH;
+        if (w > 0 && h > 0) {
+          std::lock_guard<std::mutex> drLock(_dirtyRectsMutex);
+          _dirtyRects.push_back(SkRect::MakeXYWH(x, y, w, h));
+        }
+      }
     }
   }
 
@@ -271,15 +287,67 @@ public:
    * scroll offset → không rebuild SkPicture, replay picture với offset mới.
    */
   void drawTreeDirect(const std::string& rootId, SkCanvas* canvas, float w, float h) {
-    if (_isDirty.load()) {
+    bool rebuilt = false;
+    if (_isDirty.load(std::memory_order_acquire)) {
       _lastW = w;
       _lastH = h;
       rebuildPicture(rootId, w, h);
+      rebuilt = true;
     }
+
+    // Phase 6 OPT-1: Frame version dedup.
+    // Skip GPU flush entirely if nothing has changed since the last rendered frame.
+    // _lastRenderedVersion is only read/written on Main Thread (inside renderToCanvas callback),
+    // so no atomic needed for it.
+    uint64_t currentVersion = _frameVersion.load(std::memory_order_relaxed);
+    if (!rebuilt && currentVersion == _lastRenderedVersion) {
+      return; // GPU already has this frame — no work to do
+    }
+    _lastRenderedVersion = currentVersion;
+
+    // Phase 6 OPT-3: Dirty rect culled draw.
+    // If only a few nodes changed (small update), clip the canvas to the union of
+    // dirty rects + shadow padding. Skia's BBH (R-Tree from SkRTreeFactory) then
+    // automatically culls draw commands outside the clip region.
+    // For large updates (many dirty rects) or full redraws, skip clipping.
+    std::vector<SkRect> dirtyRects;
+    {
+      std::lock_guard<std::mutex> drLock(_dirtyRectsMutex);
+      dirtyRects = std::move(_dirtyRects);
+      _dirtyRects.clear();
+    }
+
     std::lock_guard<std::mutex> lock(_pictureMutex);
-    if (_cachedPicture) {
-      canvas->drawPicture(_cachedPicture.get());
+    if (!_cachedPicture) return;
+
+    // Use dirty rect clip when: few rects AND they don't cover most of the screen
+    constexpr int kMaxDirtyRects = 6;
+    constexpr float kShadowPad   = 20.f; // extra margin for shadows/border radius
+    if (!dirtyRects.empty() && (int)dirtyRects.size() <= kMaxDirtyRects) {
+      // Compute union of all dirty rects
+      SkRect unionRect = dirtyRects[0];
+      for (size_t i = 1; i < dirtyRects.size(); ++i) {
+        unionRect.join(dirtyRects[i]);
+      }
+      // Expand by shadow padding
+      unionRect.outset(kShadowPad, kShadowPad);
+      // Clamp to canvas bounds
+      unionRect.intersect(SkRect::MakeWH(w, h));
+
+      // Only use clip if it covers < 80% of canvas (else full draw is cheaper)
+      const float canvasArea = w * h;
+      const float dirtyArea  = unionRect.width() * unionRect.height();
+      if (canvasArea > 0.f && dirtyArea / canvasArea < 0.8f) {
+        canvas->save();
+        canvas->clipRect(unionRect);
+        canvas->drawPicture(_cachedPicture.get());
+        canvas->restore();
+        return;
+      }
     }
+
+    // Full screen draw (no clip)
+    canvas->drawPicture(_cachedPicture.get());
   }
 
   // ── Canvas integration (Phase 6E — serialization bridge) ─────────────────
@@ -363,7 +431,9 @@ private:
       std::lock_guard<std::mutex> lock(_pictureMutex);
       _cachedPicture = recorder.finishRecordingAsPicture();
     }
-    _isDirty.store(false);
+    _isDirty.store(false, std::memory_order_release);
+    // Phase 6 OPT-1: bump version so drawTreeDirect knows a new picture is ready
+    _frameVersion.fetch_add(1, std::memory_order_relaxed);
   }
 
   void removeRenderNodeRecursive(const std::string& id) {
@@ -394,8 +464,20 @@ private:
   mutable std::mutex _pictureMutex;
   std::atomic<bool> _isDirty{true};
 
+  // Phase 6 OPT-1: Frame version dedup
+  // _frameVersion incremented each rebuildPicture — compared with _lastRenderedVersion
+  // to skip GPU flush when picture hasn't changed.
+  // _lastRenderedVersion is Main Thread-only → no atomic needed.
+  std::atomic<uint64_t> _frameVersion{0};
+  uint64_t _lastRenderedVersion{UINT64_MAX}; // starts mismatched to force first draw
+
+  // Phase 6 OPT-3: Dirty rect accumulation
+  // Nodes accumulate their bounding rects here on updateAnimatedStyles.
+  // drawTreeDirect drains this and uses union rect as clip.
+  std::vector<SkRect> _dirtyRects;
+  mutable std::mutex _dirtyRectsMutex;
+
   // Lưu lại dimensions từ lần rebuildPicture gần nhất
-  // (dùng khi cần rebuild lại mà không có w/h mới)
   float _lastW = 0.f;
   float _lastH = 0.f;
 
