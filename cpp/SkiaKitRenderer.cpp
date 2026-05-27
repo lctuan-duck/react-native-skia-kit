@@ -61,11 +61,6 @@ void SkiaKitRenderer::resize(float width, float height) {
   scheduleLayoutAndRender();
 }
 
-bool SkiaKitRenderer::isAttached() const {
-  std::lock_guard<std::mutex> lock(_providerMutex);
-  return _canvasProvider != nullptr;
-}
-
 // ── Scheduling ────────────────────────────────────────────────────────────
 
 void SkiaKitRenderer::scheduleRender() {
