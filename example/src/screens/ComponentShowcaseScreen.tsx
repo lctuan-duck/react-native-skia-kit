@@ -40,31 +40,19 @@ export function ComponentShowcaseScreen() {
   // renderTab = what content is mounted (delayed by fade-out duration)
   const [activeTab, setActiveTab] = React.useState(0);
   const [renderTab, setRenderTab] = React.useState(0);
-  // opacity 0 or 1 — managed via C++ updateAnimatedStyles on the content box
-  const [fading, setFading] = React.useState(false);
-  const switchingRef = React.useRef(false);
 
   const tabTitles = ['Display', 'Forms', 'Buttons', 'Feedback'];
   const contentH = height - TOP_CHROME;
 
   const handleTabChange = React.useCallback(
     (nextTab: number) => {
-      if (nextTab === activeTab || switchingRef.current) return;
-      switchingRef.current = true;
-
-      // Phase 1: fade out (dim the content)
-      setFading(true);
+      if (nextTab === activeTab) return;
+      // Single state update = 1 reconciler commit = 1 calculateLayout pass.
+      // The old 3-phase setTimeout approach caused 3 rapid commits
+      // (setFading, setRenderTab, setFading) each triggering full Yoga layout
+      // recalc with 60+ text measurements → dropped frames + blank screen.
       setActiveTab(nextTab);
-
-      // Phase 2: after 100ms, swap the mounted content
-      setTimeout(() => {
-        setRenderTab(nextTab);
-        // Phase 3: after content mounts, fade in
-        setTimeout(() => {
-          setFading(false);
-          switchingRef.current = false;
-        }, 16); // one frame for reconciler
-      }, 100);
+      setRenderTab(nextTab);
     },
     [activeTab]
   );
@@ -135,15 +123,11 @@ export function ComponentShowcaseScreen() {
         />
       </Box>
 
-      {/* ── Content area — opacity fades during tab switch ── */}
       <Box
         style={{
           width,
           height: contentH,
           backgroundColor: theme.colors.background,
-          // React-level opacity fade: 1.0 → 0.0 on switch, 0.0 → 1.0 after mount
-          // C++ engine reads BoxStyle.opacity for immediate Skia canvas update
-          opacity: fading ? 0 : 1,
         }}
       >
         {renderTab === 0 && <DisplayTab width={width} height={contentH} />}
