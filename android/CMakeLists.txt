@@ -49,6 +49,7 @@ add_library(
   # RNSkia JNI platform context (cần bởi RNSkAndroidPlatformContext)
   # Các symbols này không nằm trong static .a — cần compile riêng
   ${RNSKIA_DIR}/android/cpp/jni/JniPlatformContext.cpp
+  ${RNSKIA_DIR}/android/cpp/jni/JniSkiaManager.cpp
 )
 
 # ── Nitrogen generated bindings ───────────────────────────────────────────────

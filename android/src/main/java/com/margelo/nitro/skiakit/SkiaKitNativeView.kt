@@ -8,6 +8,7 @@ import android.util.Log
 import com.facebook.react.bridge.ReactContext
 import com.shopify.reactnative.skia.PlatformContext
 import com.shopify.reactnative.skia.RNSkiaModule
+import com.shopify.reactnative.skia.SkiaManager
 
 /**
  * SkiaKitNativeView — Custom view host GPU surface cho C++ Skia renderer.
@@ -40,12 +41,12 @@ class SkiaKitNativeView(context: Context) : ViewGroup(context),
             val w = textureView.width
             val h = textureView.height
             if (w > 0 && h > 0) {
-                val ctx = getPlatformContextFromModule()
-                if (ctx != null) {
-                    nativeInitPlatformContext(_engineId, ctx)
+                val manager = getSkiaManager()
+                if (manager != null) {
+                    nativeInitPlatformContext(_engineId, manager)
                     nativeOnSurfaceAvailable(_engineId, st, w, h)
                 } else {
-                    Log.e(TAG, "setEngineId: PlatformContext null, cannot attach surface")
+                    Log.e(TAG, "setEngineId: SkiaManager null, cannot attach surface")
                 }
             }
         }
@@ -76,66 +77,57 @@ class SkiaKitNativeView(context: Context) : ViewGroup(context),
             return
         }
 
-        // Lấy RNSkia PlatformContext và inject vào C++ engine
-        val platformContext = getPlatformContextFromModule()
-        if (platformContext != null) {
-            nativeInitPlatformContext(_engineId, platformContext)
-            Log.i(TAG, "PlatformContext injected for engineId=$_engineId")
+        val manager = getSkiaManager()
+        if (manager != null) {
+            nativeInitPlatformContext(_engineId, manager)
+            Log.i(TAG, "SkiaManager injected for engineId=$_engineId")
         } else {
-            Log.e(TAG, "Could not get PlatformContext from RNSkiaModule")
+            Log.e(TAG, "Could not get SkiaManager")
         }
     }
 
     /**
-     * PlatformContext field — tạo 1 lần và cache lại.
-     *
-     * QUAN TRỌNG: Phải lấy PlatformContext từ RNSkiaModule.getSkiaManager().getPlatformContext().
-     * KHÔNG thể tạo new PlatformContext(ctx) trực tiếp vì:
-     *   - C++ JniPlatformContext HybridObject cần được init đúng cách qua RNSkAndroidPlatformContext
-     *   - RNSkAndroidPlatformContext cần JVM runtime context từ fbjni (JNI environment)
-     *   - Direct Java new PlatformContext() bypasses C++ HybridData initialization
-     *
-     * Solution: Lấy RNSkiaModule (TurboModule), gọi install() nếu chưa init,
-     *   rồi lấy platformContext từ SkiaManager đã được khởi tạo đúng.
+     * _platformContext field — giữ Java reference alive để tránh GC.
+     * Không dùng trực tiếp nữa (C++ lấy từ JniSkiaManager),
+     * nhưng vẫn cần giữ reference để JVM không GC.
      */
-    private var _platformContext: PlatformContext? = null
+    private var _skiaManager: SkiaManager? = null
 
-    private fun getPlatformContextFromModule(): PlatformContext? {
-        _platformContext?.let { return it }
+    /** Lấy SkiaManager đã được init đúng (qua RNSkiaModule.install()) */
+    private fun getSkiaManager(): SkiaManager? {
+        _skiaManager?.let { return it }
         return try {
             val reactContext = context as? ReactContext ?: return null
 
-            // Bước 1: Lấy RNSkiaModule — hoạt động trong cả Bridge lẫn Bridgeless/TurboModule mode.
-            // RNSkiaModule extends NativeSkiaModuleSpec (TurboModule) nên getNativeModule() trả về
-            // instance đúng trong New Architecture (không như legacy Bridge-only modules).
             val skiaModule = reactContext.getNativeModule(RNSkiaModule::class.java)
                 ?: run {
                     Log.e(TAG, "RNSkiaModule not found in ReactContext")
                     return null
                 }
 
-            // Bước 2: Gọi install() nếu chưa init — load librnskia.so và khởi tạo SkiaManager.
-            // install() là idempotent (trả về true ngay nếu đã init trước).
             if (skiaModule.getSkiaManager() == null) {
                 Log.i(TAG, "Calling RNSkiaModule.install() to initialize SkiaManager...")
                 skiaModule.install()
             }
 
-            // Bước 3: Lấy PlatformContext từ SkiaManager đã được khởi tạo đúng.
-            val platformContext = skiaModule.getSkiaManager()?.platformContext
+            val manager = skiaModule.getSkiaManager()
                 ?: run {
-                    Log.e(TAG, "SkiaManager or PlatformContext still null after install()")
+                    Log.e(TAG, "SkiaManager still null after install()")
                     return null
                 }
 
-            _platformContext = platformContext
-            Log.i(TAG, "PlatformContext obtained for engineId=$_engineId")
-            platformContext
+            _skiaManager = manager
+            Log.i(TAG, "SkiaManager obtained for engineId=$_engineId")
+            manager
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to get PlatformContext: ${e.message}")
+            Log.e(TAG, "Failed to get SkiaManager: ${e.message}")
             null
         }
     }
+
+    // kept for possible future use but no longer called directly
+    @Suppress("unused")
+    private fun getPlatformContextFromModule(): PlatformContext? = getSkiaManager()?.platformContext
 
 
     // ── SurfaceTextureListener ─────────────────────────────────────────────────
@@ -174,10 +166,10 @@ class SkiaKitNativeView(context: Context) : ViewGroup(context),
     // ── JNI Natives (tất cả nhận engineId để lookup đúng engine) ─────────────
 
     /**
-     * nativeInitPlatformContext — inject RNSkia PlatformContext vào C++ engine.
-     * engineId dùng để HybridUIEngine::findById() tìm đúng engine instance.
+     * nativeInitPlatformContext — truyền SkiaManager (Java) để C++ lấy
+     * RNSkAndroidPlatformContext đã được init đúng từ JniSkiaManager::getPlatformContext().
      */
-    private external fun nativeInitPlatformContext(engineId: Long, platformContext: PlatformContext)
+    private external fun nativeInitPlatformContext(engineId: Long, skiaManager: SkiaManager)
 
     private external fun nativeOnSurfaceAvailable(
         engineId: Long, surface: SurfaceTexture, width: Int, height: Int

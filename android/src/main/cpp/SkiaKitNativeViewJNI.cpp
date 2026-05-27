@@ -6,6 +6,7 @@
 #include "RNSkOpenGLCanvasProvider.h"
 #include "RNSkAndroidPlatformContext.h"
 #include "JniPlatformContext.h"
+#include "JniSkiaManager.h"  // ← để lấy RNSkAndroidPlatformContext từ SkiaManager
 
 // Our engine
 #include "HybridUIEngine.hpp"
@@ -21,15 +22,23 @@ extern "C" {
 // ── Platform context init (Android-specific) ─────────────────────────────────
 
 /**
- * nativeInitPlatformContext — nhận JniPlatformContext từ Kotlin và tạo
- * RNSkAndroidPlatformContext, sau đó inject vào engine theo engineId.
+ * nativeInitPlatformContext — nhận SkiaManager (JniSkiaManager) từ Kotlin
+ * và lấy RNSkAndroidPlatformContext đã được khởi tạo đúng (với jsCallInvoker).
+ *
+ * LÝ DO đổi từ PlatformContext sang SkiaManager:
+ * - PlatformContext Java → cthis() → JniPlatformContext* → raw pointer
+ * - RNSkAndroidPlatformContext(jniCtx, nullptr) tạo context với jsCallInvoker=nullptr
+ * - Khi scheduleRender() → runOnMainThread() → CallVoidMethod() → SIGSEGV
+ *
+ * FIX: JniSkiaManager đã giữ shared_ptr<RNSkAndroidPlatformContext> được init đúng
+ * với jsCallInvoker. Lấy trực tiếp từ đó thay vì tạo mới.
  */
 JNIEXPORT void JNICALL
 Java_com_margelo_nitro_skiakit_SkiaKitNativeView_nativeInitPlatformContext(
     JNIEnv* env,
     jobject /*thiz*/,
     jlong engineId,
-    jobject jPlatformContext
+    jobject jSkiaManager
 ) {
     auto engine = HybridUIEngine::findById((int64_t)engineId);
     if (!engine) {
@@ -42,22 +51,23 @@ Java_com_margelo_nitro_skiakit_SkiaKitNativeView_nativeInitPlatformContext(
         return;
     }
 
-    // Wrap jobject thành fbjni alias để lấy C++ pointer từ HybridObject
-    auto jniCtxAlias = jni::alias_ref<RNSkia::JniPlatformContext::javaobject>{
-        static_cast<RNSkia::JniPlatformContext::javaobject>(jPlatformContext)
+    // Lấy JniSkiaManager (C++ HybridObject của SkiaManager Java)
+    auto jniManagerAlias = jni::alias_ref<RNSkia::JniSkiaManager::javaobject>{
+        static_cast<RNSkia::JniSkiaManager::javaobject>(jSkiaManager)
     };
-    auto* jniCtx = jniCtxAlias->cthis();
+    auto* jniManager = jniManagerAlias->cthis();
 
-    if (!jniCtx) {
-        LOGE("nativeInitPlatformContext: JniPlatformContext cthis() is null!");
+    if (!jniManager) {
+        LOGE("nativeInitPlatformContext: JniSkiaManager cthis() is null!");
         return;
     }
 
-    // Tạo RNSkAndroidPlatformContext từ JniPlatformContext
-    auto platformContext = std::make_shared<RNSkia::RNSkAndroidPlatformContext>(
-        jniCtx,
-        nullptr
-    );
+    // Lấy RNSkAndroidPlatformContext đã được init đúng (có jsCallInvoker)
+    auto platformContext = jniManager->getPlatformContext();
+    if (!platformContext) {
+        LOGE("nativeInitPlatformContext: JniSkiaManager has no platform context!");
+        return;
+    }
 
     LOGI("nativeInitPlatformContext: engineId=%lld, ctx=%p", (long long)engineId, platformContext.get());
     engine->initWithPlatformContext(platformContext);
