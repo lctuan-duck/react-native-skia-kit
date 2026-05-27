@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.util.Log
 import com.facebook.react.bridge.ReactContext
 import com.shopify.reactnative.skia.PlatformContext
+import com.shopify.reactnative.skia.RNSkiaModule
 
 /**
  * SkiaKitNativeView — Custom view host GPU surface cho C++ Skia renderer.
@@ -85,14 +86,17 @@ class SkiaKitNativeView(context: Context) : ViewGroup(context),
         }
     }
 
-    /** 
+    /**
      * PlatformContext field — tạo 1 lần và cache lại.
      *
-     * PlatformContext.initHybrid() là JNI trong librnskia.so (do @shopify/react-native-skia cung cấp).
-     * Library này phải được load trước bằng System.loadLibrary("rnskia").
-     * RNSkiaModule thường load trong install() — nhưng trong Bridgeless mode,
-     * getNativeModule() trả về null nên chúng ta không thể đợi RNSkiaModule.
-     * Fix: load "rnskia" thủ công trước khi tạo PlatformContext.
+     * QUAN TRỌNG: Phải lấy PlatformContext từ RNSkiaModule.getSkiaManager().getPlatformContext().
+     * KHÔNG thể tạo new PlatformContext(ctx) trực tiếp vì:
+     *   - C++ JniPlatformContext HybridObject cần được init đúng cách qua RNSkAndroidPlatformContext
+     *   - RNSkAndroidPlatformContext cần JVM runtime context từ fbjni (JNI environment)
+     *   - Direct Java new PlatformContext() bypasses C++ HybridData initialization
+     *
+     * Solution: Lấy RNSkiaModule (TurboModule), gọi install() nếu chưa init,
+     *   rồi lấy platformContext từ SkiaManager đã được khởi tạo đúng.
      */
     private var _platformContext: PlatformContext? = null
 
@@ -101,48 +105,38 @@ class SkiaKitNativeView(context: Context) : ViewGroup(context),
         return try {
             val reactContext = context as? ReactContext ?: return null
 
-            // BƯỚC 1: Thử lấy từ RNSkiaModule nếu đã được init (Bridge mode hoặc đã install())
-            // Dùng reflection để tránh compile error khi RNSkiaModule không accessible
-            try {
-                val skiaModuleClass = Class.forName("com.shopify.reactnative.skia.RNSkiaModule")
-                val getNativeModule = ReactContext::class.java.getMethod("getNativeModule", Class::class.java)
-                val skiaModule = getNativeModule.invoke(reactContext, skiaModuleClass)
-                if (skiaModule != null) {
-                    val getSkiaManager = skiaModuleClass.getMethod("getSkiaManager")
-                    val skiaManager = getSkiaManager.invoke(skiaModule)
-                    if (skiaManager != null) {
-                        val getPlatformContext = skiaManager.javaClass.getMethod("getPlatformContext")
-                        val ctx = getPlatformContext.invoke(skiaManager) as? PlatformContext
-                        if (ctx != null) {
-                            Log.i(TAG, "PlatformContext obtained from RNSkiaModule")
-                            _platformContext = ctx
-                            return ctx
-                        }
-                    }
+            // Bước 1: Lấy RNSkiaModule — hoạt động trong cả Bridge lẫn Bridgeless/TurboModule mode.
+            // RNSkiaModule extends NativeSkiaModuleSpec (TurboModule) nên getNativeModule() trả về
+            // instance đúng trong New Architecture (không như legacy Bridge-only modules).
+            val skiaModule = reactContext.getNativeModule(RNSkiaModule::class.java)
+                ?: run {
+                    Log.e(TAG, "RNSkiaModule not found in ReactContext")
+                    return null
                 }
-            } catch (e: Exception) {
-                Log.d(TAG, "RNSkiaModule not available (expected in Bridgeless): ${e.message}")
+
+            // Bước 2: Gọi install() nếu chưa init — load librnskia.so và khởi tạo SkiaManager.
+            // install() là idempotent (trả về true ngay nếu đã init trước).
+            if (skiaModule.getSkiaManager() == null) {
+                Log.i(TAG, "Calling RNSkiaModule.install() to initialize SkiaManager...")
+                skiaModule.install()
             }
 
-            // BƯỚC 2: Load librnskia.so thủ công, sau đó tạo PlatformContext trực tiếp.
-            // PlatformContext(ReactContext) chỉ cần display density — không cần bridge.
-            try {
-                System.loadLibrary("rnskia")
-                Log.i(TAG, "librnskia.so loaded manually")
-            } catch (e: UnsatisfiedLinkError) {
-                Log.d(TAG, "librnskia.so already loaded (expected): ${e.message}")
-                // Library đã được load bởi rnskia — tiếp tục tạo PlatformContext
-            }
+            // Bước 3: Lấy PlatformContext từ SkiaManager đã được khởi tạo đúng.
+            val platformContext = skiaModule.getSkiaManager()?.platformContext
+                ?: run {
+                    Log.e(TAG, "SkiaManager or PlatformContext still null after install()")
+                    return null
+                }
 
-            val ctx = PlatformContext(reactContext)
-            _platformContext = ctx
-            Log.i(TAG, "PlatformContext created directly for engineId=$_engineId")
-            ctx
+            _platformContext = platformContext
+            Log.i(TAG, "PlatformContext obtained for engineId=$_engineId")
+            platformContext
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to create PlatformContext: ${e.message}")
+            Log.e(TAG, "Failed to get PlatformContext: ${e.message}")
             null
         }
     }
+
 
     // ── SurfaceTextureListener ─────────────────────────────────────────────────
 
