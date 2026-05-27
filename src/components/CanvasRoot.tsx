@@ -20,22 +20,98 @@ import { updateLayoutSVs } from '../stores/layoutRegistry';
 import SkiaKitNativeView from './SkiaKitNativeView';
 
 
+/**
+ * Props for CanvasRoot — the root container for a Skia-powered UI tree.
+ */
 interface CanvasRootProps {
+  /**
+   * Style for the outer React Native View wrapper.
+   * Use `width`/`height` or `flex` to size the canvas.
+   * @example style={{ flex: 1 }}
+   */
   style?: ViewStyle;
+
+  /**
+   * Unique identifier for this canvas instance.
+   * Used internally as the root node ID for the C++ render tree.
+   * Multiple `CanvasRoot`s must have different `canvasId` values.
+   * @default 'main'
+   */
   canvasId?: string;
+
+  /**
+   * SkiaKit widget tree to render.
+   * Use SkiaKit components (`Box`, `Text`, `Button`, `Slider`, etc.) here.
+   * Standard React Native components are NOT supported inside CanvasRoot.
+   */
   children?: React.ReactNode;
 }
 
 /**
- * CanvasRoot v2 — Root canvas với C++ Render Tree.
+ * CanvasRoot — Root container for a SkiaKit UI tree.
  *
- * Flow per commit:
- *   JSX tree → SkiaKitReconciler → C++ createBoxNode/createTextNode/...
- *   → resetAfterCommit → markDirty + requestRedraw()
- *   → calculateLayout (AUTO-BRIDGE Layout→HitTest→Render)
+ * ## What it does
  *
- * Canvas Integration:
- *   Dùng SkiaKitNativeView (Nitro) để render trực tiếp C++ Surface.
+ * Mounts a hardware-accelerated GPU canvas (OpenGL on Android, Metal on iOS)
+ * and manages a C++ autonomous render engine. All child SkiaKit components
+ * are rendered by Skia directly — no React Native bridge involved in the
+ * draw path.
+ *
+ * ## Architecture (Phase 3+)
+ *
+ * ```
+ * <CanvasRoot>                     // React component
+ *   ↓  SkiaKitReconciler           // custom React reconciler
+ *   ↓  C++ createBoxNode/TextNode  // Nitro JSI, synchronous
+ *   ↓  resetAfterCommit            // scheduleLayoutAndRender()
+ *   ↓  HybridUIEngine (C++)
+ *      ├── calculateLayout()       // Yoga — CSS Flexbox
+ *      ├── syncLayoutResults()     // → RenderSubsystem
+ *      ├── updateWidgetLayout()    // → HitTestSubsystem (touch)
+ *      ├── _layoutUpdateCallback() // → JS: updateLayoutSVs()
+ *      └── drawTreeDirect()        // → GPU surface flush
+ * ```
+ *
+ * ## Multi-instance
+ *
+ * Each `CanvasRoot` creates its own isolated `HybridUIEngine` with a unique
+ * `_engineId`. Multiple canvases render independently without cross-contamination:
+ *
+ * ```jsx
+ * <View style={{ flex: 1 }}>
+ *   <CanvasRoot canvasId="map" style={{ height: 300 }}>
+ *     <MapWidget />
+ *   </CanvasRoot>
+ *   <CanvasRoot canvasId="chart" style={{ height: 200 }}>
+ *     <ChartWidget />
+ *   </CanvasRoot>
+ * </View>
+ * ```
+ *
+ * ## Performance (Phase 6)
+ *
+ * The C++ renderer applies 3 optimization layers:
+ * - **Frame dedup**: Skips GPU flush when picture hasn't changed
+ * - **Value dedup**: Skips `rebuildPicture` when animated values are identical
+ * - **Dirty rect culling**: Only rasterizes changed regions (via Skia BBH)
+ *
+ * ## Worklet-native layout access (Phase 5)
+ *
+ * Use `useLayoutSharedValues(widgetId)` in animation worklets to read
+ * Yoga-computed layout directly without JS thread round-trips:
+ *
+ * ```ts
+ * const layoutSVs = useLayoutSharedValues(widgetId);
+ * useAnimatedReaction(
+ *   () => progress.value,
+ *   (p) => {
+ *     'worklet';
+ *     const fw = layoutSVs.width.value; // always fresh — no re-registration
+ *     direct(fillId, { width: p * fw });
+ *   },
+ *   [fillId] // layoutSVs.width is stable — NOT needed in deps
+ * );
+ * ```
  */
 export const CanvasRoot = React.memo(function CanvasRoot({
   style,
