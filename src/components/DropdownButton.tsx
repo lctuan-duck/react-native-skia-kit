@@ -131,6 +131,7 @@ export const DropdownButton = React.memo(function DropdownButton<
             screenWidth={screenWidth}
             screenHeight={screenHeight}
           />
+          {/* DropdownButton cha (trigger) vẫn là của canvas này, overlay cũng cần biết canvasId */}
           <Box
             style={{
               width: finalWidth,

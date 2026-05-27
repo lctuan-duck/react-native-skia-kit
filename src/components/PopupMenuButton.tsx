@@ -8,6 +8,7 @@ import { Overlay } from './Overlay';
 import { useOverlayStore } from '../stores/overlayStore';
 import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
+import { useCanvasId } from '../core/WidgetContext';
 import type { WidgetProps } from '../types/widget.types';
 
 export interface PopupMenuItem<T = string> {
@@ -66,6 +67,7 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
 }: PopupMenuButtonProps<T>) {
   const theme = useTheme();
   const bgColor = menuColor ?? theme.colors.surface;
+  const canvasId = useCanvasId();
   const showOverlay = useOverlayStore((s) => s.showOverlay);
   const hideOverlay = useOverlayStore((s) => s.hideOverlay);
   const menuId = useWidgetId('PopupMenu');
@@ -78,13 +80,14 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
     const menuY = offset.dy;
 
     showOverlay(
+      canvasId,
       menuId,
       <>
         {/* Backdrop */}
         <Overlay
           visible
           barrierColor="transparent"
-          onPress={() => hideOverlay(menuId)}
+          onPress={() => hideOverlay(canvasId, menuId)}
           screenWidth={screenWidth}
           screenHeight={screenHeight}
         />
@@ -116,7 +119,7 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
                 hitTestBehavior="opaque"
                 onPress={() => {
                   if (item.enabled !== false) {
-                    hideOverlay(menuId);
+                    hideOverlay(canvasId, menuId);
                     onSelected?.(item.value);
                   }
                 }}
@@ -147,6 +150,7 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
     items,
     onSelected,
     menuId,
+    canvasId,
     offset,
     menuWidth,
     menuBorderRadius,

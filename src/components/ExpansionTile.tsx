@@ -12,7 +12,7 @@ import { Column } from './Column';
 import { Expanded } from './Expanded';
 import { useTheme } from '../hooks/useTheme';
 import { useWidgetId } from '../hooks/useWidgetId';
-import { useEngine } from '../core/EngineContext';
+import { useEngineContext } from '../core/EngineContext';
 import type { WidgetProps } from '../types/widget.types';
 import type { ColorStyle, FlexChildStyle } from '../types/style.types';
 
@@ -58,7 +58,7 @@ export const ExpansionTile = React.memo(function ExpansionTile({
   style?: ExpansionTileStyle;
 }) {
   const theme = useTheme();
-  const engine = useEngine();
+  const { engine, engineId } = useEngineContext();
   const [expanded, setExpanded] = useState(initiallyExpanded);
   // Track whether children should be in the tree (keep mounted during exit animation)
   const [contentMounted, setContentMounted] = useState(initiallyExpanded);
@@ -75,21 +75,20 @@ export const ExpansionTile = React.memo(function ExpansionTile({
       'worklet';
       // Map 0→0°, 1→180° rotation
         const angleDeg = r * 180;
-        const direct = (global as any).updateAnimatedStylesDirect;
-        if (typeof direct === 'function') {
-          direct(chevronWidgetId, { rotateZ: angleDeg });
+        const direct = (global as any).skiaKitEngines?.[engineId]?.unbox();
+        if (direct) {
+          direct.updateAnimatedStyles(chevronWidgetId, { rotateZ: angleDeg });
         } else {
           scheduleOnRN(
             (id: string, rot: number) => {
               engine.updateAnimatedStyles(id, { rotateZ: rot });
-              (global as any).skiaKitScrollRedraw?.();
             },
             chevronWidgetId,
             angleDeg
           );
         }
     },
-    [chevronWidgetId]
+    [chevronWidgetId, engineId]
   );
 
   const chevronColor = style?.iconColor ?? theme.colors.textSecondary;

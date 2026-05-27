@@ -10,7 +10,7 @@ import type {
   SemanticColor,
 } from '../types/style.types';
 import { resolveSemanticColor, parseColor } from '../utils/color';
-import { useEngine } from '../core/EngineContext';
+import { useEngineContext } from '../core/EngineContext';
 import {
   useSharedValue,
   withTiming,
@@ -54,7 +54,7 @@ export const Radio = React.memo(function Radio({
   onPress,
 }: RadioProps) {
   const theme = useTheme();
-  const engine = useEngine();
+  const { engine, engineId } = useEngineContext();
   const activeColor =
     style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
   const r = size / 2;
@@ -119,20 +119,19 @@ export const Radio = React.memo(function Radio({
 
       const currentDotSize = p * maxDotSize;
 
-      const direct = (global as any).updateAnimatedStylesDirect;
-      if (typeof direct === 'function') {
-        direct(widgetId, {
+      const direct = (global as any).skiaKitEngines?.[engineId]?.unbox();
+      if (direct) {
+        direct.updateAnimatedStyles(widgetId, {
           borderColor: parseColor(currentBorder),
           borderRadius: r,
           borderWidth: borderWidth,
         });
-        direct(dotId, {
+        direct.updateAnimatedStyles(dotId, {
           width: currentDotSize,
           height: currentDotSize,
           backgroundColor: parseColor(dotColor),
           borderRadius: currentDotSize / 2,
         });
-        (global as any).skiaKitScrollRedraw?.();
       } else {
         scheduleOnRN(
           updateRadioUIRef.current,
@@ -157,6 +156,7 @@ export const Radio = React.memo(function Radio({
       borderWidth,
       maxDotSize,
       dotColor,
+      engineId,
     ]
   );
 

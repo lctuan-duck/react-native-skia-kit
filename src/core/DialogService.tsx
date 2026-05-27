@@ -18,6 +18,11 @@ import type { ButtonVariant } from '../components/Button';
 export interface DialogOptions {
   /** Unique dialog ID (auto-generated if omitted) */
   id?: string;
+  /**
+   * canvasId của CanvasRoot chứa dialog.
+   * Dùng `useCanvasId()` từ component để lấy giá trị này. Default: 'main'
+   */
+  canvasId?: string;
   /** Title text */
   title?: string;
   /** Content text or custom JSX */
@@ -59,6 +64,7 @@ let dialogCounter = 0;
  */
 export function showDialog(options: DialogOptions): () => void {
   const id = options.id ?? `dialog-${++dialogCounter}`;
+  const canvasId = options.canvasId ?? 'main';
   const {
     title,
     content,
@@ -71,7 +77,7 @@ export function showDialog(options: DialogOptions): () => void {
   } = options;
 
   const dismiss = () => {
-    useOverlayStore.getState().hideOverlay(id);
+    useOverlayStore.getState().hideOverlay(canvasId, id);
   };
 
   const dialogNode = (
@@ -136,7 +142,7 @@ export function showDialog(options: DialogOptions): () => void {
     </Modal>
   );
 
-  useOverlayStore.getState().showOverlay(id, dialogNode, 200);
+  useOverlayStore.getState().showOverlay(canvasId, id, dialogNode, 200);
   return dismiss;
 }
 
@@ -144,6 +150,8 @@ export function showDialog(options: DialogOptions): () => void {
 
 export interface BottomSheetOptions {
   id?: string;
+  /** canvasId của CanvasRoot chứa sheet. Default: 'main' */
+  canvasId?: string;
   children: React.ReactNode;
   sheetHeight?: number;
   showHandle?: boolean;
@@ -165,6 +173,7 @@ export interface BottomSheetOptions {
  */
 export function showBottomSheet(options: BottomSheetOptions): () => void {
   const id = options.id ?? `sheet-${++dialogCounter}`;
+  const canvasId = options.canvasId ?? 'main';
   const {
     children,
     sheetHeight = 400,
@@ -174,7 +183,7 @@ export function showBottomSheet(options: BottomSheetOptions): () => void {
   } = options;
 
   const dismiss = () => {
-    useOverlayStore.getState().hideOverlay(id);
+    useOverlayStore.getState().hideOverlay(canvasId, id);
   };
 
   const sheetNode = (
@@ -190,7 +199,7 @@ export function showBottomSheet(options: BottomSheetOptions): () => void {
     </BottomSheet>
   );
 
-  useOverlayStore.getState().showOverlay(id, sheetNode, 200);
+  useOverlayStore.getState().showOverlay(canvasId, id, sheetNode, 200);
   return dismiss;
 }
 
@@ -198,6 +207,8 @@ export function showBottomSheet(options: BottomSheetOptions): () => void {
 
 export interface SnackBarOptions {
   id?: string;
+  /** canvasId của CanvasRoot hiển snackbar. Default: 'main' */
+  canvasId?: string;
   message: string;
   duration?: number;
   actionLabel?: string;
@@ -214,6 +225,7 @@ export interface SnackBarOptions {
  */
 export function showSnackBar(options: SnackBarOptions): () => void {
   const id = options.id ?? `snack-${++dialogCounter}`;
+  const canvasId = options.canvasId ?? 'main';
   const {
     message,
     duration = 3000,
@@ -224,7 +236,7 @@ export function showSnackBar(options: SnackBarOptions): () => void {
   } = options;
 
   const dismiss = () => {
-    useOverlayStore.getState().hideOverlay(id);
+    useOverlayStore.getState().hideOverlay(canvasId, id);
   };
 
   const snackNode = (
@@ -262,7 +274,7 @@ export function showSnackBar(options: SnackBarOptions): () => void {
     </Box>
   );
 
-  useOverlayStore.getState().showOverlay(id, snackNode, 150);
+  useOverlayStore.getState().showOverlay(canvasId, id, snackNode, 150);
 
   // Auto-dismiss
   if (duration > 0) {

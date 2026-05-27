@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { useState, useCallback, useRef } from 'react';
-import { useSharedValue, withSpring, withTiming, useAnimatedReaction } from 'react-native-reanimated';
+import { useSharedValue, withSpring, withTiming, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { Box } from './Box';
 import { Progress } from './Progress';
 import { useWidgetId } from '../hooks/useWidgetId';
-import { useEngine } from '../core/EngineContext';
+import { useEngineContext } from '../core/EngineContext';
 import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
@@ -54,8 +54,11 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
     (typeof containerWidth === 'number' ? containerWidth : 360) / 2 - 14;
 
   const [refreshing, setRefreshing] = useState(false);
+  // BUG-3 Fix: dùng React state cho spinner thay vì đọc pullOffset.value trực tiếp trong JSX.
+  // Trên New Arch (Fabric), SharedValue.value có thể stale trong render expression.
+  const [showSpinner, setShowSpinner] = useState(false);
   const contentId = useWidgetId('RI-content');
-  const engine = useEngine();
+  const { engine, engineId } = useEngineContext();
   const isRefreshingRef = useRef(false);
 
   // Stable ref cho scheduleOnRN fallback — capture engine per-instance
@@ -77,15 +80,17 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
     () => pullOffset.value,
     (ty) => {
       'worklet';
-      const direct = (global as any).updateAnimatedStylesDirect;
-      if (typeof direct === 'function') {
-        direct(contentId, { translateY: ty });
-        (global as any).skiaKitScrollRedraw?.();
+      // BUG-3 Fix: cập nhật showSpinner qua runOnJS để tránh đọc .value trong JSX render
+      const shouldShow = ty > 8;
+      runOnJS(setShowSpinner)(shouldShow);
+      const direct = (global as any).skiaKitEngines?.[engineId]?.unbox();
+      if (direct) {
+        direct.updateAnimatedStyles(contentId, { translateY: ty });
       } else {
         scheduleOnRN(applyPullOffsetRef.current, contentId, ty);
       }
     },
-    [contentId]
+    [contentId, engineId]
   );
 
   const triggerRefresh = useCallback(async () => {
@@ -145,7 +150,7 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
       onPanEnd={onPanEnd as any}
     >
       {/* Spinner appears above the content (negative top offset = above the viewport) */}
-      {(refreshing || pullOffset.value > 8) && (
+      {(refreshing || showSpinner) && (
         <Progress
           variant="circular"
           color={color}

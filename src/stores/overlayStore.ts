@@ -12,35 +12,42 @@ export interface OverlayEntry {
 }
 
 interface OverlayStoreState {
-  overlays: Map<string, OverlayEntry>;
+  /**
+   * BUG-2 Fix: scope overlays theo canvasId để tránh hiển thị đúp trên nhiều CanvasRoot.
+   * Map<canvasId, Map<overlayId, OverlayEntry>>
+   */
+  overlaysByCanvas: Map<string, Map<string, OverlayEntry>>;
 
-  showOverlay: (id: string, node: ReactNode, zIndex?: number) => void;
-  hideOverlay: (id: string) => void;
-  clearAll: () => void;
-  getOverlays: () => OverlayEntry[];
+  showOverlay: (canvasId: string, id: string, node: ReactNode, zIndex?: number) => void;
+  hideOverlay: (canvasId: string, id: string) => void;
+  clearAll: (canvasId: string) => void;
+  getOverlays: (canvasId: string) => OverlayEntry[];
 }
 
 export const useOverlayStore = create<OverlayStoreState>()(
   immer((set, get) => ({
-    overlays: new Map<string, OverlayEntry>(),
+    overlaysByCanvas: new Map<string, Map<string, OverlayEntry>>(),
 
-    showOverlay: (id, node, zIndex = 100) =>
+    showOverlay: (canvasId, id, node, zIndex = 100) =>
       set((state) => {
-        state.overlays.set(id, { id, node, zIndex });
+        if (!state.overlaysByCanvas.has(canvasId)) {
+          state.overlaysByCanvas.set(canvasId, new Map());
+        }
+        state.overlaysByCanvas.get(canvasId)!.set(id, { id, node, zIndex });
       }),
 
-    hideOverlay: (id) =>
+    hideOverlay: (canvasId, id) =>
       set((state) => {
-        state.overlays.delete(id);
+        state.overlaysByCanvas.get(canvasId)?.delete(id);
       }),
 
-    clearAll: () =>
+    clearAll: (canvasId) =>
       set((state) => {
-        state.overlays.clear();
+        state.overlaysByCanvas.delete(canvasId);
       }),
 
-    getOverlays: () => {
-      const entries = Array.from(get().overlays.values());
+    getOverlays: (canvasId) => {
+      const entries = Array.from(get().overlaysByCanvas.get(canvasId)?.values() ?? []);
       return entries.sort((a, b) => a.zIndex - b.zIndex);
     },
   }))

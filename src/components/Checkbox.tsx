@@ -11,7 +11,7 @@ import type {
   SemanticColor,
 } from '../types/style.types';
 import { resolveSemanticColor, parseColor } from '../utils/color';
-import { useEngine } from '../core/EngineContext';
+import { useEngineContext } from '../core/EngineContext';
 import {
   useSharedValue,
   withTiming,
@@ -55,7 +55,7 @@ export const Checkbox = React.memo(function Checkbox({
   onPress,
 }: CheckboxProps) {
   const theme = useTheme();
-  const engine = useEngine();
+  const { engine, engineId } = useEngineContext();
   const activeColor =
     style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
 
@@ -135,17 +135,17 @@ export const Checkbox = React.memo(function Checkbox({
         ]
       );
 
-      const direct = (global as any).updateAnimatedStylesDirect;
-      if (typeof direct === 'function') {
+      const direct = (global as any).skiaKitEngines?.[engineId]?.unbox();
+      if (direct) {
         // Direct worklet → C++ — parse color strings to numeric SkColor
-        direct(widgetId, {
+        direct.updateAnimatedStyles(widgetId, {
           backgroundColor: parseColor(currentBg),
           borderColor: parseColor(currentBorder),
           borderRadius: borderRadius,
           borderWidth: borderWidth,
         });
         // Icon opacity via direct (opacity is in NativeAnimatedStyle)
-        direct(iconId, { opacity: p });
+        direct.updateAnimatedStyles(iconId, { opacity: p });
         (global as any).skiaKitScrollRedraw?.();
       } else {
         scheduleOnRN(
@@ -169,6 +169,7 @@ export const Checkbox = React.memo(function Checkbox({
       iconId,
       borderRadius,
       borderWidth,
+      engineId,
     ]
   );
 

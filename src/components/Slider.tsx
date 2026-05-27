@@ -12,7 +12,7 @@ import type {
   LayoutStyle,
 } from '../types/style.types';
 import { resolveSemanticColor } from '../utils/color';
-import { useEngine } from '../core/EngineContext';
+import { useEngineContext } from '../core/EngineContext';
 import {
   useSharedValue,
   withTiming,
@@ -66,7 +66,7 @@ export const Slider = React.memo(function Slider({
   onSlidingComplete,
 }: SliderProps) {
   const theme = useTheme();
-  const engine = useEngine();
+  const { engine, engineId } = useEngineContext();
   const activeColor =
     style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
   const trackBg = style?.trackColor ?? theme.colors.surfaceVariant;
@@ -130,21 +130,18 @@ export const Slider = React.memo(function Slider({
       const fw = layoutSVs.width.value > 0 ? layoutSVs.width.value : defaultWidth;
       const fillW = r * fw;
       const thumbCx = r * fw;
-      // Perf fix: use updateAnimatedStylesDirect (worklet-thread direct C++ call)
-      // instead of scheduleOnRN which hops to JS thread → avoids FPS drop during pan.
-      const direct = (global as any).updateAnimatedStylesDirect;
-      if (typeof direct === 'function') {
-        direct(fillId, { width: fillW });
-        direct(thumbId, { left: thumbCx - thumbR });
+      const direct = (global as any).skiaKitEngines?.[engineId]?.unbox();
+      if (direct) {
+        direct.updateAnimatedStyles(fillId, { width: fillW });
+        direct.updateAnimatedStyles(thumbId, { left: thumbCx - thumbR });
       } else {
         // Fallback to JS-thread path if direct call not registered
         scheduleOnRN(updateSliderUIRef.current, fillId, thumbId, fillW, thumbCx - thumbR);
       }
-      (global as any).skiaKitScrollRedraw?.();
     },
     // Phase 5: finalWidth removed from deps — worklet reads layoutSVs.width.value inline.
     // layoutSVs.width is a stable SharedValue ref captured by closure — NOT needed in deps.
-    [fillId, thumbId, thumbR, defaultWidth]
+    [fillId, thumbId, thumbR, defaultWidth, engineId]
   );
 
   const calculateValue = (localX: number) => {

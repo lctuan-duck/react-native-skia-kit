@@ -11,7 +11,7 @@ import type {
   SemanticColor,
 } from '../types/style.types';
 import { resolveSemanticColor } from '../utils/color';
-import { useEngine } from '../core/EngineContext';
+import { useEngineContext } from '../core/EngineContext';
 import {
   useSharedValue,
   withTiming,
@@ -52,7 +52,7 @@ export const Progress = React.memo(function Progress({
   style,
 }: ProgressProps) {
   const theme = useTheme();
-  const engine = useEngine();
+  const { engine, engineId } = useEngineContext();
 
   const resolvedColor = resolveSemanticColor(
     (color as SemanticColor) || 'primary',
@@ -141,18 +141,17 @@ export const Progress = React.memo(function Progress({
       // Phase 5: đọc layout trực tiếp từ SharedValue — không qua JS state
       // Không cần finalWidth trong deps → không re-register khi layout thay đổi
       const fw = layoutSVs.width.value > 0 ? layoutSVs.width.value : defaultWidth;
-      const direct = (global as any).updateAnimatedStylesDirect;
-      if (typeof direct === 'function') {
+      const direct = (global as any).skiaKitEngines?.[engineId]?.unbox();
+      if (direct) {
         // Direct worklet → C++ path — no JS thread hop (critical for withRepeat @ 60fps)
         if (variant === 'circular') {
-          direct(fillId, { rotateZ: p * 360 });
+          direct.updateAnimatedStyles(fillId, { rotateZ: p * 360 });
         } else if (isDeterminate) {
-          direct(fillId, { width: p * fw });
+          direct.updateAnimatedStyles(fillId, { width: p * fw });
         } else {
           const fillW = fw * 0.4;
-          direct(fillId, { translateX: p * (fw - fillW) });
+          direct.updateAnimatedStyles(fillId, { translateX: p * (fw - fillW) });
         }
-        (global as any).skiaKitScrollRedraw?.();
       } else {
         // Fallback: throttle to ~15fps to avoid JS thread flooding
         updateCounter.value += 1;
@@ -162,7 +161,7 @@ export const Progress = React.memo(function Progress({
             fillId,
             isDeterminate,
             p,
-            fw, // đọc từ SharedValue trên worklet thread, rồi pass sang JS
+            fw,
             variant
           );
         }
@@ -170,7 +169,7 @@ export const Progress = React.memo(function Progress({
     },
     // Phase 5: finalWidth removed from deps — worklet reads layoutSVs.width.value inline.
     // layoutSVs.width is a stable SharedValue ref — NOT needed in deps array.
-    [isDeterminate, fillId, variant, defaultWidth]
+    [isDeterminate, fillId, variant, defaultWidth, engineId]
   );
 
   React.useLayoutEffect(() => {

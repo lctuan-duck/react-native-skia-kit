@@ -119,9 +119,8 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   children,
 }: CanvasRootProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const overlaysMap = useOverlayStore((s) => s.overlays);
-  const overlays = Array.from(overlaysMap.values());
-  const sortedOverlays = [...overlays].sort((a, b) => a.zIndex - b.zIndex);
+  // BUG-2 Fix: \u0111\u1ecdc overlays theo canvasId \u2014 m\u1ed7i CanvasRoot ch\u1ec9 hi\u1ec3n overlay c\u1ee7a m\u00ecnh
+  const sortedOverlays = useOverlayStore((s) => s.getOverlays(canvasId));
 
   // Phase 4: per-instance engine — mỗi CanvasRoot tạo 1 UIEngine riêng
   // Thay thế GlobalEngine singleton. Engine bị destroy khi CanvasRoot unmount.
@@ -146,17 +145,7 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   requestRedrawRef.current = requestRedraw;
 
   useLayoutEffect(() => {
-    // JS thread globals
-    (global as any).skiaKitRequestRedraw = () => {
-      engine.scheduleLayoutAndRender();
-    };
-    (global as any).skiaKitScrollRedraw = () => {
-      // no-op: C++ tự handle sau setScrollPosition
-    };
-
     // Phase 3: C++ push layout results đến JS sau mỗi layout cycle
-    // C++ gọi callback này trên JS thread → JS getAllLayouts + updateLayoutSVs
-    // → useNativeYogaLayout components (ScrollView, TabBar...) nhận đúng layout
     engine.onLayoutComplete(() => {
       const layouts = engine.getAllLayouts();
       if (layouts) {
@@ -166,27 +155,38 @@ export const CanvasRoot = React.memo(function CanvasRoot({
       }
     });
 
-    // Worklet thread globals
+    // BUG-1 Fix: Multi-instance safe worklet engine registry.
+    // Thay vì gán 1 global function duy nhất (sẽ bị overwrite khi có 2 CanvasRoot),
+    // dùng map: global.skiaKitEngines[engineId] = boxedEngine.
+    // Mỗi component đọc đúng engine của mình qua engineId.
     const boxedEngine = NitroModules.box(engine);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    runOnUI((boxed: any) => {
+    runOnUI((eid: number, boxed: any) => {
       'worklet';
-      (global as any).updateAnimatedStylesDirect = (
-        id: string,
-        style: Record<string, unknown>
-      ) => {
+      if (!(global as any).skiaKitEngines) {
+        (global as any).skiaKitEngines = {};
+      }
+      (global as any).skiaKitEngines[eid] = boxed;
+      // Backward-compat: nếu chỉ có 1 CanvasRoot, vẫn set global shortcut
+      // Sẽ bị overwrite bởi CanvasRoot mount sau, nhưng đây là expected
+      // behavior khi chỉ có 1 canvas (case phổ biến nhất).
+      (global as any).skiaKitLastEngineId = eid;
+    })(engineId, boxedEngine);
+
+    // Cleanup worklet engine registry khi unmount
+    return () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      runOnUI((eid: number) => {
         'worklet';
-        const eng = boxed.unbox();
-        if (eng && id) {
-          eng.updateAnimatedStyles(id, style as any);
+        if ((global as any).skiaKitEngines) {
+          delete (global as any).skiaKitEngines[eid];
         }
-      };
-      (global as any).skiaKitScrollRedraw = () => {
-        'worklet';
-        // no-op: setScrollPosition đã trigger scheduleRender() trong C++
-      };
-    })(boxedEngine);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+        if ((global as any).skiaKitLastEngineId === eid) {
+          (global as any).skiaKitLastEngineId = undefined;
+        }
+      })(engineId);
+    };
+  }, [engine, engineId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── requestRedraw stable ref for Reconciler ────────────────────────────────
   const stableRequestRedraw = useRef(() => {
@@ -316,12 +316,40 @@ export const CanvasRoot = React.memo(function CanvasRoot({
     }
   }, [screenWidth, screenHeight, canvasId, engine]);
 
-  // Cleanup: detach native view khi unmount
+  // BUG-0 Fix: Cleanup reconciler và C++ engine khi CanvasRoot unmount.
+  // Trước đây chỉ gọi detachNativeView() nhưng không unmount React reconciler tree
+  // → nodeToEngine Map giữ tất cả references → C++ Engine/GPU Surface bị leak.
+  //
+  // Fix: gọi updateContainer(null) để reconciler chạy removeChild cho toàn bộ
+  // cây con → recursiveUnregister() dọn sạch nodeToEngine + jsCallbacks.
+  // Sau đó removeRenderNode(canvasId) dọn root C++ node.
   React.useEffect(() => {
+    const rec = reconcilerRef.current as any;
+    const container = containerRef.current;
+    const currentEngine = engine;
+    const currentCanvasId = canvasId;
     return () => {
-      engine.detachNativeView();
+      // 1. Unmount toàn bộ React reconciler tree → triggers recursiveUnregister
+      try {
+        if (rec && container) {
+          if (typeof rec.updateContainerSync === 'function') {
+            rec.updateContainerSync(null, container, null, null);
+          } else {
+            rec.updateContainer(null, container, null, null);
+          }
+        }
+      } catch (e) {
+        // Ignore errors during cleanup
+      }
+      // 2. Remove root C++ node
+      try { currentEngine.removeRenderNode(currentCanvasId); } catch { /* ignore */ }
+      // 3. Detach native GPU surface
+      currentEngine.detachNativeView();
+      // 4. BUG-2 Fix: xóa tất cả overlays của canvas này khỏi store
+      // Tránh ghost overlays sau khi navigate ra khỏi màn hình
+      useOverlayStore.getState().clearAll(currentCanvasId);
     };
-  }, [engine]);
+  }, [engine, canvasId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Use plain useRef — NOT useSharedValue — for active gesture ID tracking.
   // Reanimated SharedValue.value writes are async on New Arch (Fabric):
@@ -499,7 +527,7 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   );
 
   return (
-    <EngineContext.Provider value={engine}>
+    <EngineContext.Provider value={{ engine, engineId }}>
       <WidgetContext.Provider value={canvasId}>
         <RNGestureDetector gesture={gesture}>
           {/* Phase 3: SkiaKitNativeView là renderer duy nhất — C++ vẽ trực tiếp lên GPU */}

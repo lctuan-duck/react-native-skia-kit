@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import { Box } from './Box';
 import { Text } from './Text';
 import { Icon } from './Icon';
@@ -19,7 +19,7 @@ import {
   resolveOnColor,
   withOpacity,
 } from '../utils/color';
-import { useEngine } from '../core/EngineContext';
+import { useEngineContext } from '../core/EngineContext';
 import {
   useSharedValue,
   withTiming,
@@ -98,7 +98,6 @@ export const Button = React.memo(function Button({
   style,
 }: ButtonProps) {
   const theme = useTheme();
-  const engine = useEngine();
   const resolvedColor = resolveSemanticColor(color, theme.colors);
   const resolvedOnColor = resolveOnColor(color, theme.colors);
   const variantStyles = resolveVariantStyles(
@@ -109,8 +108,29 @@ export const Button = React.memo(function Button({
   );
 
   const widgetId = useWidgetId('Button');
+  const { engine, engineId } = useEngineContext();
 
-  // ── Interactive press effects ─────────────────────────────────────────────
+  // BUG-5 Fix: stable ref cho scheduleOnRN fallback — pattern nhất quán với các component khác
+  const updateButtonUIRef = React.useRef(
+    (id: string, eff: string, isP: number) => {
+      if (eff === 'opacity' || eff === 'ripple') {
+        engine.updateAnimatedStyles(id, { opacity: isP ? 0.6 : 1.0 });
+      } else if (eff === 'bounce') {
+        const s = isP ? 0.94 : 1.0;
+        engine.updateAnimatedStyles(id, { scaleX: s, scaleY: s });
+      }
+    }
+  );
+  updateButtonUIRef.current = (id, eff, isP) => {
+    if (eff === 'opacity' || eff === 'ripple') {
+      engine.updateAnimatedStyles(id, { opacity: isP ? 0.6 : 1.0 });
+    } else if (eff === 'bounce') {
+      const s = isP ? 0.94 : 1.0;
+      engine.updateAnimatedStyles(id, { scaleX: s, scaleY: s });
+    }
+  };
+
+  // ── Interactive press effects ─────────────────────────────────────────────────────
   // `pressed` SharedValue: 0 = released, 1 = pressed
   const pressed = useSharedValue(0);
 
@@ -120,35 +140,21 @@ export const Button = React.memo(function Button({
       'worklet';
       // Guard: 'none' has no effect
       if (!interactive || interactive === 'none') return;
-      const direct = (global as any).updateAnimatedStylesDirect;
-      if (typeof direct !== 'function') {
-        // Fallback: JS thread
-        scheduleOnRN(
-          (id: string, eff: string, isP: number) => {
-                        if (eff === 'opacity' || eff === 'ripple') {
-              engine.updateAnimatedStyles(id, { opacity: isP ? 0.6 : 1.0 });
-            } else if (eff === 'bounce') {
-              const s = isP ? 0.94 : 1.0;
-              engine.updateAnimatedStyles(id, { scaleX: s, scaleY: s });
-            }
-            (global as any).skiaKitScrollRedraw?.();
-          },
-          widgetId,
-          interactive,
-          p
-        );
-        return;
+      const direct = (global as any).skiaKitEngines?.[engineId]?.unbox();
+      if (direct) {
+        // Direct worklet→C++ path — no JS thread hop → butter smooth
+        if (interactive === 'opacity' || interactive === 'ripple') {
+          direct.updateAnimatedStyles(widgetId, { opacity: p > 0 ? 0.6 : 1.0 });
+        } else if (interactive === 'bounce') {
+          const s = p > 0 ? 0.94 : 1.0;
+          direct.updateAnimatedStyles(widgetId, { scaleX: s, scaleY: s });
+        }
+      } else {
+        // BUG-5 Fix: dùng stable ref thay vì inline closure
+        scheduleOnRN(updateButtonUIRef.current, widgetId, interactive, p);
       }
-      // Direct worklet→C++ path — no JS thread hop → butter smooth
-      if (interactive === 'opacity' || interactive === 'ripple') {
-        direct(widgetId, { opacity: p > 0 ? 0.6 : 1.0 });
-      } else if (interactive === 'bounce') {
-        const s = p > 0 ? 0.94 : 1.0;
-        direct(widgetId, { scaleX: s, scaleY: s });
-      }
-      (global as any).skiaKitScrollRedraw?.();
     },
-    [widgetId, interactive]
+    [widgetId, interactive, engineId]
   );
 
   const handlePressIn = () => {

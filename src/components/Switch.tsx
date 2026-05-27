@@ -9,7 +9,7 @@ import type {
   SemanticColor,
 } from '../types/style.types';
 import { resolveSemanticColor, parseColor } from '../utils/color';
-import { useEngine } from '../core/EngineContext';
+import { useEngineContext } from '../core/EngineContext';
 import {
   useSharedValue,
   withTiming,
@@ -56,7 +56,7 @@ export const Switch = React.memo(function Switch({
   onPress,
 }: SwitchProps) {
   const theme = useTheme();
-  const engine = useEngine();
+  const { engine, engineId } = useEngineContext();
   const activeColor =
     style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
   const inactiveTrack = style?.trackColor ?? theme.colors.border;
@@ -110,12 +110,11 @@ export const Switch = React.memo(function Switch({
       );
       const currentLeft = p * maxTravel;
 
-      const direct = (global as any).updateAnimatedStylesDirect;
-      if (typeof direct === 'function') {
+      const direct = (global as any).skiaKitEngines?.[engineId]?.unbox();
+      if (direct) {
         // Direct worklet → C++ — parse color string to numeric SkColor
-        direct(trackId, { backgroundColor: parseColor(currentTrackColor) });
-        direct(thumbId, { translateX: currentLeft });
-        (global as any).skiaKitScrollRedraw?.();
+        direct.updateAnimatedStyles(trackId, { backgroundColor: parseColor(currentTrackColor) });
+        direct.updateAnimatedStyles(thumbId, { translateX: currentLeft });
       } else {
         scheduleOnRN(
           updateSwitchUIRef.current,
@@ -135,6 +134,7 @@ export const Switch = React.memo(function Switch({
       trackId,
       thumbId,
       finalH,
+      engineId,
     ]
   );
 

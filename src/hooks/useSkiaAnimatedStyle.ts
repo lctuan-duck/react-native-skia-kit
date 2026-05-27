@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAnimatedReaction } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
-import { useEngine } from '../core/EngineContext';
+import { useEngineContext } from '../core/EngineContext';
 import type { NativeAnimatedStyle } from '../nitro/UIEngine.nitro';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -32,7 +32,7 @@ export function useSkiaAnimatedStyle(
     | (() => NativeAnimatedStyle)
     | undefined
 ) {
-  const engine = useEngine();
+  const { engine, engineId } = useEngineContext();
 
   const _widgetIdRef = useRef(widgetId);
   _widgetIdRef.current = widgetId;
@@ -58,9 +58,9 @@ export function useSkiaAnimatedStyle(
       (result) => {
         'worklet';
         if (!result) return;
-        const directCall = (global as any).updateAnimatedStylesDirect;
-        if (typeof directCall === 'function') {
-          directCall(_widgetIdRef.current, result);
+        const directCall = (global as any).skiaKitEngines?.[engineId]?.unbox();
+        if (directCall) {
+          directCall.updateAnimatedStyles(_widgetIdRef.current, result);
         } else {
           scheduleOnRN(updateAnimatedStyleJS.current, _widgetIdRef.current, result);
         }

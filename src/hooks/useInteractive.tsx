@@ -5,7 +5,7 @@ import {
   useAnimatedReaction,
   runOnJS,
 } from 'react-native-reanimated';
-import { useEngine } from '../core/EngineContext';
+import { useEngineContext } from '../core/EngineContext';
 
 /** Bounds của một Box widget — dùng bởi renderOverlay (backward compat) */
 export interface BoxBounds {
@@ -63,7 +63,7 @@ export function useInteractive(
   options?: UseInteractiveOptions
 ): UseInteractiveResult {
   const baseOpacity = options?.baseOpacity ?? 1;
-  const engine = useEngine();
+  const { engine, engineId } = useEngineContext();
   const _widgetIdRef = useRef(widgetId);
   _widgetIdRef.current = widgetId;
 
@@ -94,10 +94,9 @@ export function useInteractive(
       () => pressOpacity.value,
       (opacity) => {
         'worklet';
-        const direct = (global as any).updateAnimatedStylesDirect;
-        if (typeof direct === 'function') {
-          direct(widgetId, { opacity });
-          (global as any).skiaKitScrollRedraw?.();
+        const direct = (global as any).skiaKitEngines?.[engineId]?.unbox();
+        if (direct) {
+          direct.updateAnimatedStyles(widgetId, { opacity });
         } else {
           runOnJS(updateStyle)(opacity);
         }

@@ -11,7 +11,7 @@ import { Text } from './Text';
 import { Expanded } from './Expanded';
 import { useTheme } from '../hooks/useTheme';
 import { useWidgetId } from '../hooks/useWidgetId';
-import { useEngine } from '../core/EngineContext';
+import { useEngineContext } from '../core/EngineContext';
 import type { WidgetProps } from '../types/widget.types';
 import type { ColorStyle, FlexChildStyle } from '../types/style.types';
 
@@ -52,7 +52,7 @@ export const SnackBar = React.memo(function SnackBar({
   onDismiss,
 }: SnackBarProps) {
   const theme = useTheme();
-  const engine = useEngine();
+  const { engine, engineId } = useEngineContext();
   const bgColor = style?.backgroundColor ?? theme.colors.inverseSurface;
   const fgColor = style?.textColor ?? theme.colors.textInverse;
 
@@ -75,15 +75,14 @@ export const SnackBar = React.memo(function SnackBar({
     () => translateY.value,
     (ty) => {
       'worklet';
-      const direct = (global as any).updateAnimatedStylesDirect;
-      if (typeof direct === 'function') {
-        direct(widgetId, { translateY: ty });
-        (global as any).skiaKitScrollRedraw?.();
+      const direct = (global as any).skiaKitEngines?.[engineId]?.unbox();
+      if (direct) {
+        direct.updateAnimatedStyles(widgetId, { translateY: ty });
       } else {
         scheduleOnRN(updateSnackBarUIRef.current, widgetId, ty);
       }
     },
-    [widgetId]
+    [widgetId, engineId]
   );
 
   // Dismiss-state machine — only render DOM node during enter/visible/exit phases.
@@ -98,6 +97,12 @@ export const SnackBar = React.memo(function SnackBar({
     }
   };
 
+  // BUG-4 Fix: dùng renderStateRef để tránh stale closure trong useEffect.
+  // visible có thể toggle nhanh trước khi renderState kịp cập nhật,
+  // renderStateRef.current luôn trỏ đến giá trị mới nhất — không cần trong deps.
+  const renderStateRef = React.useRef(renderState);
+  renderStateRef.current = renderState;
+
   useEffect(() => {
     if (visible) {
       clearTimer();
@@ -105,7 +110,9 @@ export const SnackBar = React.memo(function SnackBar({
       // the animation start after the C++ node is registered)
       setRenderState('entering');
     } else {
-      if (renderState === 'visible' || renderState === 'entering') {
+      // BUG-4 Fix: đọc renderStateRef.current thay vì renderState để luôn lấy giá trị hiện tại
+      const currentState = renderStateRef.current;
+      if (currentState === 'visible' || currentState === 'entering') {
         clearTimer();
         setRenderState('exiting');
         translateY.value = withTiming(80, { duration: 220 });
@@ -114,8 +121,7 @@ export const SnackBar = React.memo(function SnackBar({
       }
     }
     return clearTimer;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+  }, [visible]); // renderStateRef không cần trong deps — là ref nên luôn fresh
 
   // Start slide-in AFTER C++ node is in the tree (useLayoutEffect = synchronous after DOM update)
   React.useLayoutEffect(() => {

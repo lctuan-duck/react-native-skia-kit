@@ -14,7 +14,7 @@ import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
 import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import { useLayoutSharedValues } from '../hooks/useLayoutSharedValues';
-import { useEngine } from '../core/EngineContext';
+import { useEngineContext } from '../core/EngineContext';
 import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
@@ -58,7 +58,7 @@ export const TabBar = React.memo(function TabBar({
   style,
 }: TabBarProps) {
   const theme = useTheme();
-  const engine = useEngine();
+  const { engine, engineId } = useEngineContext();
   const active = style?.activeColor ?? theme.colors.primary;
   const inactive = style?.inactiveColor ?? theme.colors.textSecondary;
   const bgColor =
@@ -102,33 +102,39 @@ export const TabBar = React.memo(function TabBar({
   const layoutSVs = useLayoutSharedValues(widgetId);
   const numItems = items.length;
 
+  // BUG-6 Fix: dùng SharedValue cho activeIndex trong worklet — tránh re-register
+  // khi user chuyển tab. Worklet đọc activeIndexSV.value inline thay vì dùng closure.
+  const activeIndexSV = useSharedValue(activeIndex);
+  React.useEffect(() => {
+    activeIndexSV.value = activeIndex;
+  }, [activeIndex, activeIndexSV]);
+
   useAnimatedReaction(
     () => layoutSVs.width.value,
     (newWidth) => {
       'worklet';
       // Khi width thay đổi (layout computed/re-computed), re-snap indicator
-      // sà không cần JS thread re-render để đưa lại indicator về đúng vị trí
+      // không cần JS thread re-render để đưa lại indicator về đúng vị trí
       if (newWidth > 0) {
         const tw = newWidth / Math.max(1, numItems);
-        indicatorX.value = activeIndex * tw;
+        indicatorX.value = activeIndexSV.value * tw;
       }
     },
-    [numItems, activeIndex] // indicatorX là stable ref — không cần trong deps
+    [numItems] // activeIndexSV là stable SharedValue — không cần trong deps
   );
 
   useAnimatedReaction(
     () => indicatorX.value,
     (x) => {
       'worklet';
-      const direct = (global as any).updateAnimatedStylesDirect;
-      if (typeof direct === 'function') {
-        direct(indicatorId, { left: x });
-        (global as any).skiaKitScrollRedraw?.();
+      const direct = (global as any).skiaKitEngines?.[engineId]?.unbox();
+      if (direct) {
+        direct.updateAnimatedStyles(indicatorId, { left: x });
       } else {
         scheduleOnRN(applyIndicatorPositionRef.current, indicatorId, x);
       }
     },
-    [indicatorId]
+    [indicatorId, engineId]
   );
 
   if (variant === 'segment') {
