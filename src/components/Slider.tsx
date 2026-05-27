@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import { Box } from './Box';
 import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
@@ -49,23 +49,6 @@ export interface SliderProps extends WidgetProps {
   onSlidingComplete?: (value: number) => void;
 }
 
-const updateSliderUI = (
-  fillId: string,
-  thumbId: string,
-  fillW: number,
-  thumbLeft: number
-) => {
-  if (true) {
-    // Dùng updateAnimatedStyles thay vì updateLayoutNode:
-    // - updateLayoutNode cập nhật Yoga style → cần layout recalc pass → phải dùng skiaKitRequestRedraw (chậm hơn)
-    // - updateAnimatedStyles set _animWidth/_animLeft trực tiếp trên RenderNode → bypass Yoga hoàn toàn
-    //   → cùng cơ chế với Switch (translateX) → dùng được skiaKitScrollRedraw (immediate, 60fps)
-    engine.updateAnimatedStyles(fillId, { width: fillW });
-    engine.updateAnimatedStyles(thumbId, { left: thumbLeft });
-    (global as any).skiaKitScrollRedraw?.();
-  }
-};
-
 /**
  * Slider — continuous value selection via draggable thumb.
  * Equivalent to Flutter Slider.
@@ -95,6 +78,21 @@ export const Slider = React.memo(function Slider({
   const widgetId = useWidgetId('Slider');
   const fillId = useWidgetId('SliderFill');
   const thumbId = useWidgetId('SliderThumb');
+
+  // Stable ref cho fallback JS-thread path (khi worklet direct call không có)
+  // Pattern giống useSkiaAnimatedStyle — capture engine đúng per-instance
+  const updateSliderUIRef = React.useRef(
+    (fId: string, tId: string, fillW: number, thumbLeft: number) => {
+      engine.updateAnimatedStyles(fId, { width: fillW });
+      engine.updateAnimatedStyles(tId, { left: thumbLeft });
+      (global as any).skiaKitScrollRedraw?.();
+    }
+  );
+  updateSliderUIRef.current = (fId, tId, fillW, thumbLeft) => {
+    engine.updateAnimatedStyles(fId, { width: fillW });
+    engine.updateAnimatedStyles(tId, { left: thumbLeft });
+    (global as any).skiaKitScrollRedraw?.();
+  };
 
   const layout = useNativeYogaLayout(widgetId, { width, height: totalHeight });
   const finalWidth =
@@ -131,7 +129,7 @@ export const Slider = React.memo(function Slider({
         direct(thumbId, { left: thumbCx - thumbR });
       } else {
         // Fallback to JS-thread path if direct call not registered
-        scheduleOnRN(updateSliderUI, fillId, thumbId, fillW, thumbCx - thumbR);
+        scheduleOnRN(updateSliderUIRef.current, fillId, thumbId, fillW, thumbCx - thumbR);
       }
       (global as any).skiaKitScrollRedraw?.();
     },

@@ -227,8 +227,6 @@ export const CanvasRoot = React.memo(function CanvasRoot({
   }, [children, reconciler]); // sortedOverlays intentionally via ref
 
   // Re-run layout khi screen thay đổi
-  const requestRedrawRef2 = useRef(requestRedraw);
-  requestRedrawRef2.current = requestRedraw;
   React.useEffect(() => {
     if (containerRef.current) {
       engine.resize(screenWidth, screenHeight);

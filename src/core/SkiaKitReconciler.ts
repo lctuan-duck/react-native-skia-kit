@@ -835,14 +835,23 @@ const baseHostConfig = {
   // ── Context ───────────────────────────────────────────────────────────────
 
   /**
-/**
- * getRootHostContext — forward engine + canvasId xuống toàn bộ cây qua hostContext.
- */
+   * getRootHostContext — forward engine + canvasId xuống toàn bộ cây qua hostContext.
+   */
   getRootHostContext(rootContainer: { canvasId: string; engine: UIEngine }) {
     return rootContainer;
   },
   getChildHostContext(parentContext: any) {
     return parentContext;
+  },
+
+  // ── Commit lifecycle ───────────────────────────────────────────────────────
+
+  /**
+   * prepareForCommit — MUST return containerInfo so resetAfterCommit receives it.
+   * React bắt buộc return non-null để resetAfterCommit hoạt động đúng.
+   */
+  prepareForCommit(containerInfo: { canvasId: string; engine: UIEngine }) {
+    return containerInfo;
   },
 
   /**
@@ -859,6 +868,7 @@ const baseHostConfig = {
   afterActiveInstanceBlur() {},
   preparePortalMount() {},
 } as const;
+
 
 // ── Factory per CanvasRoot ──────────────────────────────────────────────────
 
