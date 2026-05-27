@@ -56,6 +56,14 @@ class SkiaKitNativeView(context: Context) : ViewGroup(context),
         isOpaque = false
     }
 
+    // Handler for delayed EGL retry scheduling
+    private val _uiHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    // ONE-SHOT flag per surface lifecycle: prevents onSurfaceTextureUpdated
+    // from calling nativeScheduleRender at 60fps (which resets EGL throttle
+    // every frame and causes calculateLayout busy-loop).
+    @Volatile private var _pendingEglReset = false
+
     init {
         setWillNotDraw(false)
         addView(
@@ -140,7 +148,21 @@ class SkiaKitNativeView(context: Context) : ViewGroup(context),
             Log.w(TAG, "onSurfaceTextureAvailable: engineId not set yet, will attach when engineId arrives")
             return
         }
+        _pendingEglReset = true // Allow onSurfaceTextureUpdated to fire once
         nativeOnSurfaceAvailable(_engineId, surface, width, height)
+
+        // EGL context attachment is async on Android — schedule retries
+        // so rendering resumes even if first attempts fail.
+        // Intervals: 50ms, 150ms, 350ms, 700ms (give GL thread time to attach)
+        val eId = _engineId
+        for ((idx, delayMs) in listOf(50L, 150L, 350L, 700L).withIndex()) {
+            _uiHandler.postDelayed({
+                if (_engineId == eId && _pendingEglReset) {
+                    Log.d(TAG, "EGL retry #${idx + 1} at ${delayMs}ms")
+                    nativeScheduleRender(eId)
+                }
+            }, delayMs)
+        }
     }
 
     override fun onSurfaceTextureSizeChanged(
@@ -153,6 +175,8 @@ class SkiaKitNativeView(context: Context) : ViewGroup(context),
 
     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
         Log.i(TAG, "onSurfaceTextureDestroyed")
+        _pendingEglReset = false // Cancel pending EGL reset
+        _uiHandler.removeCallbacksAndMessages(null) // Cancel delayed retries
         if (_engineId >= 0) {
             nativeOnSurfaceDestroyed(_engineId)
         }
@@ -160,10 +184,13 @@ class SkiaKitNativeView(context: Context) : ViewGroup(context),
     }
 
     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
-        // Android gọi callback này khi SurfaceTexture nhận frame mới thành công.
-        // Điều này có nghĩa là EGL context đã attach và GL thread đang hoạt động.
-        // Dùng để reset EGL throttle và kick-start lại rendering nếu bị dừng.
-        if (_engineId >= 0) {
+        // ONE-SHOT: fires only once per surface lifecycle.
+        // onSurfaceTextureUpdated is called at 60fps by Android — if we called
+        // nativeScheduleRender every time, it would reset _eglFailCount every 16ms
+        // → bypass throttle → calculateLayout busy-loop at 60fps.
+        if (_pendingEglReset && _engineId >= 0) {
+            _pendingEglReset = false // Consume the reset token
+            Log.d(TAG, "onSurfaceTextureUpdated: EGL ready signal, scheduling render")
             nativeScheduleRender(_engineId)
         }
     }
