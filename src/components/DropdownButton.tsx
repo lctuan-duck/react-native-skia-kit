@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useState } from 'react';
+import { useWindowDimensions } from 'react-native';
 import { Box } from './Box';
 import { Text } from './Text';
 import { Icon } from './Icon';
@@ -54,9 +55,13 @@ export const DropdownButton = React.memo(function DropdownButton<
   onChanged,
   disabled = false,
   style,
-  screenWidth = 360,
-  screenHeight = 800,
+  // DD2 fix: use useWindowDimensions as default instead of hardcoded 360/800
+  screenWidth: screenWidthProp,
+  screenHeight: screenHeightProp,
 }: DropdownButtonProps<T>) {
+  const { width: winW, height: winH } = useWindowDimensions();
+  const screenWidth = screenWidthProp ?? winW;
+  const screenHeight = screenHeightProp ?? winH;
   const theme = useTheme();
   const border = style?.borderColor ?? theme.colors.border;
   const borderRadius = style?.borderRadius ?? 8;
@@ -136,7 +141,13 @@ export const DropdownButton = React.memo(function DropdownButton<
               borderWidth: 1,
               borderColor: theme.colors.divider,
               position: 'absolute',
-              top: finalY + finalHeight + 4,
+              // DD1 fix: flip to above button if panel would overflow screen bottom.
+              top: (() => {
+                const panelH = Math.min(items.length * 44, dropdownMaxHeight);
+                const belowY = finalY + finalHeight + 4;
+                const wouldOverflow = belowY + panelH > screenHeight;
+                return wouldOverflow ? finalY - panelH - 4 : belowY;
+              })(),
             }}
           >
             <Column>

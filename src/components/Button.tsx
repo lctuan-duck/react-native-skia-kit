@@ -1,8 +1,9 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Box } from './Box';
 import { Text } from './Text';
 import { Icon } from './Icon';
 import { useTheme } from '../hooks/useTheme';
+import { useWidgetId } from '../hooks/useWidgetId';
 import type { WidgetProps } from '../types/widget.types';
 import type {
   LayoutStyle,
@@ -18,6 +19,13 @@ import {
   resolveOnColor,
   withOpacity,
 } from '../utils/color';
+import { useEngine } from '../core/EngineContext';
+import {
+  useSharedValue,
+  withTiming,
+  useAnimatedReaction,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 // === Button Types ===
 
@@ -53,10 +61,14 @@ export interface ButtonProps extends WidgetProps {
   disabled?: boolean;
   /** FAB extended mode (icon + label) */
   extended?: boolean;
-  /** Interactive effect (Default: ripple) */
+  /**
+   * Interactive press effect.
+   * - `'opacity'`  — dims to 60% opacity on press (default)
+   * - `'bounce'`   — scales down to 0.94 on press, springs back on release
+   * - `'ripple'`   — fast opacity flash simulating ripple (full GPU ripple requires C++ arc draw)
+   * - `'none'`     — no visual feedback
+   */
   interactive?: 'ripple' | 'bounce' | 'opacity' | 'none';
-  /** Manual ripple color override */
-
   /** Press callback */
   onPress?: (localX?: number, localY?: number) => void;
   /** Long press callback */
@@ -80,12 +92,13 @@ export const Button = React.memo(function Button({
   color = 'primary',
   disabled = false,
   extended = false,
-
+  interactive = 'opacity',
   onPress,
   onLongPress,
   style,
 }: ButtonProps) {
   const theme = useTheme();
+  const engine = useEngine();
   const resolvedColor = resolveSemanticColor(color, theme.colors);
   const resolvedOnColor = resolveOnColor(color, theme.colors);
   const variantStyles = resolveVariantStyles(
@@ -94,6 +107,63 @@ export const Button = React.memo(function Button({
     resolvedOnColor,
     theme
   );
+
+  const widgetId = useWidgetId('Button');
+
+  // ── Interactive press effects ─────────────────────────────────────────────
+  // `pressed` SharedValue: 0 = released, 1 = pressed
+  const pressed = useSharedValue(0);
+
+  useAnimatedReaction(
+    () => pressed.value,
+    (p) => {
+      'worklet';
+      // Guard: 'none' has no effect
+      if (!interactive || interactive === 'none') return;
+      const direct = (global as any).updateAnimatedStylesDirect;
+      if (typeof direct !== 'function') {
+        // Fallback: JS thread
+        scheduleOnRN(
+          (id: string, eff: string, isP: number) => {
+                        if (eff === 'opacity' || eff === 'ripple') {
+              engine.updateAnimatedStyles(id, { opacity: isP ? 0.6 : 1.0 });
+            } else if (eff === 'bounce') {
+              const s = isP ? 0.94 : 1.0;
+              engine.updateAnimatedStyles(id, { scaleX: s, scaleY: s });
+            }
+            (global as any).skiaKitScrollRedraw?.();
+          },
+          widgetId,
+          interactive,
+          p
+        );
+        return;
+      }
+      // Direct worklet→C++ path — no JS thread hop → butter smooth
+      if (interactive === 'opacity' || interactive === 'ripple') {
+        direct(widgetId, { opacity: p > 0 ? 0.6 : 1.0 });
+      } else if (interactive === 'bounce') {
+        const s = p > 0 ? 0.94 : 1.0;
+        direct(widgetId, { scaleX: s, scaleY: s });
+      }
+      (global as any).skiaKitScrollRedraw?.();
+    },
+    [widgetId, interactive]
+  );
+
+  const handlePressIn = () => {
+    if (disabled) return;
+    pressed.value = withTiming(1, { duration: 80 });
+  };
+
+  const handlePressOut = () => {
+    pressed.value = withTiming(0, { duration: 150 });
+  };
+
+  const handlePress = (localX?: number, localY?: number) => {
+    if (disabled) return;
+    onPress?.(localX, localY);
+  };
 
   // Style overrides take highest priority
   const bgColor = style?.backgroundColor ?? variantStyles.background;
@@ -112,6 +182,7 @@ export const Button = React.memo(function Button({
   if (variant === 'icon') {
     return (
       <Box
+        id={widgetId}
         style={{
           width: tapSz,
           height: tapSz,
@@ -123,10 +194,12 @@ export const Button = React.memo(function Button({
           alignItems: 'center',
         }}
         hitTestBehavior="opaque"
-        onPress={(y) => !disabled && onPress?.(y)}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={(x, y) => handlePress(x, y)}
         onLongPress={onLongPress}
       >
-        <Icon name={icon!} size={iconSz} color={fgColor} />
+        <Icon name={icon ?? 'circle'} size={iconSz} color={fgColor} />
       </Box>
     );
   }
@@ -136,6 +209,7 @@ export const Button = React.memo(function Button({
     const fabWidth = extended ? w ?? 140 : 56;
     return (
       <Box
+        id={widgetId}
         style={{
           width: fabWidth,
           height: 56,
@@ -150,10 +224,12 @@ export const Button = React.memo(function Button({
           gap: extended ? 8 : 0,
         }}
         hitTestBehavior="opaque"
-        onPress={(y) => !disabled && onPress?.(y)}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={(x, y) => handlePress(x, y)}
         onLongPress={onLongPress}
       >
-        <Icon name={icon!} size={24} color={fgColor} />
+        <Icon name={icon ?? 'circle'} size={24} color={fgColor} />
         {extended && text && (
           <Text
             text={text}
@@ -165,11 +241,13 @@ export const Button = React.memo(function Button({
   }
 
   // ===== Standard variants: solid / outline / ghost / link =====
-  const btnWidth = w ?? Math.max(80, (text?.length ?? 0) * 9 + 32);
+  const btnWidth = w ?? undefined; // Let Yoga compute width; user can set via style.width
   return (
     <Box
+      id={widgetId}
       style={{
         width: btnWidth,
+        minWidth: 80,
         height: h,
         borderRadius: borderR,
         backgroundColor: bgColor,
@@ -184,7 +262,9 @@ export const Button = React.memo(function Button({
         gap: icon && text ? 8 : 0,
       }}
       hitTestBehavior="opaque"
-      onPress={(y) => !disabled && onPress?.(y)}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={(x, y) => handlePress(x, y)}
       onLongPress={onLongPress}
     >
       {icon && <Icon name={icon} size={iconSz} color={fgColor} />}

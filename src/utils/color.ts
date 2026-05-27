@@ -73,8 +73,9 @@ export function contrastColor(hex: string): string {
  * Hỗ trợ: #RGB, #RRGGBB, #RRGGBBAA, rgba(), transparent.
  * Luôn trả về number (không trả về undefined) — SkColor 0x00000000 = transparent.
  */
-export function parseColor(color?: string): number {
+export function parseColor(color?: string | number): number {
   'worklet';
+  if (typeof color === 'number') return color;
   if (!color || color === 'transparent') return 0x00000000;
   if (color === 'white') return 0xffffffff;
   if (color === 'black') return 0xff000000;

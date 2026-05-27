@@ -19,7 +19,7 @@ export type ListTileStyle = ColorStyle &
   FlexChildStyle & {
     titleColor?: string;
     subtitleColor?: string;
-    width?: number;
+    width?: number | string;
     height?: number;
   };
 
@@ -65,7 +65,6 @@ export const ListTile = React.memo(function ListTile({
   const bgColor = style?.backgroundColor ?? 'transparent';
   const contentPadding = 16;
 
-  const width = style?.width;
   const tileHeight = style?.height ?? (dense ? 48 : subtitle ? 72 : 56);
 
   useWidgetId('ListTile');
@@ -73,14 +72,17 @@ export const ListTile = React.memo(function ListTile({
   return (
     <Box
       style={{
-        width,
+        // User style applied first (can override colors/bg/dimensions)
+        ...style,
+        // Layout-critical props always applied LAST — cannot be overridden
+        width: style?.width ?? '100%',
+        alignSelf: 'stretch', // <--- Force it to fill parent's width even if parent is flex-start
         height: tileHeight,
         backgroundColor: bgColor,
         flexDirection: 'row',
         alignItems: 'center',
         padding: [0, contentPadding, 0, contentPadding],
         gap: 16,
-        ...style,
       }}
       hitTestBehavior="opaque"
       onPress={onPress}
@@ -95,6 +97,8 @@ export const ListTile = React.memo(function ListTile({
             style={{
               fontSize: dense ? 14 : 16,
               color: fgTitle,
+              numberOfLines: 1,
+              ellipsis: 'tail',
             }}
           />
           {subtitle && (
@@ -103,6 +107,8 @@ export const ListTile = React.memo(function ListTile({
               style={{
                 fontSize: dense ? 12 : 14,
                 color: fgSubtitle,
+                numberOfLines: 1,
+                ellipsis: 'tail',
               }}
             />
           )}

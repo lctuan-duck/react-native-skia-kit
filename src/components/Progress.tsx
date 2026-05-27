@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Box } from './Box';
 import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
@@ -10,11 +10,12 @@ import type {
   SemanticColor,
 } from '../types/style.types';
 import { resolveSemanticColor } from '../utils/color';
-import { uiEngine } from '../core/GlobalEngine';
+import { useEngine } from '../core/EngineContext';
 import {
   useSharedValue,
   withTiming,
   withRepeat,
+  cancelAnimation,
   useAnimatedReaction,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -50,19 +51,19 @@ const updateProgressUI = (
   finalWidth: number,
   variant: 'linear' | 'circular'
 ) => {
-  if (!uiEngine) return;
-  if (variant === 'circular') {
-    uiEngine.updateAnimatedStyles(fillId, { rotateZ: p * 360 });
+    if (variant === 'circular') {
+    // rotateZ đã dùng updateAnimatedStyles (bypass Yoga) ✅
+    engine.updateAnimatedStyles(fillId, { rotateZ: p * 360 });
   } else {
     if (isDeterminate) {
-      uiEngine.updateLayoutNode(fillId, { width: p * finalWidth });
+      // updateAnimatedStyles → set _animWidth trực tiếp, bypass Yoga recalc
+      engine.updateAnimatedStyles(fillId, { width: p * finalWidth });
     } else {
-      // Indeterminate: fixed width, animate left position
+      // Indeterminate: use translateX to avoid Yoga layout thrashing
       const fillW = finalWidth * 0.4;
       const maxLeft = finalWidth - fillW;
-      uiEngine.updateLayoutNode(fillId, {
-        width: fillW,
-        left: p * maxLeft,
+      engine.updateAnimatedStyles(fillId, {
+        translateX: p * maxLeft,
       });
     }
   }
@@ -80,6 +81,7 @@ export const Progress = React.memo(function Progress({
   style,
 }: ProgressProps) {
   const theme = useTheme();
+  const engine = useEngine();
 
   const resolvedColor = resolveSemanticColor(
     (color as SemanticColor) || 'primary',
@@ -107,31 +109,58 @@ export const Progress = React.memo(function Progress({
   const safeValue = isDeterminate ? Math.max(0, Math.min(1, value)) : 0;
   const progress = useSharedValue(safeValue);
   const indetProgress = useSharedValue(0);
+  const updateCounter = useSharedValue(0);
 
   React.useEffect(() => {
     if (isDeterminate) {
       progress.value = withTiming(safeValue, { duration: 250 });
     } else {
-      // Indeterminate animation
+      // Indeterminate animation — repeats infinitely
       indetProgress.value = withRepeat(
         withTiming(1, { duration: 1000 }),
         -1, // infinite
         false
       );
     }
+    // P2 fix: cancel animation on unmount or when switching determinate↔indeterminate.
+    // Prevents ghost scheduleOnRN calls after the C++ fillId node is cleaned up.
+    return () => {
+      cancelAnimation(progress);
+      cancelAnimation(indetProgress);
+    };
   }, [isDeterminate, safeValue, progress, indetProgress]);
 
   useAnimatedReaction(
     () => (isDeterminate ? progress.value : indetProgress.value),
     (p) => {
-      scheduleOnRN(
-        updateProgressUI,
-        fillId,
-        isDeterminate,
-        p,
-        finalWidth,
-        variant
-      );
+      'worklet';
+      const direct = (global as any).updateAnimatedStylesDirect;
+      if (typeof direct === 'function') {
+        // Direct worklet → C++ path — no JS thread hop (critical for withRepeat @ 60fps)
+        if (variant === 'circular') {
+          direct(fillId, { rotateZ: p * 360 });
+        } else if (isDeterminate) {
+          direct(fillId, { width: p * finalWidth });
+        } else {
+          const fillW = finalWidth * 0.4;
+          const maxLeft = finalWidth - fillW;
+          direct(fillId, { translateX: p * maxLeft });
+        }
+        (global as any).skiaKitScrollRedraw?.();
+      } else {
+        // Fallback: throttle to ~15fps to avoid JS thread flooding
+        updateCounter.value += 1;
+        if (updateCounter.value % 4 === 0) {
+          scheduleOnRN(
+            updateProgressUI,
+            fillId,
+            isDeterminate,
+            p,
+            finalWidth,
+            variant
+          );
+        }
+      }
     },
     [isDeterminate, finalWidth, fillId, variant]
   );
@@ -155,6 +184,7 @@ export const Progress = React.memo(function Progress({
         <Box
           id={fillId}
           style={{
+            width: isDeterminate ? undefined : '40%',
             height: '100%',
             backgroundColor: resolvedColor,
             borderRadius: height / 2,

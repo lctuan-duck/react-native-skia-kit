@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Box } from './Box';
 import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
@@ -11,7 +11,7 @@ import type {
   LayoutStyle,
 } from '../types/style.types';
 import { resolveSemanticColor } from '../utils/color';
-import { uiEngine } from '../core/GlobalEngine';
+import { useEngine } from '../core/EngineContext';
 import {
   useSharedValue,
   withTiming,
@@ -55,10 +55,14 @@ const updateSliderUI = (
   fillW: number,
   thumbLeft: number
 ) => {
-  if (uiEngine) {
-    uiEngine.updateLayoutNode(fillId, { width: fillW });
-    uiEngine.updateLayoutNode(thumbId, { left: thumbLeft });
-    (global as any).skiaKitRequestRedraw?.();
+  if (true) {
+    // Dùng updateAnimatedStyles thay vì updateLayoutNode:
+    // - updateLayoutNode cập nhật Yoga style → cần layout recalc pass → phải dùng skiaKitRequestRedraw (chậm hơn)
+    // - updateAnimatedStyles set _animWidth/_animLeft trực tiếp trên RenderNode → bypass Yoga hoàn toàn
+    //   → cùng cơ chế với Switch (translateX) → dùng được skiaKitScrollRedraw (immediate, 60fps)
+    engine.updateAnimatedStyles(fillId, { width: fillW });
+    engine.updateAnimatedStyles(thumbId, { left: thumbLeft });
+    (global as any).skiaKitScrollRedraw?.();
   }
 };
 
@@ -78,6 +82,7 @@ export const Slider = React.memo(function Slider({
   onSlidingComplete,
 }: SliderProps) {
   const theme = useTheme();
+  const engine = useEngine();
   const activeColor =
     style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
   const trackBg = style?.trackColor ?? theme.colors.surfaceVariant;
@@ -115,10 +120,20 @@ export const Slider = React.memo(function Slider({
   useAnimatedReaction(
     () => animatedRatio.value,
     (r) => {
+      'worklet';
       const fillW = r * finalWidth;
       const thumbCx = r * finalWidth;
-
-      scheduleOnRN(updateSliderUI, fillId, thumbId, fillW, thumbCx - thumbR);
+      // Perf fix: use updateAnimatedStylesDirect (worklet-thread direct C++ call)
+      // instead of scheduleOnRN which hops to JS thread → avoids FPS drop during pan.
+      const direct = (global as any).updateAnimatedStylesDirect;
+      if (typeof direct === 'function') {
+        direct(fillId, { width: fillW });
+        direct(thumbId, { left: thumbCx - thumbR });
+      } else {
+        // Fallback to JS-thread path if direct call not registered
+        scheduleOnRN(updateSliderUI, fillId, thumbId, fillW, thumbCx - thumbR);
+      }
+      (global as any).skiaKitScrollRedraw?.();
     },
     [finalWidth, fillId, thumbId, thumbR]
   );

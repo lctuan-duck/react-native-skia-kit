@@ -80,7 +80,9 @@ export const Avatar = React.memo(function Avatar({
             top: 2,
             width: size - 4,
             height: size - 4,
-            borderRadius,
+            // AV1 fix: borderRadius must match image size, not container size.
+            // container = size/2, image = (size-4)/2 to align circular edges correctly.
+            borderRadius: (size - 4) / 2,
           }}
           src={src}
           fit="cover"

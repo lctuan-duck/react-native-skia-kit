@@ -32,8 +32,8 @@ public:
   }
 
   void draw(SkCanvas* canvas) override {
-    float w = _cachedW;
-    float h = _cachedH;
+    float w = getWidth();
+    float h = getHeight();
     if (w <= 0 || h <= 0) return;
 
     SkPaint paint;

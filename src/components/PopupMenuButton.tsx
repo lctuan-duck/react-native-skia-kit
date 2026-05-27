@@ -69,8 +69,8 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
   const showOverlay = useOverlayStore((s) => s.showOverlay);
   const hideOverlay = useOverlayStore((s) => s.hideOverlay);
   const menuId = useWidgetId('PopupMenu');
-
-  useWidgetId('PopupMenuButton');
+  // PM2 fix: assign and use widgetId so Box registers as a proper C++ node
+  const widgetId = useWidgetId('PopupMenuButton');
 
   const openMenu = useCallback(() => {
     // Default menu position: use offset as absolute anchor
@@ -161,6 +161,7 @@ export const PopupMenuButton = React.memo(function PopupMenuButton<
 
   return (
     <Box
+      id={widgetId}
       style={{
         width: 40,
         height: 40,

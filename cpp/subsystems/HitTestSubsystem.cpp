@@ -108,6 +108,7 @@ namespace margelo::nitro::skiakit {
   void HitTestSubsystem::unregisterWidget(const std::string& id) {
     _allWidgets.erase(id);
     _dynamicStatusMap.erase(id);
+    _scrollAreas.erase(id); // Automatically clean up ScrollArea when widget unregisters
 
     // Xoá ở cả 2 nơi cho an toàn
     _staticTree.remove(id);
@@ -116,33 +117,8 @@ namespace margelo::nitro::skiakit {
       [&id](const WidgetNode& n) { return n.id == id; }), _dynamicNodes.end());
   }
 
-  void HitTestSubsystem::setWidgetDynamic(const std::string& id, bool isDynamic) {
-    auto it = _allWidgets.find(id);
-    if (it == _allWidgets.end()) return;
-
-    bool currentStatus = _dynamicStatusMap[id];
-    if (currentStatus == isDynamic) return; // Không đổi
-
-    _dynamicStatusMap[id] = isDynamic;
-
-    if (isDynamic) {
-      // Chuyển từ Static -> Dynamic
-      _staticTree.remove(id);
-      _dynamicNodes.push_back(it->second);
-    } else {
-      // Chuyển từ Dynamic -> Static
-      _dynamicNodes.erase(std::remove_if(_dynamicNodes.begin(), _dynamicNodes.end(),
-        [&id](const WidgetNode& n) { return n.id == id; }), _dynamicNodes.end());
-      _staticTree.insert(it->second);
-    }
-  }
-
   void HitTestSubsystem::registerScrollArea(const std::string& id, double x, double y, double w, double h, bool horizontal) {
     _scrollAreas[id] = {id, x, y, w, h, 0.0, horizontal};
-  }
-
-  void HitTestSubsystem::unregisterScrollArea(const std::string& id) {
-    _scrollAreas.erase(id);
   }
 
   void HitTestSubsystem::updateScrollOffset(const std::string& id, double offset) {

@@ -19,10 +19,10 @@ void SkiaKitInitializePlatformContext(void) {
     return;
   }
 
-  // Tạo UIEngine instance và inject platformContext
-  // NOTE: Trên iOS, HybridObjectRegistry factory sẽ được gọi sau đây bởi Nitro.
-  // Cách an toàn nhất: lưu platformContext vào static để factory dùng khi tạo engine.
+  // Lưu platformContext vào static để factory (constructor) dùng khi tạo engine (iOS pattern)
+  // Phase 3: Engine tự đăng ký vào _sRegistry trong registerSelf() sau make_shared
+  // → không cần postInitCallback hay skiakit_setFactoryEngineiOS nữa
   margelo::nitro::skiakit::HybridUIEngine::setPendingPlatformContext(platformContext);
 
-  NSLog(@"[SkiaKit] PlatformContext injected successfully.");
+  NSLog(@"[SkiaKit] PlatformContext set. Engine will register in global registry on creation.");
 }

@@ -1,15 +1,24 @@
 #include "HybridUIEngine.hpp"
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+#include <stdexcept>
 
 // Shopify Skia JSI canvas unwrapping
 #include "api/JsiSkCanvas.h"
 
-// RNSkPlatformContext — cần để loadAsync image
+// RNSkPlatformContext — cần để loadAsync image và runOnMainThread
 #include "RNSkPlatformContext.h"
 
 namespace margelo::nitro::skiakit {
 
-// Static member definition (iOS pending context pattern)
+// Static member definitions
 std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformContext;
+
+// Engine registry — multi-instance support
+std::atomic<int64_t>                                        HybridUIEngine::_sNextId{0};
+std::unordered_map<int64_t, std::weak_ptr<HybridUIEngine>> HybridUIEngine::_sRegistry;
+std::mutex                                                  HybridUIEngine::_sRegistryMutex;
 
   // ── Platform init ──────────────────────────────────────────────────────────
 
@@ -18,6 +27,32 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
   {
     _platformContext = ctx;
     _renderSubsystem.initFontManager(ctx->createFontMgr());
+
+    // Khởi tạo C++ Autonomous Renderer
+    _renderer = std::make_shared<SkiaKitRenderer>(
+      ctx, _renderSubsystem, _layoutSubsystem, _hitTestSubsystem
+    );
+
+    // Wire dirty callback: mỗi khi node thiết lập onRequestRedraw
+    // (image load, layout transition...) → C++ tự schedule render
+    _renderSubsystem.setRedrawCallback([weakRenderer = std::weak_ptr<SkiaKitRenderer>(_renderer)]() {
+      if (auto renderer = weakRenderer.lock()) {
+        renderer->scheduleRender();
+      }
+    });
+
+    // Wire layout update callback — C++ push layout results đến JS
+    // sau mỗi calculateLayout cycle, JS gọi getAllLayouts() + updateLayoutSVs()
+    // dynamic_pointer_cast cần thiết vì shared_from_this() trả về shared_ptr<HybridObject>
+    auto sharedSelf = std::dynamic_pointer_cast<HybridUIEngine>(shared_from_this());
+    std::weak_ptr<HybridUIEngine> weakSelf = sharedSelf;
+    _renderer->setLayoutUpdateCallback([weakSelf]() {
+      if (auto self = weakSelf.lock()) {
+        if (self->_onLayoutCompleteJS) {
+          self->_onLayoutCompleteJS();
+        }
+      }
+    });
   }
 
   void HybridUIEngine::initRenderEngine() {
@@ -34,24 +69,11 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
   void HybridUIEngine::unregisterWidget(const std::string& id) {
     _hitTestSubsystem.unregisterWidget(id);
   }
-  void HybridUIEngine::setWidgetDynamic(const std::string& id, bool isDynamic) {
-    _hitTestSubsystem.setWidgetDynamic(id, isDynamic);
-  }
   void HybridUIEngine::registerScrollArea(const std::string& id, double x, double y, double w, double h, bool horizontal) {
     _hitTestSubsystem.registerScrollArea(id, x, y, w, h, horizontal);
   }
-  void HybridUIEngine::unregisterScrollArea(const std::string& id) {
-    _hitTestSubsystem.unregisterScrollArea(id);
-  }
-  void HybridUIEngine::updateScrollOffset(const std::string& id, double offset) {
-    _hitTestSubsystem.updateScrollOffset(id, offset);
-  }
   std::vector<NativeHitResult> HybridUIEngine::hitTest(double x, double y) {
     return _hitTestSubsystem.hitTest(x, y);
-  }
-  void HybridUIEngine::clear() {
-    _hitTestSubsystem.clear();
-    _layoutSubsystem.clear();
   }
 
   // ── Layout Subsystem ───────────────────────────────────────────────────────
@@ -59,12 +81,7 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
   void HybridUIEngine::updateLayoutNode(const std::string& id, const NativeYogaStyle& style) {
     _layoutSubsystem.updateLayoutNode(id, style);
   }
-  void HybridUIEngine::removeLayoutNode(const std::string& id) {
-    _layoutSubsystem.removeLayoutNode(id);
-  }
-  void HybridUIEngine::setChildren(const std::string& parentId, const std::vector<std::string>& childrenIds) {
-    _layoutSubsystem.setChildren(parentId, childrenIds);
-  }
+
   void HybridUIEngine::calculateLayout(const std::string& rootId, double width, double height) {
     _layoutSubsystem.calculateLayout(rootId, width, height);
 
@@ -82,9 +99,6 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
       renderLayouts[id] = { static_cast<float>(rect.x.value_or(0)), static_cast<float>(rect.y.value_or(0)), static_cast<float>(rect.width), static_cast<float>(rect.height) };
     }
     _renderSubsystem.syncLayoutResults(renderLayouts);
-  }
-  NativeLayoutRect HybridUIEngine::getNodeLayout(const std::string& id) {
-    return _layoutSubsystem.getNodeLayout(id);
   }
   std::unordered_map<std::string, NativeLayoutRect> HybridUIEngine::getAllLayouts() {
     return _layoutSubsystem.getAllLayouts();
@@ -202,7 +216,8 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
     _layoutSubsystem.updateLayoutNode(id, yogaStyle);
     _renderSubsystem.createTextNode(id, toTextProps(props));
     
-    // Register the measure function with Yoga (via LayoutSubsystem markDirty)
+    // Register the measure function with Yoga
+    _layoutSubsystem.enableMeasureFunc(id);
     _layoutSubsystem.markDirty(id);
   }
 
@@ -245,15 +260,45 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
     // Tạm thời chưa xử lý update layout contentPadding
   }
 
+  void HybridUIEngine::createScrollNodeFull(const std::string& id, const NativeYogaStyle& yogaStyle, bool horizontal, double contentPadding, double zIndex) {
+    // 1. Create layout node and set style (which has overflow:hidden)
+    _layoutSubsystem.updateLayoutNode(id, yogaStyle);
+    // 2. Create render node
+    _renderSubsystem.createScrollNode(id, horizontal);
+    // 3. Register scroll area
+    _hitTestSubsystem.registerScrollArea(id, 0, 0, 0, 0, horizontal);
+    // 4. Register widget for hit-testing (behavior = 0 (translucent))
+    _hitTestSubsystem.registerWidget(id, 0, 0, 0, 0, zIndex, 0);
+  }
+
   void HybridUIEngine::addRenderChild(const std::string& parentId, const std::string& childId) {
-    _renderSubsystem.addRenderChild(parentId, childId);
-    // CRITICAL: Also link in Yoga layout tree so calculateLayout() knows the hierarchy
-    _layoutSubsystem.addChild(parentId, childId);
+    try {
+      _renderSubsystem.addRenderChild(parentId, childId);
+    } catch (const std::exception& e) {
+      __android_log_print(ANDROID_LOG_ERROR, "SkiaKit", "RenderSubsystem::addRenderChild threw exception: %s", e.what());
+      throw;
+    }
+    try {
+      _layoutSubsystem.addChild(parentId, childId);
+    } catch (const std::exception& e) {
+      __android_log_print(ANDROID_LOG_ERROR, "SkiaKit", "LayoutSubsystem::addChild threw exception: %s", e.what());
+      throw;
+    }
   }
 
   void HybridUIEngine::insertRenderChildBefore(const std::string& parentId, const std::string& childId, const std::string& beforeChildId) {
-    _renderSubsystem.insertRenderChildBefore(parentId, childId, beforeChildId);
-    _layoutSubsystem.insertChildBefore(parentId, childId, beforeChildId);
+    try {
+      _renderSubsystem.insertRenderChildBefore(parentId, childId, beforeChildId);
+    } catch (const std::exception& e) {
+      __android_log_print(ANDROID_LOG_ERROR, "SkiaKit", "RenderSubsystem::insertRenderChildBefore threw exception: %s", e.what());
+      throw;
+    }
+    try {
+      _layoutSubsystem.insertChildBefore(parentId, childId, beforeChildId);
+    } catch (const std::exception& e) {
+      __android_log_print(ANDROID_LOG_ERROR, "SkiaKit", "LayoutSubsystem::insertChildBefore threw exception: %s", e.what());
+      throw;
+    }
   }
 
   void HybridUIEngine::removeRenderChild(const std::string& parentId, const std::string& childId) {
@@ -266,17 +311,7 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
     _layoutSubsystem.removeLayoutNode(id);
   }
 
-  void HybridUIEngine::syncLayoutResults(
-    const std::unordered_map<std::string, NativeLayoutRect>& layouts)
-  {
-    // Được gọi từ JS nếu cần override — thông thường tự động qua calculateLayout()
-    std::unordered_map<std::string, CachedLayout> renderLayouts;
-    renderLayouts.reserve(layouts.size());
-    for (const auto& [id, rect] : layouts) {
-      renderLayouts[id] = { static_cast<float>(rect.x.value_or(0)), static_cast<float>(rect.y.value_or(0)), static_cast<float>(rect.width), static_cast<float>(rect.height) };
-    }
-    _renderSubsystem.syncLayoutResults(renderLayouts);
-  }
+
 
   void HybridUIEngine::updateAnimatedStyles(const std::string& id, const NativeAnimatedStyle& style) {
     // 1. Cập nhật Render properties (Transform, Opacity, Colors, v.v...)
@@ -292,13 +327,10 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
 
     if (style.width.has_value()) { layoutStyle.width = style.width; isLayoutAffecting = true; }
     if (style.height.has_value()) { layoutStyle.height = style.height; isLayoutAffecting = true; }
-    // margin/padding is handled by explicit layout props in YogaStyle
-    // No direct mapping available for shorthand margin/padding in NativeYogaStyle.
     if (style.marginTop.has_value()) { layoutStyle.marginTop = style.marginTop; isLayoutAffecting = true; }
     if (style.marginRight.has_value()) { layoutStyle.marginRight = style.marginRight; isLayoutAffecting = true; }
     if (style.marginBottom.has_value()) { layoutStyle.marginBottom = style.marginBottom; isLayoutAffecting = true; }
     if (style.marginLeft.has_value()) { layoutStyle.marginLeft = style.marginLeft; isLayoutAffecting = true; }
-    // No direct mapping for shorthand padding either.
     if (style.paddingTop.has_value()) { layoutStyle.paddingTop = style.paddingTop; isLayoutAffecting = true; }
     if (style.paddingRight.has_value()) { layoutStyle.paddingRight = style.paddingRight; isLayoutAffecting = true; }
     if (style.paddingBottom.has_value()) { layoutStyle.paddingBottom = style.paddingBottom; isLayoutAffecting = true; }
@@ -314,42 +346,86 @@ std::shared_ptr<RNSkia::RNSkPlatformContext> HybridUIEngine::_pendingPlatformCon
 
     if (isLayoutAffecting) {
       _layoutSubsystem.updateLayoutNode(id, layoutStyle);
-      _layoutSubsystem.markDirty(id); // Ép Yoga tính toán lại
+      _layoutSubsystem.markDirty(id);
+    }
+
+    // 3. Schedule C++ autonomous render — LUÔN ở cuối sau khi tất cả updates xong
+    if (_renderer && _renderer->isAttached()) {
+      if (isLayoutAffecting) {
+        // Layout thay đổi cần calculateLayout trước khi draw
+        _renderer->scheduleLayoutAndRender();
+      } else {
+        // Pure visual update (opacity, transform, color...) — chỉ cần redraw
+        _renderer->scheduleRender();
+      }
     }
   }
 
-  void HybridUIEngine::updateScrollNodeOffset(const std::string& id, double offset) {
+  void HybridUIEngine::setScrollPosition(const std::string& id, double offset) {
+    // 1. Update ScrollNode offset in C++ Render tree (moves content visually)
     _renderSubsystem.updateScrollNodeOffset(id, (float)offset);
-  }
-
-  void HybridUIEngine::updateRenderNodeStyle(const std::string& id, double opacity) {
-    _renderSubsystem.updateRenderNodeStyle(id, (float)opacity);
+    // 2. Update ScrollArea offset in C++ HitTest system
+    _hitTestSubsystem.updateScrollOffset(id, offset);
+    // 3. Schedule render — C++ tự vẽ, không cần JS RAF loop
+    if (_renderer && _renderer->isAttached()) {
+      _renderer->scheduleRender();
+    }
   }
 
   void HybridUIEngine::markDirty(const std::string& /*rootId*/) {
     _renderSubsystem.markDirty();
+    // scheduleRender sẽ được gọi bởi scheduleLayoutAndRender() sau markDirty
   }
 
-  void HybridUIEngine::drawTree(
-    const std::string& rootId,
-    double w, double h)
-  {
-    // Phase 6E: Rebuild SkPicture với viewport size
-    // JS gọi getRootPicture() để lấy bytes → Skia.MakePicture() → canvas.drawPicture()
-    _renderSubsystem.markDirty();
+  void HybridUIEngine::scheduleLayoutAndRender() {
+    if (_renderer && _renderer->isAttached()) {
+      _renderer->scheduleLayoutAndRender();
+    }
   }
 
-  std::shared_ptr<ArrayBuffer> HybridUIEngine::getRootPicture(const std::string& rootId, double w, double h) {
-    auto bytes = _renderSubsystem.getPictureBytes(rootId, (float)w, (float)h);
-    
-    // Copy vector data to ArrayBuffer
-    auto buffer = ArrayBuffer::allocate(bytes.size());
-    std::memcpy(buffer->data(), bytes.data(), bytes.size());
-    return buffer;
+  void HybridUIEngine::attachCanvasProvider(
+    std::shared_ptr<RNSkia::RNSkCanvasProvider> provider,
+    float width, float height
+  ) {
+    if (_renderer) {
+      const std::string canvasId = "main"; // Single canvas per engine instance
+      _renderer->attachCanvasProvider(std::move(provider), canvasId, width, height);
+    }
   }
 
-  bool HybridUIEngine::hasPictureData() {
-    return _renderSubsystem.hasPictureData();
+  void HybridUIEngine::detachNativeView() {
+    if (_renderer) {
+      _renderer->detachCanvasProvider();
+    }
+  }
+
+  void HybridUIEngine::resize(double width, double height) {
+    if (_renderer) {
+      _renderer->resize((float)width, (float)height);
+    }
+  }
+
+  // ── Engine Identity (Phase 3: multi-instance) ──────────────────────────
+
+  double HybridUIEngine::getEngineId() {
+    return static_cast<double>(_engineId);
+  }
+
+  void HybridUIEngine::onLayoutComplete(const std::function<void()>& callback) {
+    _onLayoutCompleteJS = callback; // copy — callback lifetime extends to engine
+    // Wire callback vào renderer nếu đã init (hot reload case)
+    if (_renderer) {
+      // dynamic_pointer_cast cần thiết vì shared_from_this() trả về shared_ptr<HybridObject>
+      auto sharedSelf = std::dynamic_pointer_cast<HybridUIEngine>(shared_from_this());
+      std::weak_ptr<HybridUIEngine> weakSelf = sharedSelf;
+      _renderer->setLayoutUpdateCallback([weakSelf]() {
+        if (auto self = weakSelf.lock()) {
+          if (self->_onLayoutCompleteJS) {
+            self->_onLayoutCompleteJS();
+          }
+        }
+      });
+    }
   }
 
 } // namespace margelo::nitro::skiakit

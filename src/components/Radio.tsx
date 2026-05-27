@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Box } from './Box';
 import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
@@ -10,7 +10,7 @@ import type {
   SemanticColor,
 } from '../types/style.types';
 import { resolveSemanticColor, parseColor } from '../utils/color';
-import { uiEngine } from '../core/GlobalEngine';
+import { useEngine } from '../core/EngineContext';
 import {
   useSharedValue,
   withTiming,
@@ -49,20 +49,20 @@ const updateRadioUI = (
   borderWidth: number,
   dotColorStr: string
 ) => {
-  if (!uiEngine) return;
-  uiEngine.updateAnimatedStyles(widgetId, {
+    engine.updateAnimatedStyles(widgetId, {
     borderColor: parseColor(currentBorderStr),
     borderRadius: r,
     borderWidth: borderWidth,
   });
 
-  // Since dotId has width: dotSize statically in React, we scale it
-  const scale = currentDotSize / r;
-  uiEngine.updateAnimatedStyles(dotId, {
-    scaleX: scale,
-    scaleY: scale,
-    backgroundColor: parseColor(dotColorStr),
-    borderRadius: currentDotSize / 2, // Actually, since we scale it, borderRadius should technically remain the original radius before scale, but scaling a circle keeps it a circle if we scale uniformly!
+  // R1 fix: animate width/height directly via updateAnimatedStyles (_animWidth/_animHeight)
+  // This correctly changes visual size without leaving ghost hit-test area (scale approach bug).
+  // R2: borderRadius animates proportionally with size to keep circle shape.
+  engine.updateAnimatedStyles(dotId, {
+    width: currentDotSize,
+    height: currentDotSize,
+    backgroundColor: parseColor(dotColorStr), // R3: dotColorStr already string, no .toString() needed
+    borderRadius: currentDotSize / 2,
   });
   (global as any).skiaKitScrollRedraw?.();
 };
@@ -81,6 +81,7 @@ export const Radio = React.memo(function Radio({
   onPress,
 }: RadioProps) {
   const theme = useTheme();
+  const engine = useEngine();
   const activeColor =
     style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
   const r = size / 2;
@@ -114,10 +115,11 @@ export const Radio = React.memo(function Radio({
     progress.value = withTiming(selected ? 1 : 0, { duration: 150 });
   }, [selected, progress]);
 
-  // Use Worklet to directly update UIEngine for smooth 60fps animations
+  // Use Worklet to directly update engine for smooth 60fps animations
   useAnimatedReaction(
     () => progress.value,
     (p) => {
+      'worklet';
       const currentBorder = interpolateColor(
         p,
         [0, 1],
@@ -129,16 +131,32 @@ export const Radio = React.memo(function Radio({
 
       const currentDotSize = p * maxDotSize;
 
-      scheduleOnRN(
-        updateRadioUI,
-        widgetId,
-        dotId,
-        currentBorder.toString(),
-        currentDotSize,
-        r,
-        borderWidth,
-        dotColor.toString()
-      );
+      const direct = (global as any).updateAnimatedStylesDirect;
+      if (typeof direct === 'function') {
+        direct(widgetId, {
+          borderColor: parseColor(currentBorder),
+          borderRadius: r,
+          borderWidth: borderWidth,
+        });
+        direct(dotId, {
+          width: currentDotSize,
+          height: currentDotSize,
+          backgroundColor: parseColor(dotColor),
+          borderRadius: currentDotSize / 2,
+        });
+        (global as any).skiaKitScrollRedraw?.();
+      } else {
+        scheduleOnRN(
+          updateRadioUI,
+          widgetId,
+          dotId,
+          currentBorder.toString(),
+          currentDotSize,
+          r,
+          borderWidth,
+          dotColor
+        );
+      }
     },
     [
       activeColor,

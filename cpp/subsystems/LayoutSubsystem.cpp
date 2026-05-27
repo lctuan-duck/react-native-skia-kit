@@ -212,16 +212,6 @@ namespace margelo::nitro::skiakit {
     }
   }
 
-  void LayoutSubsystem::setChildren(const std::string& parentId, const std::vector<std::string>& childrenIds) {
-    YGNodeRef parent = static_cast<YGNodeRef>(getOrCreateYogaNode(parentId));
-    YGNodeRemoveAllChildren(parent);
-    
-    uint32_t index = 0;
-    for (const auto& childId : childrenIds) {
-      YGNodeRef child = static_cast<YGNodeRef>(getOrCreateYogaNode(childId));
-      YGNodeInsertChild(parent, child, index++);
-    }
-  }
 
   void LayoutSubsystem::addChild(const std::string& parentId, const std::string& childId) {
     YGNodeRef parent = static_cast<YGNodeRef>(getOrCreateYogaNode(parentId));
@@ -285,10 +275,19 @@ namespace margelo::nitro::skiakit {
     auto it = _yogaNodes.find(id);
     if (it != _yogaNodes.end()) {
       YGNodeRef node = static_cast<YGNodeRef>(it->second->node);
+      if (YGNodeHasMeasureFunc(node)) {
+        YGNodeMarkDirty(node);
+      }
+    }
+  }
+
+  void LayoutSubsystem::enableMeasureFunc(const std::string& id) {
+    auto it = _yogaNodes.find(id);
+    if (it != _yogaNodes.end()) {
+      YGNodeRef node = static_cast<YGNodeRef>(it->second->node);
       if (!YGNodeHasMeasureFunc(node)) {
         YGNodeSetMeasureFunc(node, &globalYogaMeasureFunc);
       }
-      YGNodeMarkDirty(node);
     }
   }
 
@@ -312,19 +311,6 @@ namespace margelo::nitro::skiakit {
     return top;
   }
 
-  NativeLayoutRect LayoutSubsystem::getNodeLayout(const std::string& id) {
-    auto it = _yogaNodes.find(id);
-    if (it != _yogaNodes.end()) {
-      YGNodeRef node = static_cast<YGNodeRef>(it->second->node);
-      return NativeLayoutRect(
-        (double)getAbsoluteLeft(node),
-        (double)getAbsoluteTop(node),
-        (double)YGNodeLayoutGetWidth(node),
-        (double)YGNodeLayoutGetHeight(node)
-      );
-    }
-    return NativeLayoutRect(0, 0, 0, 0);
-  }
 
   std::unordered_map<std::string, NativeLayoutRect> LayoutSubsystem::getAllLayouts() {
     std::unordered_map<std::string, NativeLayoutRect> result;

@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Box } from './Box';
 import { Icon } from './Icon';
 import { useWidgetId } from '../hooks/useWidgetId';
@@ -11,7 +11,7 @@ import type {
   SemanticColor,
 } from '../types/style.types';
 import { resolveSemanticColor, parseColor } from '../utils/color';
-import { uiEngine } from '../core/GlobalEngine';
+import { useEngine } from '../core/EngineContext';
 import {
   useSharedValue,
   withTiming,
@@ -50,16 +50,15 @@ const updateCheckboxUI = (
   borderWidth: number,
   opacity: number
 ) => {
-  if (!uiEngine) return;
-  uiEngine.updateAnimatedStyles(widgetId, {
+    engine.updateAnimatedStyles(widgetId, {
     backgroundColor: parseColor(currentBgStr),
     borderColor: parseColor(currentBorderStr),
     borderRadius: borderRadius,
     borderWidth: borderWidth,
   });
 
-  // Update Icon opacity
-  uiEngine.updateRenderNodeStyle(iconId, opacity);
+  // updateAnimatedStyles: set _opacity trực tiếp trên RenderNode.
+  engine.updateAnimatedStyles(iconId, { opacity });
   (global as any).skiaKitScrollRedraw?.();
 };
 
@@ -77,6 +76,7 @@ export const Checkbox = React.memo(function Checkbox({
   onPress,
 }: CheckboxProps) {
   const theme = useTheme();
+  const engine = useEngine();
   const activeColor =
     style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
 
@@ -113,16 +113,15 @@ export const Checkbox = React.memo(function Checkbox({
     progress.value = withTiming(checked ? 1 : 0, { duration: 150 });
   }, [checked, progress]);
 
-  // Use Worklet to directly update UIEngine for smooth 60fps animations
   useAnimatedReaction(
     () => progress.value,
     (p) => {
+      'worklet';
       const currentBg = interpolateColor(
         p,
         [0, 1],
         ['transparent', disabled ? disabledBorderColor : activeColor]
       );
-
       const currentBorder = interpolateColor(
         p,
         [0, 1],
@@ -132,16 +131,30 @@ export const Checkbox = React.memo(function Checkbox({
         ]
       );
 
-      scheduleOnRN(
-        updateCheckboxUI,
-        widgetId,
-        iconId,
-        currentBg.toString(),
-        currentBorder.toString(),
-        borderRadius,
-        borderWidth,
-        p
-      );
+      const direct = (global as any).updateAnimatedStylesDirect;
+      if (typeof direct === 'function') {
+        // Direct worklet → C++ — parse color strings to numeric SkColor
+        direct(widgetId, {
+          backgroundColor: parseColor(currentBg),
+          borderColor: parseColor(currentBorder),
+          borderRadius: borderRadius,
+          borderWidth: borderWidth,
+        });
+        // Icon opacity via direct (opacity is in NativeAnimatedStyle)
+        direct(iconId, { opacity: p });
+        (global as any).skiaKitScrollRedraw?.();
+      } else {
+        scheduleOnRN(
+          updateCheckboxUI,
+          widgetId,
+          iconId,
+          currentBg.toString(),
+          currentBorder.toString(),
+          borderRadius,
+          borderWidth,
+          p
+        );
+      }
     },
     [
       activeColor,
@@ -165,6 +178,7 @@ export const Checkbox = React.memo(function Checkbox({
         backgroundColor: targetBgColor,
         borderWidth: borderWidth,
         borderColor: targetBorderColor,
+        // disabled opacity applied only on container — NOT on icon (icon opacity is animated separately)
         opacity: disabled ? 0.5 : 1,
         justifyContent: 'center',
         alignItems: 'center',
@@ -177,8 +191,8 @@ export const Checkbox = React.memo(function Checkbox({
         name="check"
         size={size * 0.8}
         color="white"
-        // Start with the correct opacity
-        style={{ opacity: checked ? 1 : 0 }}
+        // Initial opacity driven by animated reaction — no static value here
+        // to avoid conflicting with updateRenderNodeStyle animation
       />
     </Box>
   );

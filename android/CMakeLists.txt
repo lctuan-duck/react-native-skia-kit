@@ -30,6 +30,25 @@ add_library(
 
   # Phase 6A: Render core
   ../cpp/core/RenderNode.cpp
+
+  # Phase 1: C++ Autonomous Renderer
+  ../cpp/SkiaKitRenderer.cpp
+
+  # Phase 2: Native View JNI bridge (Android surface → C++ renderer)
+  src/main/cpp/SkiaKitNativeViewJNI.cpp
+
+  # RNSkia Android canvas provider (OpenGL GPU surface)
+  # Header-only: OpenGLContext.h — không cần compile
+  ${RNSKIA_DIR}/android/cpp/rnskia-android/RNSkOpenGLCanvasProvider.cpp
+  ${RNSKIA_DIR}/android/cpp/rnskia-android/OpenGLWindowContext.cpp
+  ${RNSKIA_DIR}/android/cpp/rnskia-android/gl/Error.cpp
+  ${RNSKIA_DIR}/android/cpp/rnskia-android/RNSkAndroidVideo.cpp
+  ${RNSKIA_DIR}/android/cpp/rnskia-android/AHardwareBufferUtils.cpp
+  ${RNSKIA_DIR}/android/cpp/rnskia-android/GrAHardwareBufferUtils.cpp
+
+  # RNSkia JNI platform context (cần bởi RNSkAndroidPlatformContext)
+  # Các symbols này không nằm trong static .a — cần compile riêng
+  ${RNSKIA_DIR}/android/cpp/jni/JniPlatformContext.cpp
 )
 
 # ── Nitrogen generated bindings ───────────────────────────────────────────────
@@ -83,6 +102,10 @@ target_link_libraries(
   ${PACKAGE_NAME}
   ${LOG_LIB}
   android
+  jnigraphics
+  # OpenGL ES + EGL — cần cho RNSkOpenGLCanvasProvider
+  EGL
+  GLESv2
   skparagraph
   skshaper
   skunicode_core

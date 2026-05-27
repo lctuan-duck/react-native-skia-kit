@@ -52,3 +52,47 @@
 | `Stepper` | Column + custom state |
 | `NavigationRail` | Row + Column layout |
 | `AnimatedList` | VirtualizedList + useAnimation |
+
+---
+
+## 🔴 High Priority — Missing (từ Component Review 2026-05-26)
+
+### Dialog / AlertDialog (~120 LOC)
+- **Flutter**: `AlertDialog`, `SimpleDialog`, `Dialog`
+- **Mô tả**: Modal dialog với title, content, actions. Cần overlay + barrier tap dismiss.
+- **Dependency**: `Overlay`, `overlayStore` (đã có)
+- **File đề xuất**: `src/components/Dialog.tsx`
+- **Ưu tiên**: 🔴 Cần thiết — rất nhiều app cần confirm dialog
+
+### BottomSheet (~150 LOC)
+- **Flutter**: `BottomSheet`, `showModalBottomSheet`, `DraggableScrollableSheet`
+- **Mô tả**: Panel trượt từ dưới lên, có thể kéo để đóng (pan gesture + spring back).
+- **Dependency**: `GestureDetector`, `useAnimatedStyle`, C++ layout transition
+- **File đề xuất**: `src/components/BottomSheet.tsx`
+- **Ưu tiên**: 🔴 Cần thiết — pattern cực phổ biến trong mobile UI
+
+---
+
+## 🟡 Medium Priority — Missing (từ Component Review 2026-05-26)
+
+### Rating / StarRating (~80 LOC)
+- **Flutter**: `Rating` (package `flutter_rating_bar`)
+- **Mô tả**: Dãy 5 sao, hỗ trợ half-star, tap/drag để rate.
+- **File đề xuất**: `src/components/Rating.tsx`
+
+### Skeleton / Shimmer Loader (~60 LOC)
+- **Flutter**: `Shimmer` (package)
+- **Mô tả**: Placeholder loading animation — linear gradient sweep từ trái sang phải.
+- **Dependency**: Phase 3 gradient đã có → triển khai bằng `animated gradient`
+- **File đề xuất**: `src/components/Skeleton.tsx`
+
+### Swipeable Row (~100 LOC)
+- **Flutter**: `Dismissible`
+- **Mô tả**: Vuốt ngang để reveal action buttons (delete, archive...).
+- **Dependency**: `GestureDetector` (pan), layout transition
+- **File đề xuất**: `src/components/Swipeable.tsx`
+
+### ColorPicker (~120 LOC)
+- **Flutter**: `ColorPicker` (package)
+- **Mô tả**: Wheel hoặc slider để chọn màu — cần Skia arc drawing.
+- **File đề xuất**: `src/components/ColorPicker.tsx`

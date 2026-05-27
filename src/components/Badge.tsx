@@ -77,17 +77,20 @@ export const Badge = React.memo(function Badge({
 
   // Standard variant — use flex centering
   const label = String(value > 99 ? '99+' : value);
+  // BA1 fix: dynamic width so '99+' (3 chars) fits without clipping.
+  const labelWidth = Math.max(badgeSize, label.length * 8 + 8);
 
   return (
     <Box
       style={{
-        width: badgeSize,
+        width: labelWidth,
         height: badgeSize,
         borderRadius: badgeSize / 2,
         backgroundColor: bgColor,
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
+        padding: [0, 4, 0, 4],
       }}
       hitTestBehavior={onPress ? 'opaque' : 'deferToChild'}
       onPress={onPress}

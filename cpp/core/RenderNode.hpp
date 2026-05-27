@@ -8,6 +8,8 @@
 #include "../../nitrogen/generated/shared/c++/NativeAnimatedStyle.hpp"
 #include <shared_mutex>   // C++17 readers-writer lock
 #include <atomic>
+#include <chrono>
+#include <cmath>
 #include <functional>
 
 #include <yoga/Yoga.h>
@@ -53,7 +55,7 @@ public:
     if (yogaNode) {
       // [FIX] Phải unlink khỏi Yoga parent trước khi free — tránh crash
       YGNodeRef yogaParent = YGNodeGetParent(yogaNode);
-      if (yogaParent) {
+      if (yogaParent && YGNodeGetParent(yogaNode) == yogaParent) {
         YGNodeRemoveChild(yogaParent, yogaNode);
       }
       // KHÔNG dùng YGNodeFreeRecursive — children được quản lý bởi shared_ptr
@@ -65,35 +67,87 @@ public:
   // ── Cây con (JS/Reconciler thread) ───────────────────────────────────────
 
   void addChild(const std::shared_ptr<RenderNode>& child) {
+    if (!child) return;
+
+    // 1. Unlink from old C++ parent if any (clears old parent's children & yogaNode)
+    if (auto oldParent = child->parent.lock()) {
+      oldParent->removeChild(child);
+    }
+
+    // 2. Extra safety unlinking in case C++ parent pointer was somehow missing/null but Yoga parent exists
+    YGNodeRef childYogaParent = YGNodeGetParent(child->yogaNode);
+    if (childYogaParent && YGNodeGetParent(child->yogaNode) == childYogaParent) {
+      YGNodeRemoveChild(childYogaParent, child->yogaNode);
+    }
+
     std::unique_lock<std::shared_mutex> lock(_childrenMutex);
+
+    // 3. Remove duplicate child reference from children vector if any exists
+    auto it = std::find(children.begin(), children.end(), child);
+    if (it != children.end()) {
+      children.erase(it);
+    }
+
     children.push_back(child);
     child->parent = shared_from_this();
-    auto index = static_cast<uint32_t>(children.size() - 1);
-    YGNodeInsertChild(yogaNode, child->yogaNode, index);
+
+    // 4. Insert into Yoga node at the end (safely using current child count)
+    uint32_t yogaCount = YGNodeGetChildCount(yogaNode);
+    YGNodeInsertChild(yogaNode, child->yogaNode, yogaCount);
   }
 
   void insertChildBefore(const std::shared_ptr<RenderNode>& child, const std::string& beforeId) {
+    if (!child) return;
+
+    // 1. Unlink from old C++ parent if any
+    if (auto oldParent = child->parent.lock()) {
+      oldParent->removeChild(child);
+    }
+
+    // 2. Extra safety unlinking in case Yoga parent exists
+    YGNodeRef childYogaParent = YGNodeGetParent(child->yogaNode);
+    if (childYogaParent && YGNodeGetParent(child->yogaNode) == childYogaParent) {
+      YGNodeRemoveChild(childYogaParent, child->yogaNode);
+    }
+
     std::unique_lock<std::shared_mutex> lock(_childrenMutex);
+
+    // 3. Remove duplicate child reference from children vector if any exists
+    auto dupIt = std::find(children.begin(), children.end(), child);
+    if (dupIt != children.end()) {
+      children.erase(dupIt);
+    }
+
+    // 4. Find beforeId insertion position
     auto it = std::find_if(children.begin(), children.end(), 
                            [&beforeId](const std::shared_ptr<RenderNode>& c) { return c->id == beforeId; });
+
+    uint32_t index = 0;
     if (it != children.end()) {
-      auto index = static_cast<uint32_t>(std::distance(children.begin(), it));
+      index = static_cast<uint32_t>(std::distance(children.begin(), it));
       children.insert(it, child);
-      child->parent = shared_from_this();
-      YGNodeInsertChild(yogaNode, child->yogaNode, index);
     } else {
       children.push_back(child);
-      child->parent = shared_from_this();
-      auto index = static_cast<uint32_t>(children.size() - 1);
-      YGNodeInsertChild(yogaNode, child->yogaNode, index);
+      index = static_cast<uint32_t>(children.size() - 1);
     }
+
+    child->parent = shared_from_this();
+
+    // 5. Insert into Yoga node at the computed index (safety bounded by current child count)
+    uint32_t yogaCount = YGNodeGetChildCount(yogaNode);
+    if (index > yogaCount) {
+      index = yogaCount;
+    }
+    YGNodeInsertChild(yogaNode, child->yogaNode, index);
   }
 
   void removeChild(const std::shared_ptr<RenderNode>& child) {
     std::unique_lock<std::shared_mutex> lock(_childrenMutex);
     auto it = std::find(children.begin(), children.end(), child);
     if (it != children.end()) {
-      YGNodeRemoveChild(yogaNode, child->yogaNode);
+      if (YGNodeGetParent(child->yogaNode) == yogaNode) {
+        YGNodeRemoveChild(yogaNode, child->yogaNode);
+      }
       children.erase(it);
     }
   }
@@ -127,17 +181,136 @@ public:
   std::mutex _pointerEventsMutex;
   std::string _pointerEvents = "auto";
 
+  /**
+   * Returns the current ease-out-quad progress [0, 1] of the layout transition,
+   * OR -1.0f if no transition is active.
+   *
+   * Atomically resets _inLayoutTransition when the duration has elapsed so that
+   * ALL four getters (X/Y/W/H) observe a consistent state within the same paint
+   * call — preventing a one-frame geometry glitch where one axis snaps to the
+   * target while the others are still interpolating.
+   */
+  float _getTransitionProgress() const {
+    if (!_inLayoutTransition.load(std::memory_order_relaxed)) {
+      return -1.0f;
+    }
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - _layoutTransitionStartTime
+    ).count();
+    if (elapsed >= 250) {
+      // Transition complete — reset flag once, all getters will see -1 next call
+      _inLayoutTransition.store(false, std::memory_order_relaxed);
+      return -1.0f; // Callers fall through to target value
+    }
+    float t = static_cast<float>(elapsed) / 250.0f;
+    return t * (2.0f - t); // Ease-out quad
+  }
+
+  float getWidthInternal() const {
+    if (_hasAnimWidth.load(std::memory_order_relaxed)) {
+      return _animWidth.load(std::memory_order_relaxed);
+    }
+    float tp = _getTransitionProgress();
+    if (tp >= 0.0f) {
+      return _transitionStartW + (_transitionTargetW - _transitionStartW) * tp;
+    }
+    // tp == -1: either never started or just finished → use target/cached
+    return _inLayoutTransition.load(std::memory_order_relaxed) ? _transitionTargetW : _cachedW;
+  }
+
+  float getHeightInternal() const {
+    if (_hasAnimHeight.load(std::memory_order_relaxed)) {
+      return _animHeight.load(std::memory_order_relaxed);
+    }
+    float tp = _getTransitionProgress();
+    if (tp >= 0.0f) {
+      return _transitionStartH + (_transitionTargetH - _transitionStartH) * tp;
+    }
+    return _inLayoutTransition.load(std::memory_order_relaxed) ? _transitionTargetH : _cachedH;
+  }
+
+  float getXInternal() const {
+    if (_hasAnimLeft.load(std::memory_order_relaxed)) {
+      return _animLeft.load(std::memory_order_relaxed);
+    }
+    float tp = _getTransitionProgress();
+    if (tp >= 0.0f) {
+      return _transitionStartX + (_transitionTargetX - _transitionStartX) * tp;
+    }
+    return _inLayoutTransition.load(std::memory_order_relaxed) ? _transitionTargetX : _cachedX;
+  }
+
+  float getYInternal() const {
+    if (_hasAnimTop.load(std::memory_order_relaxed)) {
+      return _animTop.load(std::memory_order_relaxed);
+    }
+    float tp = _getTransitionProgress();
+    if (tp >= 0.0f) {
+      return _transitionStartY + (_transitionTargetY - _transitionStartY) * tp;
+    }
+    return _inLayoutTransition.load(std::memory_order_relaxed) ? _transitionTargetY : _cachedY;
+  }
+
+  bool _hasFirstLayout = false;
+
   void setCachedLayout(float x, float y, float w, float h) {
-    _cachedLayout[0].store(x, std::memory_order_relaxed);
-    _cachedLayout[1].store(y, std::memory_order_relaxed);
-    _cachedLayout[2].store(w, std::memory_order_relaxed);
-    _cachedLayout[3].store(h, std::memory_order_relaxed);
-    
     std::unique_lock<std::shared_mutex> lock(_childrenMutex);
+    
+    // Animate layout updates if node is already initialized (first layout done)
+    if (_layoutTransitionEnabled.load(std::memory_order_relaxed) && _hasFirstLayout) {
+      bool changed = (std::abs(_cachedX - x) > 0.1f || std::abs(_cachedY - y) > 0.1f ||
+                      std::abs(_cachedW - w) > 0.1f || std::abs(_cachedH - h) > 0.1f);
+      if (changed) {
+        // Start from current animated values to prevent jumps
+        _transitionStartX = getXInternal();
+        _transitionStartY = getYInternal();
+        _transitionStartW = getWidthInternal();
+        _transitionStartH = getHeightInternal();
+
+        _transitionTargetX = x;
+        _transitionTargetY = y;
+        _transitionTargetW = w;
+        _transitionTargetH = h;
+
+        _layoutTransitionStartTime = std::chrono::steady_clock::now();
+        _inLayoutTransition.store(true, std::memory_order_relaxed);
+        
+        if (onRequestRedraw) {
+          onRequestRedraw();
+        }
+      }
+    }
+
     _cachedX = x;
     _cachedY = y;
     _cachedW = w;
     _cachedH = h;
+    _hasFirstLayout = true;
+
+    _cachedLayout[0].store(x, std::memory_order_relaxed);
+    _cachedLayout[1].store(y, std::memory_order_relaxed);
+    _cachedLayout[2].store(w, std::memory_order_relaxed);
+    _cachedLayout[3].store(h, std::memory_order_relaxed);
+  }
+
+  float getWidth() const {
+    std::shared_lock<std::shared_mutex> lock(_childrenMutex);
+    return getWidthInternal();
+  }
+
+  float getHeight() const {
+    std::shared_lock<std::shared_mutex> lock(_childrenMutex);
+    return getHeightInternal();
+  }
+
+  float getX() const {
+    std::shared_lock<std::shared_mutex> lock(_childrenMutex);
+    return getXInternal();
+  }
+
+  float getY() const {
+    std::shared_lock<std::shared_mutex> lock(_childrenMutex);
+    return getYInternal();
   }
 
   virtual void updateAnimatedStyles(const NativeAnimatedStyle& style) {
@@ -171,6 +344,40 @@ public:
       std::lock_guard<std::mutex> lock(_pointerEventsMutex);
       _pointerEvents = style.pointerEvents.value();
     }
+
+    // Phase 4: Layout animated overrides
+    if (style.left.has_value()) {
+      if (std::holds_alternative<double>(style.left.value())) {
+        _animLeft.store(static_cast<float>(std::get<double>(style.left.value())), std::memory_order_relaxed);
+        _hasAnimLeft.store(true, std::memory_order_relaxed);
+      } else {
+        _hasAnimLeft.store(false, std::memory_order_relaxed);
+      }
+    }
+    if (style.top.has_value()) {
+      if (std::holds_alternative<double>(style.top.value())) {
+        _animTop.store(static_cast<float>(std::get<double>(style.top.value())), std::memory_order_relaxed);
+        _hasAnimTop.store(true, std::memory_order_relaxed);
+      } else {
+        _hasAnimTop.store(false, std::memory_order_relaxed);
+      }
+    }
+    if (style.width.has_value()) {
+      if (std::holds_alternative<double>(style.width.value())) {
+        _animWidth.store(static_cast<float>(std::get<double>(style.width.value())), std::memory_order_relaxed);
+        _hasAnimWidth.store(true, std::memory_order_relaxed);
+      } else {
+        _hasAnimWidth.store(false, std::memory_order_relaxed);
+      }
+    }
+    if (style.height.has_value()) {
+      if (std::holds_alternative<double>(style.height.value())) {
+        _animHeight.store(static_cast<float>(std::get<double>(style.height.value())), std::memory_order_relaxed);
+        _hasAnimHeight.store(true, std::memory_order_relaxed);
+      } else {
+        _hasAnimHeight.store(false, std::memory_order_relaxed);
+      }
+    }
   }
 
   // ── Render loop (Skia Render thread) ───────────────────────────────────────────
@@ -201,6 +408,29 @@ public:
 
   // ── Worklet-driven Animated Styles (Phase 6F) ─────────────────────────────
   // TODO: Add transform matrix later if needed for 'bounce'
+  std::atomic<float> _animLeft{0.0f};
+  std::atomic<bool> _hasAnimLeft{false};
+  std::atomic<float> _animTop{0.0f};
+  std::atomic<bool> _hasAnimTop{false};
+  std::atomic<float> _animWidth{0.0f};
+  std::atomic<bool> _hasAnimWidth{false};
+  std::atomic<float> _animHeight{0.0f};
+  std::atomic<bool> _hasAnimHeight{false};
+
+  // Layout transition support (Phase 4)
+  std::atomic<bool> _layoutTransitionEnabled{true};
+  mutable std::atomic<bool> _inLayoutTransition{false};
+  std::chrono::steady_clock::time_point _layoutTransitionStartTime;
+  
+  float _transitionStartX = 0.0f;
+  float _transitionStartY = 0.0f;
+  float _transitionStartW = 0.0f;
+  float _transitionStartH = 0.0f;
+  
+  float _transitionTargetX = 0.0f;
+  float _transitionTargetY = 0.0f;
+  float _transitionTargetW = 0.0f;
+  float _transitionTargetH = 0.0f;
 };
 
 } // namespace margelo::nitro::skiakit

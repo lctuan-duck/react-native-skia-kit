@@ -231,15 +231,6 @@ public:
     }
   }
 
-  void updateRenderNodeStyle(const std::string& id, float opacity) {
-    std::shared_lock<std::shared_mutex> lock(_nodesMutex);
-    auto it = _nodes.find(id);
-    if (it != _nodes.end()) {
-      it->second->_opacity.store(opacity, std::memory_order_relaxed);
-      markDirty();
-    }
-  }
-
   void updateAnimatedStyles(const std::string& id, const NativeAnimatedStyle& style) {
     std::shared_lock<std::shared_mutex> lock(_nodesMutex);
     auto it = _nodes.find(id);
@@ -266,6 +257,28 @@ public:
       if (_cachedPicture) {
         canvas->drawPicture(_cachedPicture.get());
       }
+    }
+  }
+
+  /**
+   * drawTreeDirect — Vẽ trực tiếp lên GPU canvas từ SkPicture cache.
+   *
+   * Dành cho C++ Autonomous Renderer (SkiaKitRenderer).
+   * Khác với getPictureBytes(): KHÔNG serialize bytes, không tạo ArrayBuffer,
+   * không cần JS reconstruct. SkPicture.replay() trực tiếp lên SkCanvas*.
+   *
+   * Performance: chỉ rebuild khi dirty (SkPicture cache). Scroll chỉ update
+   * scroll offset → không rebuild SkPicture, replay picture với offset mới.
+   */
+  void drawTreeDirect(const std::string& rootId, SkCanvas* canvas, float w, float h) {
+    if (_isDirty.load()) {
+      _lastW = w;
+      _lastH = h;
+      rebuildPicture(rootId, w, h);
+    }
+    std::lock_guard<std::mutex> lock(_pictureMutex);
+    if (_cachedPicture) {
+      canvas->drawPicture(_cachedPicture.get());
     }
   }
 
@@ -380,6 +393,11 @@ private:
   sk_sp<SkPicture> _cachedPicture;
   mutable std::mutex _pictureMutex;
   std::atomic<bool> _isDirty{true};
+
+  // Lưu lại dimensions từ lần rebuildPicture gần nhất
+  // (dùng khi cần rebuild lại mà không có w/h mới)
+  float _lastW = 0.f;
+  float _lastH = 0.f;
 
   sk_sp<skia::textlayout::FontCollection> _fontCollection;
   std::function<void()> _redrawCallback;

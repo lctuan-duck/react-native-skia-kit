@@ -1,9 +1,11 @@
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { useSharedValue, withTiming } from 'react-native-reanimated';
+import { useSharedValue, withTiming, useDerivedValue } from 'react-native-reanimated';
 import { useHeroStore } from '../stores/heroStore';
 import { Box } from './Box';
 import type { WidgetProps } from '../types/widget.types';
+import { useSkiaAnimatedStyle } from '../hooks/useSkiaAnimatedStyle';
+import type { NativeAnimatedStyle } from '../nitro/UIEngine.nitro';
 
 // ===== Hero =====
 
@@ -44,9 +46,11 @@ export const Hero = React.memo(function Hero({
 }: HeroProps) {
   const isTransitioning = useHeroStore((s) => s.isTransitioning);
 
-  console.log(
-    `[Hero] ${tag} rendering with size ${width}x${height}, isTransitioning: ${isTransitioning}`
-  );
+  if (__DEV__) {
+    console.log(
+      `[Hero] ${tag} rendering with size ${width}x${height}, isTransitioning: ${isTransitioning}`
+    );
+  }
   return (
     <Box
       style={{
@@ -59,6 +63,7 @@ export const Hero = React.memo(function Hero({
         useHeroStore.getState().registerHero(tag, {
           tag,
           rect: layout,
+          children,
         });
       }}
     >
@@ -73,6 +78,7 @@ interface HeroTransition {
   tag: string;
   fromRect: { x: number; y: number; width: number; height: number };
   toRect: { x: number; y: number; width: number; height: number };
+  children?: React.ReactNode;
 }
 
 export interface HeroOverlayProps {
@@ -103,37 +109,56 @@ export const HeroOverlay = React.memo(function HeroOverlay({
   >(new Map());
   const progress = useSharedValue(0);
 
-  // When transition starts, compute animation from → to
+  // When transition starts, snapshot fromRects immediately, then defer
+  // reading toRects by one rAF tick so the new screen's Heroes have had
+  // a chance to call registerHero() before we build the transition list.
   useEffect(() => {
     if (isTransitioning) {
-      const heroMap = useHeroStore.getState().heroMap;
-      const newTransitions: HeroTransition[] = [];
-
-      for (const [tag, hero] of heroMap) {
-        const prev = prevHeroesRef.current.get(tag);
-        if (prev) {
-          newTransitions.push({
-            tag,
-            fromRect: prev,
-            toRect: hero.rect,
-          });
-        }
+      // Step 1: capture current positions as "from" before new screen renders
+      const fromSnapshot = new Map<
+        string,
+        { x: number; y: number; width: number; height: number }
+      >();
+      for (const [tag, rect] of prevHeroesRef.current) {
+        fromSnapshot.set(tag, rect);
       }
 
-      setTransitions(newTransitions);
-      progress.value = 0;
-      progress.value = withTiming(1, { duration });
+      // Step 2: wait one frame for the new screen's Hero components to mount
+      // and call registerHero(), then build the animation list.
+      const frameId = requestAnimationFrame(() => {
+        const heroMap = useHeroStore.getState().heroMap;
+        const newTransitions: HeroTransition[] = [];
+
+        for (const [tag, hero] of heroMap) {
+          const prev = fromSnapshot.get(tag);
+          if (prev) {
+            newTransitions.push({
+              tag,
+              fromRect: prev,
+              toRect: hero.rect,
+              children: hero.children,
+            });
+          }
+        }
+
+        setTransitions(newTransitions);
+        progress.value = 0;
+        progress.value = withTiming(1, { duration });
+      });
 
       // End transition after animation
       const timer = setTimeout(() => {
         useHeroStore.getState().endTransition();
         setTransitions([]);
-      }, duration);
+      }, duration + 16); // +16ms to account for the rAF delay above
 
-      return () => clearTimeout(timer);
+      return () => {
+        cancelAnimationFrame(frameId);
+        clearTimeout(timer);
+      };
     }
 
-    // Save current positions for next transition
+    // Save current positions for next transition (only when not transitioning)
     const heroMap = useHeroStore.getState().heroMap;
     const snapshot = new Map<
       string,
@@ -166,7 +191,9 @@ export const HeroOverlay = React.memo(function HeroOverlay({
           from={t.fromRect}
           to={t.toRect}
           progress={progress}
-        />
+        >
+          {t.children}
+        </HeroAnimatedRect>
       ))}
     </Box>
   );
@@ -177,28 +204,40 @@ export const HeroOverlay = React.memo(function HeroOverlay({
 interface HeroAnimatedRectProps {
   from: { x: number; y: number; width: number; height: number };
   to: { x: number; y: number; width: number; height: number };
-  progress: { value: number };
+  progress: any;
+  children?: React.ReactNode;
 }
 
 const HeroAnimatedRect = React.memo(function HeroAnimatedRect({
+  from,
   to,
+  progress,
+  children,
 }: HeroAnimatedRectProps) {
-  // TODO: V2 Engine currently does not support animated transform/width/height
-  // via Reanimated SharedValues directly to BoxNode.
-  // This will require 'updateRenderNodeTransform' exposed to JS.
-  // For now we just render it at the 'to' position.
+  const animatedId = React.useId();
+
+  const animatedStyle = useDerivedValue<NativeAnimatedStyle>(() => {
+    const t = progress.value;
+    return {
+      left: from.x + (to.x - from.x) * t,
+      top: from.y + (to.y - from.y) * t,
+      width: from.width + (to.width - from.width) * t,
+      height: from.height + (to.height - from.height) * t,
+    };
+  });
+
+  useSkiaAnimatedStyle(animatedId, animatedStyle);
 
   return (
     <Box
+      id={animatedId}
       style={{
         position: 'absolute',
-        left: to.x,
-        top: to.y,
-        width: to.width,
-        height: to.height,
-        backgroundColor: 'rgba(0,0,0,0.2)',
+        overflow: 'hidden',
       }}
-    />
+    >
+      {children}
+    </Box>
   );
 });
 

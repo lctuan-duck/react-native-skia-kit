@@ -5,7 +5,7 @@ import {
   useAnimatedReaction,
   runOnJS,
 } from 'react-native-reanimated';
-import { uiEngine } from '../core/GlobalEngine';
+import { useEngine } from '../core/EngineContext';
 
 /** Bounds của một Box widget — dùng bởi renderOverlay (backward compat) */
 export interface BoxBounds {
@@ -63,7 +63,7 @@ export function useInteractive(
   options?: UseInteractiveOptions
 ): UseInteractiveResult {
   const baseOpacity = options?.baseOpacity ?? 1;
-  // Track if component is still mounted (for updateStyle safety)
+  const engine = useEngine();
   const _widgetIdRef = useRef(widgetId);
   _widgetIdRef.current = widgetId;
 
@@ -80,21 +80,27 @@ export function useInteractive(
 
   const updateStyle = useCallback(
     (opacity: number) => {
-      if (uiEngine && widgetId) {
-        uiEngine.updateRenderNodeStyle(widgetId, opacity);
+      if (widgetId) {
+        engine.updateAnimatedStyles(widgetId, { opacity });
       }
     },
-    [widgetId]
+    [widgetId, engine]
   );
 
-  // Sync to C++ via runOnJS (uiEngine is a host object, not shareable to UI thread)
+  // Sync to C++ via worklet direct call or fallback runOnJS
   try {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useAnimatedReaction(
       () => pressOpacity.value,
       (opacity) => {
         'worklet';
-        runOnJS(updateStyle)(opacity);
+        const direct = (global as any).updateAnimatedStylesDirect;
+        if (typeof direct === 'function') {
+          direct(widgetId, { opacity });
+          (global as any).skiaKitScrollRedraw?.();
+        } else {
+          runOnJS(updateStyle)(opacity);
+        }
       }
     );
   } catch {

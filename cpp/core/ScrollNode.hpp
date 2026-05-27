@@ -50,8 +50,8 @@ public:
     float x, y, w, h;
     {
       std::shared_lock<std::shared_mutex> lock(_childrenMutex);
-      x = _cachedX; y = _cachedY;
-      w = _cachedW; h = _cachedH;
+      x = getX(); y = getY();
+      w = getWidth(); h = getHeight();
     }
     if (w <= 0.f || h <= 0.f) return;
 
@@ -83,8 +83,8 @@ public:
         child->paint(canvas);
       }
       if (!children.empty()) {
-        contentW = children[0]->_cachedW;
-        contentH = children[0]->_cachedH;
+        contentW = children[0]->getWidth();
+        contentH = children[0]->getHeight();
       }
     }
 

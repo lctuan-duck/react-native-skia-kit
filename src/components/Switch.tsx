@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Box } from './Box';
 import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
@@ -9,7 +9,7 @@ import type {
   SemanticColor,
 } from '../types/style.types';
 import { resolveSemanticColor, parseColor } from '../utils/color';
-import { uiEngine } from '../core/GlobalEngine';
+import { useEngine } from '../core/EngineContext';
 import {
   useSharedValue,
   withTiming,
@@ -49,11 +49,10 @@ const updateSwitchUI = (
   colorStr: string,
   leftPadding: number
 ) => {
-  if (!uiEngine) return;
-  uiEngine.updateAnimatedStyles(tid, {
+    engine.updateAnimatedStyles(tid, {
     backgroundColor: parseColor(colorStr),
   });
-  uiEngine.updateAnimatedStyles(cid, { translateX: leftPadding });
+  engine.updateAnimatedStyles(cid, { translateX: leftPadding });
   (global as any).skiaKitScrollRedraw?.();
 };
 
@@ -70,6 +69,7 @@ export const Switch = React.memo(function Switch({
   onPress,
 }: SwitchProps) {
   const theme = useTheme();
+  const engine = useEngine();
   const activeColor =
     style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
   const inactiveTrack = style?.trackColor ?? theme.colors.border;
@@ -97,26 +97,32 @@ export const Switch = React.memo(function Switch({
     progress.value = withTiming(value ? 1 : 0, { duration: 200 });
   }, [value, progress]);
 
-  // Use Worklet to directly update UIEngine for smooth 60fps animations
   useAnimatedReaction(
     () => progress.value,
     (p) => {
+      'worklet';
       const currentTrackColor = interpolateColor(
         p,
         [0, 1],
         [inactiveTrack, disabled ? disabledColor : activeColor]
       );
-
       const currentLeft = p * maxTravel;
 
-      // Update C++ Render Tree for color and position via JS thread
-      scheduleOnRN(
-        updateSwitchUI,
-        trackId,
-        thumbId,
-        currentTrackColor.toString(),
-        currentLeft
-      );
+      const direct = (global as any).updateAnimatedStylesDirect;
+      if (typeof direct === 'function') {
+        // Direct worklet → C++ — parse color string to numeric SkColor
+        direct(trackId, { backgroundColor: parseColor(currentTrackColor) });
+        direct(thumbId, { translateX: currentLeft });
+        (global as any).skiaKitScrollRedraw?.();
+      } else {
+        scheduleOnRN(
+          updateSwitchUI,
+          trackId,
+          thumbId,
+          currentTrackColor.toString(),
+          currentLeft
+        );
+      }
     },
     [
       inactiveTrack,
@@ -134,6 +140,7 @@ export const Switch = React.memo(function Switch({
     <Box
       id={trackId}
       style={{
+        ...style,
         width: finalW,
         height: finalH,
         borderRadius: finalH / 2,

@@ -18,6 +18,7 @@ export type TooltipStyle = ColorStyle &
 export interface TooltipProps extends WidgetProps {
   content: string;
   visible?: boolean;
+  /** @todo arrowDirection render is not yet implemented */
   arrowDirection?: 'top' | 'bottom' | 'left' | 'right';
   /** Style override */
   style?: TooltipStyle;
@@ -28,15 +29,16 @@ export const Tooltip = React.memo(function Tooltip({
   visible = false,
   style,
 }: TooltipProps) {
+  // ⚠️ All hooks MUST be called before any conditional return (Rules of Hooks)
   const widgetId = useWidgetId('Tooltip');
-
-  if (!visible) return null;
-
   const theme = useTheme();
+
   const width = style?.width ?? 120;
   const height = style?.height ?? 40;
   const tooltipBg = style?.backgroundColor ?? theme.colors.inverseSurface;
   const textColor = style?.textColor ?? theme.colors.textInverse;
+
+  if (!visible) return null;
 
   return (
     <Box

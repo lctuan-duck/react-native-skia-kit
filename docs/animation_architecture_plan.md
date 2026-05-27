@@ -222,3 +222,83 @@ Nếu hệ thống cần vẽ text, cần thiết kế thêm `NativeTextProps` (
 ### 3.3. Color Filters / Blend Modes
 - **Color Filter**: Thêm tham số `colorFilter` (để truyền Matrix màu như đổi tông Grayscale, Sepia). Áp dụng thông qua `SkColorFilters::Matrix`.
 - **Blend Modes (`mix-blend-mode`)**: Bổ sung tham số `blendMode` để tận dụng `SkBlendMode` của Skia (hỗ trợ Multiply, Screen, Overlay, v.v.). Truyền vào bằng `paint.setBlendMode()`. Đây là tính năng nâng cao giúp các Box đè lên nhau tạo hiệu ứng thị giác tuyệt đỉnh.
+
+---
+
+## 🎬 Phase 4: Shared Element (Hero) Transitions & Layout Animations (Mượt mà cấp độ Flutter)
+**Mục tiêu:** Hoàn thiện trải nghiệm chuyển cảnh cao cấp (Hero Transition) giữa các màn hình và tự động hóa chuyển động của Layout khi cấu trúc component thay đổi (Layout Animations) mà không làm suy giảm FPS.
+
+### 4.1. Khắc phục hạn chế của Hero hiện tại
+Hiện tại trong [Hero.tsx](file:///d:/WORK/react-native-lib/react-native-skia-kit/src/components/Hero.tsx#L186-L202), component `HeroAnimatedRect` chỉ nhảy ngay lập tức tới tọa độ đích (`to`) mà không có hiệu ứng nội suy (lerp) chuyển động mượt mà. 
+
+**Giải pháp:**
+- Sử dụng `uiEngine.updateAnimatedStyles` đã xây dựng ở Phase 1 để điều khiển trực tiếp kích thước (`width`, `height`), vị trí (`left`, `top`) và độ trong suốt (`opacity`) của Box chứa nội dung di chuyển.
+- Trong quá trình chuyển cảnh:
+  1. Ẩn tạm thời cả node gốc (ở màn hình cũ) và node đích (ở màn hình mới) bằng cách đặt `opacity: 0` thông qua `heroStore`.
+  2. Tạo một clone node bay trên lớp `HeroOverlay` (`zIndex: 9999`).
+  3. Nội suy tuyến tính (Lerp) tọa độ và kích thước từ điểm đầu đến điểm cuối dựa vào SharedValue `progress` từ 0 đến 1:
+     $$x(t) = x_{from} + (x_{to} - x_{from}) \cdot t$$
+     $$y(t) = y_{from} + (y_{to} - y_{from}) \cdot t$$
+     $$w(t) = w_{from} + (w_{to} - w_{from}) \cdot t$$
+     $$h(t) = h_{from} + (h_{to} - h_{from}) \cdot t$$
+  4. Sau khi kết thúc transition, khôi phục `opacity: 1` cho node đích và hủy node bay.
+
+### 4.2. Đặc tả thay đổi Code cho Hero Transition
+
+#### [MODIFY] [Hero.tsx](file:///d:/WORK/react-native-lib/react-native-skia-kit/src/components/Hero.tsx#L175-L203)
+Cập nhật `HeroAnimatedRect` để chạy animation nội suy mượt mà qua Reanimated:
+```tsx
+const HeroAnimatedRect = React.memo(function HeroAnimatedRect({
+  from,
+  to,
+  progress,
+  children,
+}: HeroAnimatedRectProps & { children: React.ReactNode }) {
+  const animatedId = React.useId();
+
+  // Tạo animated style nội suy từ progress (0 -> 1)
+  const animatedStyle = useDerivedValue(() => {
+    const t = progress.value;
+    return {
+      left: from.x + (to.x - from.x) * t,
+      top: from.y + (to.y - from.y) * t,
+      width: from.width + (to.width - from.width) * t,
+      height: from.height + (to.height - from.height) * t,
+    };
+  });
+
+  useSkiaAnimatedStyle(animatedId, animatedStyle);
+
+  return (
+    <Box
+      id={animatedId}
+      style={{
+        position: 'absolute',
+        overflow: 'hidden',
+      }}
+    >
+      {children}
+    </Box>
+  );
+});
+```
+
+### 4.3. Loại bỏ JNI / JS Thread Overhead (Worklet Direct Call)
+Hiện tại, `useSkiaAnimatedStyle` đang dùng `runOnJS` để đẩy thay đổi từ UI Worklet Thread về JS Thread rồi mới gọi JSI:
+```typescript
+runOnJS(updateAnimatedStyleJS)(_widgetIdRef.current, result);
+```
+Điều này tạo ra độ trễ (delay 1-2 frames) và nghẽn JS thread khi chạy nhiều animation cùng lúc.
+
+**Cải tiến tối ưu:**
+- Sử dụng Nitro C++ JSI direct binding để đăng ký trực tiếp thực thi C++ trong Worklet context.
+- Tạo một cầu nối JSI dạng global hoặc host object cho phép gọi `global.updateAnimatedStylesDirect(id, style)` đồng bộ trực tiếp từ UI Thread mà không qua `runOnJS`.
+
+### 4.4. Tự động hóa Layout Transitions (Layout Animations)
+Khi các thành phần trong layout flex thay đổi kích thước hoặc bị xóa/thêm mới (ví dụ: Accordion đóng mở, danh sách thêm item):
+- **Cơ chế hoạt động:**
+  1. Khi có sự thay đổi layout, Yoga Engine C++ sẽ tính toán ra `layoutMap` mới (tọa độ đích).
+  2. Thay vì gán ngay lập tức tọa độ mới khiến UI bị giật/khựng, C++ Engine sẽ lưu trữ tọa độ cũ làm điểm bắt đầu (`fromLayout`) và tọa độ mới làm điểm đích (`toLayout`).
+  3. Kích hoạt một Animation Controller nội bộ chạy bằng `SkMSec` (Millisecond clock của Skia) để di chuyển mượt mà các Node từ vị trí cũ sang vị trí mới trong vòng 200-300ms.
+- **Thuộc tính cấu hình ở React:**
+  Thêm prop `layoutTransition={LayoutTransition.spring()}` hoặc `LayoutTransition.ease()` vào `<Box>` tương tự như Flutter `AnimatedSwitcher` hay React Native LayoutAnimation.

@@ -91,8 +91,8 @@ public:
     float w, h;
     {
       std::shared_lock<std::shared_mutex> lock(_childrenMutex);
-      w = _cachedW;
-      h = _cachedH;
+      w = getWidth();
+      h = getHeight();
     }
     if (w <= 0.f || h <= 0.f) return;
 

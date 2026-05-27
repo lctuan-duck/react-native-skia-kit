@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import './setup';
@@ -7,6 +8,7 @@ import './setup';
 export interface HeroData {
   tag: string;
   rect: { x: number; y: number; width: number; height: number };
+  children?: React.ReactNode;
   widgetSnapshot?: unknown; // SkImage — snapshot for animation
 }
 

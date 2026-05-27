@@ -1,17 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { useAnimatedReaction, runOnJS } from 'react-native-reanimated';
+import { useAnimatedReaction } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
-import { uiEngine } from '../core/GlobalEngine';
-import type { NativeAnimatedStyle } from '../nitro/UIEngine.nitro';
-
-const updateAnimatedStyleJS = (
-  id: string | undefined,
-  data: NativeAnimatedStyle
-) => {
-  if (id && uiEngine) {
-    uiEngine.updateAnimatedStyles(id, data);
-  }
-};
+import { useEngine } from '../core/EngineContext';
+import type { NativeAnimatedStyle } from '../nitro/engine.nitro';
+import { scheduleOnRN } from 'react-native-worklets';
 
 /**
  * Hook kết nối React Native Reanimated với C++ Render Engine của SkiaKit.
@@ -40,11 +32,19 @@ export function useSkiaAnimatedStyle(
     | (() => NativeAnimatedStyle)
     | undefined
 ) {
-  // Biến cờ đánh dấu widgetId hiện tại để tránh cập nhật lầm khi component unmount
+  const engine = useEngine();
+
   const _widgetIdRef = useRef(widgetId);
   _widgetIdRef.current = widgetId;
 
-  // Lắng nghe thay đổi từ Reanimated Shared Value (Worklet Thread)
+  // updateAnimatedStyleJS định nghĩa trong hook để capture engine instance đúng
+  const updateAnimatedStyleJS = useRef((id: string | undefined, data: NativeAnimatedStyle) => {
+    if (id) engine.updateAnimatedStyles(id, data);
+  });
+  updateAnimatedStyleJS.current = (id, data) => {
+    if (id) engine.updateAnimatedStyles(id, data);
+  };
+
   try {
     useAnimatedReaction(
       () => {
@@ -58,10 +58,12 @@ export function useSkiaAnimatedStyle(
       (result) => {
         'worklet';
         if (!result) return;
-        // Nitro HybridObject chạy trên JS/C++ Thread. Không thể truyền trực tiếp
-        // uiEngine object vào UI Worklet của Reanimated.
-        // Phải dùng runOnJS để gọi lại Bridge C++.
-        runOnJS(updateAnimatedStyleJS)(_widgetIdRef.current, result);
+        const directCall = (global as any).updateAnimatedStylesDirect;
+        if (typeof directCall === 'function') {
+          directCall(_widgetIdRef.current, result);
+        } else {
+          scheduleOnRN(updateAnimatedStyleJS.current, _widgetIdRef.current, result);
+        }
       },
       [widgetId, style] // Restart reaction khi ID đổi
     );

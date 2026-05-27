@@ -272,8 +272,8 @@ public:
     }
     {
       std::shared_lock<std::shared_mutex> lock(_childrenMutex);
-      w = _cachedW;
-      h = _cachedH;
+      w = getWidth();
+      h = getHeight();
     }
 
     if (w <= 0.f || h <= 0.f) {
@@ -397,16 +397,16 @@ public:
     }
 
     // ── Phase 3: Backdrop Blur ────────────────────────────────────────────
-    // saveLayer with SkImageFilters::Blur BEFORE drawing the background.
     // Effect: content behind the Box is blurred → frosted glass / glassmorphism.
-    // IMPORTANT: always pass bounds (not nullptr) to avoid blurring the entire screen.
+    // We clip to `rrect` so the blur doesn't spill outside the rounded box.
     bool hasBackdropBlur = props.backdropBlurRadius > 0.f;
     if (hasBackdropBlur) {
-      SkPaint backdropPaint;
-      backdropPaint.setImageFilter(
-        SkImageFilters::Blur(props.backdropBlurRadius, props.backdropBlurRadius, nullptr)
-      );
-      canvas->saveLayer(SkCanvas::SaveLayerRec(&bounds, &backdropPaint, SkCanvas::kInitWithPrevious_SaveLayerFlag));
+      canvas->save();
+      canvas->clipRRect(rrect, true);
+      sk_sp<SkImageFilter> backdropFilter = SkImageFilters::Blur(props.backdropBlurRadius, props.backdropBlurRadius, nullptr);
+      canvas->saveLayer(SkCanvas::SaveLayerRec(&bounds, nullptr, backdropFilter.get(), 0));
+      canvas->restore(); // immediately restore the saveLayer, which composites the blurred backdrop!
+      canvas->restore(); // restore the clip
     }
 
     // ── Phase 3: Color Filter Layer ───────────────────────────────────────
@@ -554,12 +554,8 @@ public:
       drawEdgeWithClip(lc, lw, {0, h}, {0, 0});       // Left
     }
 
-    // Restore Phase 3 layers (in reverse order of saveLayer calls)
     if (hasColorFilter || props.blendMode != SkBlendMode::kSrcOver) {
       canvas->restore(); // restore color filter / blend mode layer
-    }
-    if (hasBackdropBlur) {
-      canvas->restore(); // restore backdrop blur layer
     }
   }
 

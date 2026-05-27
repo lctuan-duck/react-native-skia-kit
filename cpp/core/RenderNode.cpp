@@ -17,14 +17,23 @@
 namespace margelo::nitro::skiakit {
 
 void RenderNode::paint(SkCanvas* canvas) {
-  // 1. Đọc state (lock-free read for atomic values)
-  float x = _cachedLayout[0].load(std::memory_order_relaxed);
-  float y = _cachedLayout[1].load(std::memory_order_relaxed);
-  float w = _cachedLayout[2].load(std::memory_order_relaxed);
-  float h = _cachedLayout[3].load(std::memory_order_relaxed);
+  float x, y, w, h;
+  {
+    std::shared_lock<std::shared_mutex> lock(_childrenMutex);
+    x = getXInternal();
+    y = getYInternal();
+    w = getWidthInternal();
+    h = getHeightInternal();
+  }
   
   float opacity = _opacity.load(std::memory_order_relaxed);
   if (opacity <= 0.0f) return; // Skip render
+
+  if (_inLayoutTransition.load(std::memory_order_relaxed)) {
+    if (onRequestRedraw) {
+      onRequestRedraw();
+    }
+  }
 
   // Đọc các transform
   float scaleX = _scaleX.load(std::memory_order_relaxed);

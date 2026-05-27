@@ -74,7 +74,7 @@ public:
     float w;
     {
       std::shared_lock<std::shared_mutex> lock2(_childrenMutex);
-      w = _cachedW;
+      w = getWidth();
     }
     if (w <= 0.f) return;
 

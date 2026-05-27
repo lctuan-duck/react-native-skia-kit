@@ -1,4 +1,10 @@
-import * as React from 'react';
+﻿import * as React from 'react';
+import {
+  useSharedValue,
+  withTiming,
+  useAnimatedReaction,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { Box } from './Box';
 import { Text } from './Text';
 import { Icon } from './Icon';
@@ -7,6 +13,7 @@ import { Expanded } from './Expanded';
 import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
 import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
+import { useEngine } from '../core/EngineContext';
 import type { WidgetProps } from '../types/widget.types';
 import type {
   ColorStyle,
@@ -42,6 +49,12 @@ export interface TabBarProps extends WidgetProps {
   style?: TabBarStyle;
 }
 
+// Bridge: slide the indicator Box to position X
+const applyIndicatorPosition = (indicatorId: string, left: number) => {
+    engine.updateAnimatedStyles(indicatorId, { left });
+  (global as any).skiaKitScrollRedraw?.();
+};
+
 export const TabBar = React.memo(function TabBar({
   items,
   activeIndex = 0,
@@ -50,6 +63,7 @@ export const TabBar = React.memo(function TabBar({
   style,
 }: TabBarProps) {
   const theme = useTheme();
+  const engine = useEngine();
   const active = style?.activeColor ?? theme.colors.primary;
   const inactive = style?.inactiveColor ?? theme.colors.textSecondary;
   const bgColor =
@@ -62,11 +76,36 @@ export const TabBar = React.memo(function TabBar({
   const width = style?.width ?? 360;
   const height = style?.height ?? 48;
   const widgetId = useWidgetId('TabBar');
+  // Stable ID for the animated indicator pill (tab variant only)
+  const indicatorId = useWidgetId('TabBar-indicator');
 
   const layout = useNativeYogaLayout(widgetId, { width, height });
   const finalWidth =
     layout?.width > 0 ? layout.width : typeof width === 'number' ? width : 360;
   const tabWidth = finalWidth / Math.max(1, items.length);
+
+  // TB3 animation fix: animated indicator X position
+  const indicatorX = useSharedValue(activeIndex * tabWidth);
+
+  // When activeIndex changes externally, slide indicator
+  React.useEffect(() => {
+    indicatorX.value = withTiming(activeIndex * tabWidth, { duration: 220 });
+  }, [activeIndex, tabWidth, indicatorX]);
+
+  useAnimatedReaction(
+    () => indicatorX.value,
+    (x) => {
+      'worklet';
+      const direct = (global as any).updateAnimatedStylesDirect;
+      if (typeof direct === 'function') {
+        direct(indicatorId, { left: x });
+        (global as any).skiaKitScrollRedraw?.();
+      } else {
+        scheduleOnRN(applyIndicatorPosition, indicatorId, x);
+      }
+    },
+    [indicatorId]
+  );
 
   if (variant === 'segment') {
     return (
@@ -89,7 +128,7 @@ export const TabBar = React.memo(function TabBar({
                 style={{
                   height: height - 4,
                   borderRadius: borderRadius - 2,
-                  backgroundColor: isActive ? '#ffffff' : 'transparent',
+                  backgroundColor: isActive ? theme.colors.surface : 'transparent',
                   elevation: isActive ? 2 : 0,
                   opacity: item.disabled ? 0.4 : 1,
                   flexDirection: 'row',
@@ -123,6 +162,9 @@ export const TabBar = React.memo(function TabBar({
     );
   }
 
+  // ── 'tab' variant — bottom indicator slides between tabs ──────────────────
+  const indicatorW = tabWidth * 0.6;
+
   return (
     <Box
       id={widgetId}
@@ -146,7 +188,13 @@ export const TabBar = React.memo(function TabBar({
                 alignItems: 'center',
               }}
               hitTestBehavior="opaque"
-              onPress={() => !item.disabled && onChanged?.(i)}
+              onPress={() => {
+                if (!item.disabled) {
+                  // Animate indicator immediately on press (before state update)
+                  indicatorX.value = withTiming(i * tabWidth, { duration: 220 });
+                  onChanged?.(i);
+                }
+              }}
             >
               <Row style={{ gap: item.icon ? 6 : 0, alignItems: 'center' }}>
                 {item.icon && (
@@ -165,20 +213,25 @@ export const TabBar = React.memo(function TabBar({
                   }}
                 />
               </Row>
-              {isActive && (
-                <Box
-                  style={{
-                    width: tabWidth * 0.6,
-                    height: 3,
-                    borderRadius: 1.5,
-                    backgroundColor: indicator,
-                  }}
-                />
-              )}
             </Box>
           </Expanded>
         );
       })}
+
+      {/* Animated indicator — single Box positioned via C++ updateAnimatedStyles(left) */}
+      <Box
+        id={indicatorId}
+        style={{
+          position: 'absolute',
+          // Initial left = activeIndex * tabWidth, horizontally centered within tab
+          left: activeIndex * tabWidth + (tabWidth - indicatorW) / 2,
+          top: height - 3,
+          width: indicatorW,
+          height: 3,
+          borderRadius: 1.5,
+          backgroundColor: indicator,
+        }}
+      />
     </Box>
   );
 });

@@ -147,6 +147,9 @@ android {
 dependencies {
   implementation "com.facebook.react:react-android"
   implementation project(":react-native-nitro-modules")
+  // Shopify RNSkia — compileOnly để resolve RNSkiaModule + PlatformContext tại compile time
+  // Không bundle vào AAR của ta (đã được provide bởi consuming app)
+  compileOnly project(":shopify_react-native-skia")
 }
 
 react {

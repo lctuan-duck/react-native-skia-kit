@@ -17,12 +17,10 @@ namespace margelo::nitro::skiakit {
     
     void updateLayoutNode(const std::string& id, const NativeYogaStyle& style);
     void removeLayoutNode(const std::string& id);
-    void setChildren(const std::string& parentId, const std::vector<std::string>& childrenIds);
     void addChild(const std::string& parentId, const std::string& childId);
     void insertChildBefore(const std::string& parentId, const std::string& childId, const std::string& beforeChildId);
     void removeChild(const std::string& parentId, const std::string& childId);
     void calculateLayout(const std::string& rootId, double width, double height);
-    NativeLayoutRect getNodeLayout(const std::string& id);
     std::unordered_map<std::string, NativeLayoutRect> getAllLayouts();
     std::unordered_map<std::string, NativeLayoutRect> getAllRelativeLayouts();
     void clear();
@@ -30,6 +28,7 @@ namespace margelo::nitro::skiakit {
     using MeasureCallback = std::function<YGSize(const std::string& id, float width, int widthMode, float height, int heightMode)>;
     void setMeasureCallback(MeasureCallback cb) { _measureCb = std::move(cb); }
     void markDirty(const std::string& id);
+    void enableMeasureFunc(const std::string& id);
 
     struct NodeData {
       std::string id;

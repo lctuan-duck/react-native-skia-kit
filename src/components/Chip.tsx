@@ -58,16 +58,20 @@ export const Chip = React.memo(function Chip({
   const chipColor = resolveSemanticColor(color, theme.colors);
   const variantStyles = resolveChipStyles(variant, chipColor, selected, theme);
 
-  const width = style?.width ?? 80;
   const height = style?.height ?? 32;
   const borderR = style?.borderRadius ?? 16;
   const bgColor = style?.backgroundColor ?? variantStyles.background;
   const fgColor = style?.textColor ?? variantStyles.textColor;
+  // CH1 fix: auto-size width based on content (padding + label).
+  // user can still override via style.width if fixed size is needed.
+  const width = style?.width; // undefined → let Yoga compute from content
+  const minWidth = 64;
 
   return (
     <Box
       style={{
         width,
+        minWidth,
         height,
         borderRadius: borderR,
         backgroundColor: bgColor,
@@ -76,6 +80,7 @@ export const Chip = React.memo(function Chip({
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
+        padding: [0, 12, 0, 12],
       }}
       hitTestBehavior="translucent"
       onPress={onPress}

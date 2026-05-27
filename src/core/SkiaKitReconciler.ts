@@ -1,10 +1,16 @@
 import Reconciler from 'react-reconciler';
 import { DefaultEventPriority } from 'react-reconciler/constants';
-import { uiEngine } from './GlobalEngine';
+import type { UIEngine } from '../nitro/UIEngine.nitro';
 import type { NativeYogaStyle } from '../nitro/UIEngine.nitro';
 import type { ViewStyle } from 'react-native';
 import { parseColor } from '../utils/color';
 import { toNativeGradient } from '../utils/gradient';
+
+// ── Per-node engine registry ──────────────────────────────────────────────────
+// Maps nodeId → UIEngine instance, populated in createInstance.
+// Lets lifecycle hooks (appendChild, removeChild) find the right engine
+// without needing containerInfo (which isn’t always available).
+const nodeToEngine = new Map<string, UIEngine>();
 
 // ── Callback registry (JS thread) ────────────────────────────────────────────
 // Stores gesture/event callbacks separately from the render tree.
@@ -73,6 +79,8 @@ function untrackChild(parentId: string, childId: string) {
  * after navigation between screens.
  */
 function recursiveUnregister(id: string) {
+  const engine = nodeToEngine.get(id);
+
   // 1. Recurse into children first (depth-first)
   const children = nodeChildren.get(id);
   if (children) {
@@ -82,13 +90,12 @@ function recursiveUnregister(id: string) {
     nodeChildren.delete(id);
   }
 
-  // 2. Cleanup this node — C++ removeRenderNode handles render tree recursively
-  uiEngine.removeRenderNode(id);
-  uiEngine.unregisterWidget(id);
-  // Safe optional call for scroll areas — only scroll nodes are registered
-  try {
-    (uiEngine as any).unregisterScrollArea?.(id);
-  } catch {}
+  // 2. Cleanup this node
+  if (engine) {
+    engine.removeRenderNode(id);
+    engine.unregisterWidget(id);
+  }
+  nodeToEngine.delete(id);
   unregisterJSCallbacks(id);
 }
 
@@ -436,31 +443,25 @@ const baseHostConfig = {
   createInstance(
     type: string,
     props: any,
-    _rootContainer: { canvasId: string },
-    _hostContext: { canvasId: string }
+    rootContainer: { canvasId: string; engine: UIEngine },
+    _hostContext: { canvasId: string; engine: UIEngine }
   ): string {
+    const engine = rootContainer.engine;
     const id: string =
       props.id || `w_${Math.random().toString(36).substr(2, 9)}`;
     const yogaStyle = buildNativeStyle(props.style);
+    // Register node → engine mapping for lifecycle hooks
+    nodeToEngine.set(id, engine);
 
     switch (type) {
       case 'Box': {
         const boxProps = extractBoxProps(props);
-        if (__DEV__ && boxProps.backgroundColor !== 0) {
-          console.log(
-            `[SkiaKit Box] id=${id} bg=0x${boxProps.backgroundColor?.toString(
-              16
-            )} raw="${props.style?.backgroundColor}" borderRadius=${
-              boxProps.borderRadius
-            }`
-          );
-        }
-        uiEngine.createBoxNode(id, yogaStyle, boxProps);
+        engine.createBoxNode(id, yogaStyle, boxProps);
         // Register HitTest ONLY if interactive
         if (isInteractive(props) || props.hitTestBehavior) {
           const zIndex = props.style?.zIndex ?? 0;
           const behavior = props.hitTestBehavior === 'opaque' ? 1 : 0;
-          uiEngine.registerWidget(id, 0, 0, 0, 0, zIndex, behavior);
+          engine.registerWidget(id, 0, 0, 0, 0, zIndex, behavior);
         }
         break;
       }
@@ -470,7 +471,7 @@ const baseHostConfig = {
           typeof props.style?.fontWeight === 'string'
             ? parseInt(props.style.fontWeight, 10) || 400
             : props.style?.fontWeight ?? 400;
-        uiEngine.createTextNode(id, yogaStyle, {
+        engine.createTextNode(id, yogaStyle, {
           content: String(props.text ?? props.children ?? ''),
           fontSize: props.style?.fontSize ?? 14,
           color: parseColor(props.style?.color),
@@ -482,7 +483,7 @@ const baseHostConfig = {
         if (isInteractive(props) || props.hitTestBehavior) {
           const zIndex = props.style?.zIndex ?? 0;
           const behavior = props.hitTestBehavior === 'opaque' ? 1 : 0;
-          uiEngine.registerWidget(id, 0, 0, 0, 0, zIndex, behavior);
+          engine.registerWidget(id, 0, 0, 0, 0, zIndex, behavior);
         }
         break;
       }
@@ -491,19 +492,19 @@ const baseHostConfig = {
         const src = props.src ?? props.source?.uri ?? props.uri ?? '';
         const fit = props.resizeMode ?? props.style?.objectFit ?? 'cover';
         const borderRadius = props.style?.borderRadius ?? 0;
-        uiEngine.createImageNode(id, src, fit, borderRadius);
+        engine.createImageNode(id, src, fit, borderRadius);
         // Phase 6E: C++ fetches image data natively via RNSkPlatformContext
-        uiEngine.startImageLoad(id);
+        engine.startImageLoad(id);
         if (isInteractive(props)) {
           const zIndex = props.style?.zIndex ?? 0;
-          uiEngine.registerWidget(id, 0, 0, 0, 0, zIndex, 0);
+          engine.registerWidget(id, 0, 0, 0, 0, zIndex, 0);
         }
         break;
       }
 
       case 'Icon': {
         const isStroke = props.pathStyle === 'stroke';
-        uiEngine.createIconNode(
+        engine.createIconNode(
           id,
           yogaStyle,
           props.pathStr || '',
@@ -513,7 +514,7 @@ const baseHostConfig = {
         );
         if (isInteractive(props)) {
           const zIndex = props.style?.zIndex ?? 0;
-          uiEngine.registerWidget(id, 0, 0, 0, 0, zIndex, 0);
+          engine.registerWidget(id, 0, 0, 0, 0, zIndex, 0);
         }
         break;
       }
@@ -521,21 +522,18 @@ const baseHostConfig = {
       case 'Scroll': {
         const contentPadding =
           props.contentPadding ?? props.style?.padding ?? 0;
-        uiEngine.createScrollNode(
-          id,
-          props.horizontal ?? false,
-          contentPadding
-        );
-        // CRITICAL: Force overflow:hidden so Yoga constrains the ScrollNode
-        // to its allocated size and does NOT expand it to fit content.
-        // Without this, viewportSize == contentSize and maxScroll == 0.
-        const scrollYogaStyle = { ...yogaStyle, overflow: 'hidden' };
-        uiEngine.updateLayoutNode(id, scrollYogaStyle);
-        uiEngine.registerScrollArea(id, 0, 0, 0, 0, props.horizontal ?? false);
-        // Always register as interactive so hit test always reaches ScrollView
-        // regardless of whether user passed onPanStart etc explicitly
         const zIndex = props.style?.zIndex ?? 0;
-        uiEngine.registerWidget(id, 0, 0, 0, 0, zIndex, 0);
+        // createScrollNodeFull atomically:
+        //   createScrollNode + updateLayoutNode(overflow:hidden) +
+        //   registerScrollArea + registerWidget
+        // Replaces 4 JSI calls with 1.
+        engine.createScrollNodeFull(
+          id,
+          { ...yogaStyle, overflow: 'hidden' },
+          props.horizontal ?? false,
+          contentPadding,
+          zIndex
+        );
         break;
       }
 
@@ -554,18 +552,18 @@ const baseHostConfig = {
       case 'Wrap':
       case 'Spacer': {
         const boxProps = extractBoxProps(props);
-        uiEngine.createBoxNode(id, yogaStyle, boxProps);
+        engine.createBoxNode(id, yogaStyle, boxProps);
         if (isInteractive(props) || props.hitTestBehavior) {
           const zIndex = props.style?.zIndex ?? 0;
           const behavior = props.hitTestBehavior === 'opaque' ? 1 : 0;
-          uiEngine.registerWidget(id, 0, 0, 0, 0, zIndex, behavior);
+          engine.registerWidget(id, 0, 0, 0, 0, zIndex, behavior);
         }
         break;
       }
 
       default: {
         // Fallback: unknown types (skGroup, etc.) → transparent BoxNode
-        uiEngine.createBoxNode(id, yogaStyle, {
+        engine.createBoxNode(id, yogaStyle, {
           backgroundColor: parseColor(props.style?.backgroundColor) ?? 0,
           borderRadius: props.style?.borderRadius ?? 0,
           borderWidth: props.style?.borderWidth ?? 0,
@@ -588,62 +586,67 @@ const baseHostConfig = {
    * createTextInstance — Handles plain text strings in JSX.
    * Example: <Box>Hello {name}</Box> automatically wrapped as a TextNode.
    */
-  createTextInstance(text: string, _rootContainer: any): string {
+  createTextInstance(text: string, rootContainer: any): string {
     const id = `t_${Math.random().toString(36).substr(2, 9)}`;
-    uiEngine.createTextNode(
-      id,
-      {},
-      {
-        content: text,
-        fontSize: 14,
-        color: 0xff000000,
-        fontFamily: '',
-        fontWeight: 400,
-        numberOfLines: 0,
-      }
-    );
+    const engine: UIEngine | undefined = rootContainer?.engine;
+    if (engine) {
+      engine.createTextNode(
+        id,
+        {},
+        {
+          content: text,
+          fontSize: 14,
+          color: 0xff000000,
+          fontFamily: '',
+          fontWeight: 400,
+          numberOfLines: 0,
+        }
+      );
+      nodeToEngine.set(id, engine);
+    }
     return id;
   },
 
   // ── Tree manipulation ─────────────────────────────────────────────────────
 
   appendInitialChild(parentId: string, childId: string) {
-    uiEngine.addRenderChild(parentId, childId);
+    nodeToEngine.get(parentId)?.addRenderChild(parentId, childId);
     trackChild(parentId, childId);
   },
   appendChild(parentId: string, childId: string) {
-    uiEngine.addRenderChild(parentId, childId);
+    nodeToEngine.get(parentId)?.addRenderChild(parentId, childId);
     trackChild(parentId, childId);
   },
-  appendChildToContainer(containerInfo: { canvasId: string }, childId: string) {
-    uiEngine.addRenderChild(containerInfo.canvasId, childId);
+  appendChildToContainer(
+    containerInfo: { canvasId: string; engine: UIEngine },
+    childId: string
+  ) {
+    containerInfo.engine.addRenderChild(containerInfo.canvasId, childId);
     trackChild(containerInfo.canvasId, childId);
   },
 
   removeChild(parentId: string, childId: string) {
-    uiEngine.removeRenderChild(parentId, childId);
+    nodeToEngine.get(parentId)?.removeRenderChild(parentId, childId);
     untrackChild(parentId, childId);
-    // Recursively cleanup child and all its descendants
     recursiveUnregister(childId);
   },
   removeChildFromContainer(
-    containerInfo: { canvasId: string },
+    containerInfo: { canvasId: string; engine: UIEngine },
     childId: string
   ) {
-    uiEngine.removeRenderChild(containerInfo.canvasId, childId);
-    // Recursively cleanup child and all its descendants
+    containerInfo.engine.removeRenderChild(containerInfo.canvasId, childId);
     recursiveUnregister(childId);
   },
 
   insertBefore(parentId: string, childId: string, beforeChildId: string) {
-    uiEngine.insertRenderChildBefore(parentId, childId, beforeChildId);
+    nodeToEngine.get(parentId)?.insertRenderChildBefore(parentId, childId, beforeChildId);
   },
   insertInContainerBefore(
-    containerInfo: { canvasId: string },
+    containerInfo: { canvasId: string; engine: UIEngine },
     childId: string,
     beforeChildId: string
   ) {
-    uiEngine.insertRenderChildBefore(
+    containerInfo.engine.insertRenderChildBefore(
       containerInfo.canvasId,
       childId,
       beforeChildId
@@ -748,27 +751,21 @@ const baseHostConfig = {
    * Only runs when prepareUpdate returns a non-null payload.
    */
   commitUpdate(...args: any[]) {
-    // React 18+ react-reconciler signature: commitUpdate(instance, type, oldProps, newProps, internalHandle)
-    // React 17: commitUpdate(instance, updatePayload, type, oldProps, newProps, internalHandle)
-    let id, type, newProps;
+    let id: string, type: string, newProps: any;
     if (typeof args[1] === 'string') {
-      // React 18+ signature
-      id = args[0];
-      type = args[1];
-      newProps = args[3];
+      id = args[0]; type = args[1]; newProps = args[3];
     } else {
-      // React 17 signature
-      id = args[0];
-      type = args[2];
-      newProps = args[4];
+      id = args[0]; type = args[2]; newProps = args[4];
     }
 
+    const engine = nodeToEngine.get(id);
+    if (!engine) return; // node already removed
     const yogaStyle = buildNativeStyle(newProps?.style);
 
     switch (type) {
       case 'Box': {
         const boxProps = extractBoxProps(newProps);
-        uiEngine.updateBoxNode(id, yogaStyle, boxProps);
+        engine.updateBoxNode(id, yogaStyle, boxProps);
         break;
       }
 
@@ -777,7 +774,7 @@ const baseHostConfig = {
           typeof newProps.style?.fontWeight === 'string'
             ? parseInt(newProps.style.fontWeight, 10) || 400
             : newProps.style?.fontWeight ?? 400;
-        uiEngine.updateTextNode(id, yogaStyle, {
+        engine.updateTextNode(id, yogaStyle, {
           content: String(newProps.text ?? newProps.children ?? ''),
           fontSize: newProps.style?.fontSize ?? 14,
           color: parseColor(newProps.style?.color),
@@ -790,7 +787,7 @@ const baseHostConfig = {
 
       case 'Icon': {
         const isStroke = newProps.pathStyle === 'stroke';
-        uiEngine.updateIconNode(
+        engine.updateIconNode(
           id,
           yogaStyle,
           newProps.pathStr || '',
@@ -805,63 +802,29 @@ const baseHostConfig = {
         const src = newProps.src ?? newProps.source?.uri ?? newProps.uri ?? '';
         const fit = newProps.resizeMode ?? newProps.style?.objectFit ?? 'cover';
         const borderRadius = newProps.style?.borderRadius ?? 0;
-        uiEngine.updateImageNode(id, src, fit, borderRadius);
-        uiEngine.startImageLoad(id);
+        engine.updateImageNode(id, src, fit, borderRadius);
+        engine.startImageLoad(id);
         break;
       }
 
       case 'Scroll': {
-        // CRITICAL: Always force overflow:hidden — same as createInstance.
-        // Without this, commitUpdate would overwrite the overflow setting with the user's
-        // raw style (which doesn't have overflow:hidden), causing Yoga to expand the
-        // ScrollNode to match content → viewportSize = contentSize → maxScroll = 0.
         const scrollUpdateStyle = { ...yogaStyle, overflow: 'hidden' };
-        uiEngine.updateLayoutNode(id, scrollUpdateStyle);
+        engine.updateLayoutNode(id, scrollUpdateStyle);
         const contentPadding =
           newProps.contentPadding ?? newProps.style?.padding ?? 0;
-        uiEngine.updateScrollNode(
+        engine.updateScrollNode(
           id,
           newProps.horizontal ?? false,
           contentPadding
         );
-
-        // Scroll is ALWAYS interactive (pan handlers always present).
-        // Never unregister — that would break hit testing.
         const zIndex = newProps.style?.zIndex ?? 0;
-        uiEngine.registerWidget(id, 0, 0, 0, 0, zIndex, 0);
+        engine.registerWidget(id, 0, 0, 0, 0, zIndex, 0);
         break;
       }
 
-      // ── Layout container aliases ──────────────────────────────────────────
-      // case 'Column':
-      // case 'Row':
-      // case 'Stack':
-      // case 'Scaffold':
-      // case 'SafeArea':
-      // case 'Screen':
-      // case 'Nav':
-      // case 'Center':
-      // case 'Align':
-      // case 'Expanded':
-      // case 'Flexible':
-      // case 'Wrap':
-      // case 'Spacer': {
-      //   const bgColor = parseColor(newProps.style?.backgroundColor);
-      //   uiEngine.updateBoxNode(id, yogaStyle, {
-      //     backgroundColor: bgColor,
-      //     borderRadius: newProps.style?.borderRadius ?? 0,
-      //     borderWidth: newProps.style?.borderWidth ?? 0,
-      //     borderColor: parseColor(newProps.style?.borderColor),
-      //     elevation: newProps.elevation ?? 0,
-      //     overflowHidden: newProps.style?.overflow === 'hidden',
-      //   });
-      //   break;
-      // }
-
       default: {
-        // Fallback BoxNode — cập nhật layout và visual style
         const boxProps = extractBoxProps(newProps);
-        uiEngine.updateBoxNode(id, yogaStyle, boxProps);
+        engine.updateBoxNode(id, yogaStyle, boxProps);
         break;
       }
     }
@@ -872,37 +835,20 @@ const baseHostConfig = {
   // ── Context ───────────────────────────────────────────────────────────────
 
   /**
-   * getRootHostContext — canvasId được forward xuống toàn cây thông qua hostContext.
-   * createInstance có thể đọc canvasId từ hostContext nếu cần.
-   */
-  getRootHostContext(rootContainerId: { canvasId: string }) {
-    return { canvasId: rootContainerId.canvasId };
+/**
+ * getRootHostContext — forward engine + canvasId xuống toàn bộ cây qua hostContext.
+ */
+  getRootHostContext(rootContainer: { canvasId: string; engine: UIEngine }) {
+    return rootContainer;
   },
-  getChildHostContext(parentCtx: { canvasId: string }) {
-    return parentCtx; // Truyền xuống nguyên vẹn
-  },
-
-  // ── Commit lifecycle ──────────────────────────────────────────────────────
-
-  /**
-   * prepareForCommit — Gọi trước khi batch commit bắt đầu.
-   * Phải trả về containerInfo để resetAfterCommit nhận được.
-   */
-  prepareForCommit(containerInfo: { canvasId: string }) {
-    return containerInfo; // [FIX] Must return containerInfo, not void
+  getChildHostContext(parentContext: any) {
+    return parentContext;
   },
 
   /**
-   * resetAfterCommit — Gọi SAU khi toàn bộ batch commit hoàn tất.
-   * Đây là nơi trigger 1 lần rebuild SkPicture per batch (không phải per node).
-   *
-   * Override trong createSkiaKitHostConfig để inject requestRedraw closure.
+   * resetAfterCommit — no-op mặc định, override trong createSkiaKitHostConfig.
    */
-  resetAfterCommit(_containerInfo: { canvasId: string }) {
-    // Override bởi createSkiaKitHostConfig — đây là no-op mặc định
-  },
-
-  // ── Misc lifecycle ────────────────────────────────────────────────────────
+  resetAfterCommit(_containerInfo: { canvasId: string; engine: UIEngine }) {},
 
   finalizeInitialChildren: () => false,
   shouldSetTextContent: () => false,
@@ -914,32 +860,26 @@ const baseHostConfig = {
   preparePortalMount() {},
 } as const;
 
-// ── Factory per CanvasRoot ────────────────────────────────────────────────────
+// ── Factory per CanvasRoot ──────────────────────────────────────────────────
 
 /**
- * createSkiaKitHostConfig — Tạo hostConfig mới hoàn toàn per CanvasRoot.
- * Mỗi CanvasRoot có closure riêng biệt → không conflict state.
- *
- * requestRedraw: callback từ CanvasRoot để trigger:
- *   1. uiEngine.calculateLayout(canvasId, w, h)
- *   2. uiEngine.drawTree(canvasId, w, h)
- *   3. getRootPicture() → Skia.Picture.MakePicture() → SkiaPictureView.redraw()
- *
- * Pattern này match Phase 6E trong architecture doc:
- *   resetAfterCommit → markDirty → requestRedraw → rebuildPicture (1 lần per batch)
+ * createSkiaKitHostConfig(engine, requestRedraw) — tạo hostConfig per CanvasRoot.
+ * Engine được pass qua containerInfo để tất cả reconciler lifecycle dùng đúng instance.
  */
-export function createSkiaKitHostConfig(requestRedraw: () => void) {
+export function createSkiaKitHostConfig(
+  engine: UIEngine,
+  requestRedraw: () => void
+) {
   return {
     ...baseHostConfig,
-    resetAfterCommit(containerInfo: { canvasId: string }) {
+    resetAfterCommit(containerInfo: { canvasId: string; engine: UIEngine }) {
       if (containerInfo?.canvasId) {
-        uiEngine.markDirty(containerInfo.canvasId);
-        requestRedraw(); // Per-canvas closure — không conflict với canvas khác
+        engine.markDirty(containerInfo.canvasId);
+        requestRedraw();
       }
     },
   };
 }
 
-// Singleton Reconciler với baseHostConfig (common case: 1 CanvasRoot)
-// CanvasRoot thực tế tạo Reconciler riêng qua createSkiaKitHostConfig để có requestRedraw.
 export const SkiaKitReconciler = Reconciler(baseHostConfig as any);
+

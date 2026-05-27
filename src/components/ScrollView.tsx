@@ -3,7 +3,7 @@ import type { WidgetProps } from '../types/widget.types';
 import type { FlexChildStyle, SpacingStyle } from '../types/style.types';
 
 import { useScrollPhysics } from '../hooks/useScrollPhysics';
-import { uiEngine } from '../core/GlobalEngine';
+import { useEngine } from '../core/EngineContext';
 import { useWidgetId } from '../hooks/useWidgetId';
 import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
 import { Box } from './Box';
@@ -36,6 +36,7 @@ export interface ScrollViewProps extends WidgetProps {
 export const ScrollView = React.forwardRef<any, ScrollViewProps>(
   (props, ref) => {
     const id = useWidgetId('scroll');
+    const engine = useEngine();
     const contentBoxId = useWidgetId('scroll-content');
     const horizontal = props.horizontal ?? false;
 
@@ -52,14 +53,7 @@ export const ScrollView = React.forwardRef<any, ScrollViewProps>(
         ? contentLayout.width || 2000
         : contentLayout.height || 2000);
 
-    if (__DEV__) {
-      console.log(
-        `[ScrollView] id=${id} horizontal=${horizontal} viewportSize=${viewportSize} contentSize=${contentSize} maxScroll=${Math.max(
-          0,
-          contentSize - viewportSize
-        )}`
-      );
-    }
+
 
     const physics = useScrollPhysics(props.physics ?? 'bouncing', {
       viewportSize,
@@ -78,18 +72,12 @@ export const ScrollView = React.forwardRef<any, ScrollViewProps>(
 
     const updateNative = React.useCallback(
       (val: number) => {
-        if (uiEngine && id) {
-          uiEngine.updateScrollNodeOffset(id, val);
-          uiEngine.updateScrollOffset(id, val);
-          const scrollRedraw = (global as any).skiaKitScrollRedraw;
-          if (!scrollRedraw) {
-            console.warn('[ScrollView] skiaKitScrollRedraw is NOT set!');
-          } else {
-            scrollRedraw();
-          }
+        if (id) {
+          engine.setScrollPosition(id, val);
+          (global as any).skiaKitScrollRedraw?.();
         }
       },
-      [id]
+      [id, engine]
     );
 
     // RAF loop
@@ -105,13 +93,9 @@ export const ScrollView = React.forwardRef<any, ScrollViewProps>(
         clearTimeout(stopTimeoutRef.current);
         stopTimeoutRef.current = null;
       }
-      if (isScrollingRef.current) {
-        console.log('[ScrollView] startScrollLoop: already running, skip');
-        return;
-      }
+      if (isScrollingRef.current) return;
       isScrollingRef.current = true;
       rafFrameRef.current = 0;
-      console.log('[ScrollView] startScrollLoop: STARTED');
 
       const tick = () => {
         // During drag: read from plain ref (always correct, no Reanimated sync issues).
@@ -128,13 +112,6 @@ export const ScrollView = React.forwardRef<any, ScrollViewProps>(
         }
 
         rafFrameRef.current++;
-        if (rafFrameRef.current <= 5) {
-          console.log(
-            `[ScrollView] RAF tick #${rafFrameRef.current} isDragging=${
-              isDraggingRef.current
-            } offset=${val.toFixed(2)}`
-          );
-        }
         updateNative(val);
         if (isScrollingRef.current) {
           rafIdRef.current = requestAnimationFrame(tick);
@@ -144,9 +121,6 @@ export const ScrollView = React.forwardRef<any, ScrollViewProps>(
     }, [physics.scrollOffset, updateNative]);
 
     const stopScrollLoop = React.useCallback(() => {
-      console.log(
-        `[ScrollView] stopScrollLoop after ${rafFrameRef.current} frames`
-      );
       isScrollingRef.current = false;
       isDraggingRef.current = false;
       if (rafIdRef.current) {
@@ -182,9 +156,6 @@ export const ScrollView = React.forwardRef<any, ScrollViewProps>(
       startOffsetRef.current = currentOffsetRef.current;
       overscrollEntryDeltaRef.current = null; // Reset on each new gesture
       isDraggingRef.current = true;
-      console.log(
-        `[ScrollView] onPanStart id=${id} viewport=${viewportSize} content=${contentSize} startOffset=${startOffsetRef.current}`
-      );
       startScrollLoop();
     }, [physics, startScrollLoop, id, viewportSize, contentSize]);
 
@@ -228,15 +199,6 @@ export const ScrollView = React.forwardRef<any, ScrollViewProps>(
           clampedVal = newVal;
         }
 
-        if (Math.abs(delta) < 15) {
-          console.log(
-            `[ScrollView] onPanUpdate delta=${delta.toFixed(
-              1
-            )} start=${startOffsetRef.current.toFixed(
-              1
-            )} newVal=${newVal.toFixed(1)} clamped=${clampedVal.toFixed(1)}`
-          );
-        }
         currentOffsetRef.current = clampedVal;
         physics.scrollOffset.value = clampedVal;
       },
@@ -253,22 +215,15 @@ export const ScrollView = React.forwardRef<any, ScrollViewProps>(
     const onPanEnd = React.useCallback(
       (e: any) => {
         const velocity = horizontal ? e.velocityX : e.velocityY;
-        console.log(
-          `[ScrollView] onPanEnd velocity=${velocity.toFixed(
-            1
-          )} finalOffset=${currentOffsetRef.current.toFixed(1)}`
-        );
         // Switch to decay mode — RAF will now read from Reanimated SharedValue
         isDraggingRef.current = false;
-        // Sync Reanimated SV to our authoritative offset before handing control to physics
         physics.scrollOffset.value = currentOffsetRef.current;
         physics.handlePanEnd(velocity);
         stopTimeoutRef.current = setTimeout(() => {
           stopTimeoutRef.current = null;
-          // Sync final decay position back to our ref
           currentOffsetRef.current = physics.scrollOffset.value;
           stopScrollLoop();
-        }, 1500);
+        }, 800);
       },
       [horizontal, physics, stopScrollLoop]
     );

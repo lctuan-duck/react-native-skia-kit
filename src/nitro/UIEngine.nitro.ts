@@ -82,8 +82,8 @@ export interface NativeYogaStyle {
  * { type: 'linear', colors: [0xFFFF6B6B, 0xFFFFE66D], startX: 0, startY: 0.5, endX: 1, endY: 0.5 }
  */
 export interface NativeGradientProps {
-  /** Gradient type: linear, radial, or sweep */
-  type: 'linear' | 'radial' | 'sweep';
+  /** Gradient type: 'linear' | 'radial' | 'sweep' */
+  type: string;
   /** Array of SkColor values (ARGB packed uint32). Minimum 2 colors. */
   colors: number[];
   /**
@@ -110,7 +110,7 @@ export interface NativeGradientProps {
   /** End angle in degrees. Used for `sweep`. Default: 360 */
   endAngle?: number;
   /** Tile mode when gradient extends beyond its bounds. Default: 'clamp' */
-  tileMode?: 'clamp' | 'repeat' | 'mirror';
+  tileMode?: string;
 }
 
 /**
@@ -295,7 +295,6 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
     behavior: number
   ): void;
   unregisterWidget(id: string): void;
-  setWidgetDynamic(id: string, isDynamic: boolean): void;
   registerScrollArea(
     id: string,
     x: number,
@@ -304,18 +303,16 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
     h: number,
     horizontal: boolean
   ): void;
-  unregisterScrollArea(id: string): void;
-  updateScrollOffset(id: string, offset: number): void;
   hitTest(x: number, y: number): NativeHitResult[];
-  clear(): void;
 
   // ================= YOGA LAYOUT ================= //
 
+  /**
+   * Cập nhật style Yoga cho node đã tồn tại.
+   * Hiện tại chỉ dùng cho ScrollNode (force overflow:hidden).
+   */
   updateLayoutNode(id: string, style: NativeYogaStyle): void;
-  removeLayoutNode(id: string): void;
-  setChildren(parentId: string, childrenIds: string[]): void;
   calculateLayout(rootId: string, width: number, height: number): void;
-  getNodeLayout(id: string): NativeLayoutRect;
   getAllLayouts(): Record<string, NativeLayoutRect>;
 
   // ================= RENDER TREE (v2) ================= //
@@ -351,7 +348,9 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
     props: NativeTextProps
   ): void;
 
-  // Image — load async ngay khi create
+  // Image
+  // Note: C++ auto-triggers startImageLoad when uri is non-empty.
+  // No need to call startImageLoad separately from JS.
   createImageNode(
     id: string,
     uri: string,
@@ -364,7 +363,11 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
     fit: string,
     borderRadius: number
   ): void;
-  startImageLoad(id: string): void;
+  /**
+   * @deprecated C++ auto-triggers load in createImageNode/updateImageNode.
+   * Kept for backward compatibility — will be removed in next cleanup.
+   */
+  // startImageLoad(id: string): void; // ← REMOVED: deprecated, auto-trigger in createImageNode
 
   // Icon — SVG path string
   createIconNode(
@@ -396,6 +399,21 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
     contentPadding: number
   ): void;
 
+  /**
+   * createScrollNodeFull — Atomic Scroll node setup.
+   * Replaces 4 separate JS calls:
+   *   createScrollNode + updateLayoutNode(overflow:hidden) + registerScrollArea + registerWidget
+   * → 1 JSI call, C++ handles all 4 operations atomically.
+   * Use this for new Scroll node creation.
+   */
+  createScrollNodeFull(
+    id: string,
+    yogaStyle: NativeYogaStyle,
+    horizontal: boolean,
+    contentPadding: number,
+    zIndex: number
+  ): void;
+
   // Tree structure
   addRenderChild(parentId: string, childId: string): void;
   insertRenderChildBefore(
@@ -407,46 +425,70 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   /** Recursive cleanup — xóa node + toàn bộ descendant */
   removeRenderNode(id: string): void;
 
+  // ================= ANIMATION ================= //
+
   /**
-   * Sync layout results từ LayoutSubsystem → RenderSubsystem.
-   * Thường được gọi tự động trong calculateLayout() (AUTO-BRIDGE).
-   * Expose ở đây để JS có thể gọi thủ công nếu cần.
+   * updateAnimatedStyles — Cập nhật animated style props trên một RenderNode.
+   * Gọi từ Reanimated worklet (qua scheduleOnRN) hoặc trực tiếp từ JS thread.
+   * KHÔNG trigger calculateLayout (Yoga) — chỉ set animated overrides trên node.
+   * Sau khi gọi, phải trigger skiaKitScrollRedraw() để rebuild SkPicture.
    */
-  syncLayoutResults(layouts: Record<string, NativeLayoutRect>): void;
   updateAnimatedStyles(id: string, style: NativeAnimatedStyle): void;
 
-  /** Cập nhật scroll offset — gọi từ Reanimated worklet, không rebuild SkPicture */
-  updateScrollNodeOffset(id: string, offset: number): void;
-
   /**
-   * Cập nhật render style (opacity) trực tiếp từ JS worklet cho animation.
-   * C++ cập nhật _opacity trên RenderNode và trigger redraw qua _redrawCallback.
+   * setScrollPosition — Atomic scroll offset update.
+   * Replaces 2 separate JS calls per frame:
+   *   updateScrollNodeOffset(id, val)  ← Render tree visual offset
+   *   updateScrollOffset(id, val)       ← HitTest WidgetRegistry offset
+   * → 1 JSI call, C++ updates both atomically.
+   * Called per-frame from ScrollView RAF loop @ 60fps.
+   * Saving: 1 JNI crossing / frame = 60 JNI crossings/second.
    */
-  updateRenderNodeStyle(id: string, opacity: number): void;
+  setScrollPosition(id: string, offset: number): void;
 
   /** Đánh dấu dirty → rebuild SkPicture ở frame tiếp theo */
   markDirty(rootId: string): void;
 
-  /**
-   * drawTree — trigger C++ rebuild SkPicture (nếu dirty).
-   * w/h = logical pixels của viewport.
-   * Trong Phase 6E, đây thực ra chỉ gọi markDirty — getRootPicture() mới thực sự rebuild.
-   */
-  drawTree(rootId: string, w: number, h: number): void;
+  // ── Render Control (C++ Autonomous — thay thế JS-driven requestRedraw) ──
 
   /**
-   * getRootPicture — serialize SkPicture → ArrayBuffer để JS reconstruct.
-   *
-   * Canvas Integration (Phase 6E — Serialization Bridge):
-   *   C++ builds SkPicture từ Render Tree → serialize → JS reconstruct via:
-   *   `const picture = Skia.Picture.MakePicture(new Uint8Array(bytes))`
-   *   → canvas.drawPicture(picture) trong useDrawCallback
-   *
-   * Chỉ gọi khi `hasPictureData() === true` để tránh empty buffer.
-   * Overhead chỉ xảy ra khi dirty (lần đầu sau mỗi state change).
+   * scheduleLayoutAndRender — Trigger C++ autonomous layout + render.
+   * Gọi từ resetAfterCommit (JS Thread) thay vì JS requestRedraw().
+   * Non-blocking: trả về ngay, C++ tự render trên Main Thread.
    */
-  getRootPicture(rootId: string, w: number, h: number): ArrayBuffer;
+  scheduleLayoutAndRender(): void;
 
-  /** Fast check — tránh unnecessary getRootPicture() call khi tree rỗng */
-  hasPictureData(): boolean;
+  /**
+   * detachNativeView — Cleanup khi CanvasRoot unmount.
+   * Gọi từ useLayoutEffect cleanup trong CanvasRoot.
+   */
+  detachNativeView(): void;
+
+  /**
+   * resize — Notify C++ engine khi screen rotate hoặc view bounds thay đổi.
+   */
+  resize(width: number, height: number): void;
+
+  // ── Canvas Integration (Phase 6E) — đã xóa getRootPicture (deprecated)
+  // C++ vẽ trực tiếp lên GPU surface qua SkiaKitNativeView.
+
+  // ── Engine Identity (Phase 3: multi-instance) ————————————————————
+
+  /**
+   * getEngineId — trả về unique int64 ID của engine này.
+   * JS truyền ID này xuống SkiaKitNativeView qua `engineId` prop —
+   * native view dùng nó để lookup đúng engine từ registry (không còn singleton).
+   */
+  getEngineId(): number;
+
+  /**
+   * onLayoutComplete — đăng ký callback được gọi sau mỗi C++ layout cycle.
+   *
+   * Sau khi C++ `doRender()` chạy `calculateLayout` xong, nó gọi callback này
+   * trên JS thread — JS thực hiện `getAllLayouts() + updateLayoutSVs()` để
+   * cập nhật Reanimated SharedValues cho `useNativeYogaLayout` components.
+   *
+   * Thay thế cơ chế JS pull (calculateLayout + getAllLayouts trong requestRedraw).
+   */
+  onLayoutComplete(callback: () => void): void;
 }
