@@ -315,6 +315,7 @@ std::mutex                                                  HybridUIEngine::_sRe
 
   void HybridUIEngine::updateAnimatedStyles(const std::string& id, const NativeAnimatedStyle& style) {
     // 1. Cập nhật Render properties (Transform, Opacity, Colors, v.v...)
+    // RenderSubsystem::updateAnimatedStyles dùng shared_lock — thread-safe từ UI thread.
     _renderSubsystem.updateAnimatedStyles(id, style);
     
     if (style.pointerEvents.has_value()) {
@@ -344,20 +345,28 @@ std::mutex                                                  HybridUIEngine::_sRe
     if (style.left.has_value()) { layoutStyle.left = style.left; isLayoutAffecting = true; }
     if (style.right.has_value()) { layoutStyle.right = style.right; isLayoutAffecting = true; }
 
-    if (isLayoutAffecting) {
-      _layoutSubsystem.updateLayoutNode(id, layoutStyle);
-      _layoutSubsystem.markDirty(id);
+    if (isLayoutAffecting && _renderer) {
+      // THREAD SAFETY: Yoga layout KHÔNG được gọi từ Reanimated UI thread.
+      // updateLayoutNode + markDirty + scheduleLayoutAndRender phải chạy trên main thread.
+      // Nếu gọi trực tiếp từ UI thread worklet → JniException (Yoga internal lock conflict).
+      // Fix: wrap trong runOnMainThread để đảm bảo Yoga chỉ chạy trên main thread.
+      auto self = std::dynamic_pointer_cast<HybridUIEngine>(shared_from_this());
+      auto capturedId = id;
+      auto capturedStyle = layoutStyle;
+      _platformContext->runOnMainThread([self, capturedId, capturedStyle]() {
+        if (self && self->_renderer) {
+          self->_layoutSubsystem.updateLayoutNode(capturedId, capturedStyle);
+          self->_layoutSubsystem.markDirty(capturedId);
+          self->_renderer->scheduleLayoutAndRender();
+        }
+      });
+      return; // scheduleLayoutAndRender được gọi bên trong runOnMainThread
     }
 
-    // 3. Schedule C++ autonomous render — LUÔN ở cuối sau khi tất cả updates xong
+    // 3. Schedule render cho pure visual updates (opacity, transform, color, translateX...)
+    // Đây là thread-safe: chỉ set atomic flags trong RenderNode.
     if (_renderer && _renderer->isAttached()) {
-      if (isLayoutAffecting) {
-        // Layout thay đổi cần calculateLayout trước khi draw
-        _renderer->scheduleLayoutAndRender();
-      } else {
-        // Pure visual update (opacity, transform, color...) — chỉ cần redraw
-        _renderer->scheduleRender();
-      }
+      _renderer->scheduleRender();
     }
   }
 

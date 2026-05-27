@@ -75,12 +75,10 @@ export const TabBar = React.memo(function TabBar({
   const indicatorId = useWidgetId('TabBar-indicator');
 
   // WORKLET-SAFE FALLBACK: dùng useCallback + runOnJS thay vì ref.current pattern.
-  // Lý do: Reanimated capture ref object vào worklet closure, đánh dấu nó là "serializable".
-  // Sau đó viết ref.current = ... trên JS thread sẽ trigger warning:
-  // "Tried to modify key 'current' of an object which has been passed to a worklet".
-  // useCallback tạo stable fn reference — chỉ thay đổi khi engine thay đổi (không bao giờ).
-  const applyIndicatorPositionJS = React.useCallback((iId: string, left: number) => {
-    engine.updateAnimatedStyles(iId, { left });
+  // Dùng translateX thay vì left: translateX là GPU transform, không trigger Yoga layout.
+  // left trigger Yoga recalculate trên UI thread → JniException (Yoga không thread-safe).
+  const applyIndicatorPositionJS = React.useCallback((iId: string, tx: number) => {
+    engine.updateAnimatedStyles(iId, { translateX: tx });
   }, [engine]);
 
 
@@ -129,9 +127,9 @@ export const TabBar = React.memo(function TabBar({
       'worklet';
       const direct = (global as any).skiaKitEngines?.[engineId]?.unbox();
       if (direct) {
-        direct.updateAnimatedStyles(indicatorId, { left: x });
+        // translateX: GPU transform, không trigger Yoga layout, an toàn trên UI thread
+        direct.updateAnimatedStyles(indicatorId, { translateX: x });
       } else {
-        // runOnJS là cách đúng để gọi JS function từ worklet mà không cần mutable ref
         runOnJS(applyIndicatorPositionJS)(indicatorId, x);
       }
     },
@@ -249,13 +247,15 @@ export const TabBar = React.memo(function TabBar({
         );
       })}
 
-      {/* Animated indicator — single Box positioned via C++ updateAnimatedStyles(left) */}
+      {/* Animated indicator — positioned via translateX (GPU transform, no Yoga, UI-thread safe) */}
       <Box
         id={indicatorId}
         style={{
           position: 'absolute',
-          // Initial left = activeIndex * tabWidth, horizontally centered within tab
-          left: activeIndex * tabWidth + (tabWidth - indicatorW) / 2,
+          // left = centering offset within a single tab only.
+          // Tab index offset is handled by translateX in updateAnimatedStyles.
+          // translateX is a GPU transform — no Yoga recalculation, safe from UI thread.
+          left: (tabWidth - indicatorW) / 2,
           top: height - 3,
           width: indicatorW,
           height: 3,
