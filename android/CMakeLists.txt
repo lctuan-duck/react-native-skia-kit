@@ -49,7 +49,8 @@ add_library(
   # RNSkia JNI platform context (cần bởi RNSkAndroidPlatformContext)
   # Các symbols này không nằm trong static .a — cần compile riêng
   ${RNSKIA_DIR}/android/cpp/jni/JniPlatformContext.cpp
-  ${RNSKIA_DIR}/android/cpp/jni/JniSkiaManager.cpp
+  # JniSkiaManager.cpp KHÔNG compile ở đây — symbols được link từ librnskia.so (prebuilt)
+  # Header JniSkiaManager.h đã đủ cho type cast trong SkiaKitNativeViewJNI.cpp
 )
 
 # ── Nitrogen generated bindings ───────────────────────────────────────────────

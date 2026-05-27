@@ -112,7 +112,9 @@ void SkiaKitRenderer::doRender() {
   }
 
   // ── Step 1: Layout (nếu cần) ──────────────────────────────────────────
+  bool didLayout = false;
   if (_needsLayout.exchange(false, std::memory_order_acq_rel)) {
+    didLayout = true;
     // calculateLayout là pure C++ Yoga computation — thread-safe vì chỉ
     // có doRender chạy trên Main Thread access layout subsystem theo cách này
     _layoutSubsystem.calculateLayout(canvasId, w, h);
@@ -142,30 +144,35 @@ void SkiaKitRenderer::doRender() {
       };
     }
     _renderSubsystem.syncLayoutResults(renderLayouts);
+    // AUTO-BRIDGE 3 (JS notify) sẽ được fire SAU khi draw thành công (bên dưới)
+  }
 
-    // AUTO-BRIDGE 3: Notify JS — update layout SharedValues
-    // (cần thiết cho useNativeYogaLayout / ScrollView physics)
-    // runOnJavascriptThread để JS thread gọi getAllLayouts() + updateLayoutSVs()
-    if (_layoutUpdateCallback) {
+  // ── Step 2: Draw (Main Thread → GPU) ─────────────────────────────────
+  // renderToCanvas trả về false nếu EGL surface không ready (e.g. TextureView
+  // chưa attach GL context, đang scroll, hoặc surface bị mất).
+  // QUAN TRỌNG: KHÔNG fire JS layoutUpdateCallback khi draw thất bại.
+  // Nếu fire → JS update state → scheduleRender() → EGL fail → vòng lặp vô tận.
+  bool rendered = provider->renderToCanvas([this, &canvasId, w, h](SkCanvas* canvas) {
+    const float pd = _platformContext->getPixelDensity();
+    canvas->save();
+    canvas->scale(pd, pd);
+    _renderSubsystem.drawTreeDirect(canvasId, canvas, w, h);
+    canvas->restore();
+  });
+
+  if (rendered) {
+    // Draw thành công → notify JS để update layout SharedValues
+    if (didLayout && _layoutUpdateCallback) {
       auto cb = _layoutUpdateCallback;
       _platformContext->runOnJavascriptThread([cb]() {
         cb();
       });
     }
+  } else {
+    // EGL/surface không ready — mark layout dirty lại để retry khi surface available.
+    _needsLayout.store(true, std::memory_order_release);
+    RENDERER_LOG("renderToCanvas returned false (EGL not ready) — will retry on next dirty");
   }
-
-  // ── Step 2: Draw (Main Thread → GPU) ─────────────────────────────────
-  provider->renderToCanvas([this, &canvasId, w, h](SkCanvas* canvas) {
-    // Pixel density scale (HiDPI / Retina)
-    const float pd = _platformContext->getPixelDensity();
-    canvas->save();
-    canvas->scale(pd, pd);
-
-    // Vẽ trực tiếp qua SkPicture cache — không serialize, không ArrayBuffer
-    _renderSubsystem.drawTreeDirect(canvasId, canvas, w, h);
-
-    canvas->restore();
-  });
 }
 
 } // namespace margelo::nitro::skiakit
