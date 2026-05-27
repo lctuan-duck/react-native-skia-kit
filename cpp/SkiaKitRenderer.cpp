@@ -67,6 +67,18 @@ bool SkiaKitRenderer::isAttached() const {
 // ── Scheduling ────────────────────────────────────────────────────────────
 
 void SkiaKitRenderer::scheduleRender() {
+  // STACK OVERFLOW GUARD:
+  // RenderNode::paint() có thể gọi scheduleRender() (qua onRequestRedraw) trong lúc
+  // doRender() đang chạy trên main thread. runOnMainThread() trên Android thực thi
+  // NGAY LẬP TỨC nếu đã ở trên main thread → doRender() đệ quy vô tận → SIGSEGV.
+  //
+  // Fix: nếu _isRendering=true, chỉ set _renderPending=true và return.
+  // Sau khi doRender() hoàn tất, nó tự schedule thêm 1 frame nếu _renderPending=true.
+  if (_isRendering.load(std::memory_order_acquire)) {
+    _renderPending.store(true, std::memory_order_release);
+    return;
+  }
+
   // Lock-free dedup: nếu đã pending thì bỏ qua, tránh queue nhiều frames
   bool expected = false;
   if (!_renderPending.compare_exchange_strong(expected, true,
@@ -91,8 +103,13 @@ void SkiaKitRenderer::scheduleLayoutAndRender() {
 // ── doRender (Main Thread only) ───────────────────────────────────────────
 
 void SkiaKitRenderer::doRender() {
-  // Reset TRƯỚC khi render: cho phép dirty updates đến trong lúc render
-  // được schedule lại ngay sau khi frame này xong
+  // Set _isRendering TRƯỚC KHI reset _renderPending.
+  // Bất kỳ scheduleRender() nào được gọi trong lúc đang render
+  // sẽ thấy _isRendering=true và chỉ set _renderPending=true (không post task mới).
+  _isRendering.store(true, std::memory_order_release);
+
+  // Reset _renderPending để cho phép dirty updates trong lúc render
+  // được schedule lại ngay sau khi frame này xong.
   _renderPending.store(false, std::memory_order_release);
 
   // Snapshot provider + dimensions dưới lock để tránh race với detach/resize
@@ -172,6 +189,27 @@ void SkiaKitRenderer::doRender() {
     // EGL/surface không ready — mark layout dirty lại để retry khi surface available.
     _needsLayout.store(true, std::memory_order_release);
     RENDERER_LOG("renderToCanvas returned false (EGL not ready) — will retry on next dirty");
+  }
+
+  // ── Cleanup _isRendering và xử lý deferred scheduleRender ────────────────
+  // Clear _isRendering TRƯỚC khi check _renderPending để tránh race condition
+  // giữa 2 threads: nếu clear sau post-task, 1 thread khác có thể đã gọi
+  // scheduleRender() và thấy _isRendering=true → không post → task bị mất.
+  _isRendering.store(false, std::memory_order_release);
+
+  // Nếu paint() hoặc bất kỳ callback nào đã set _renderPending=true trong lúc
+  // chúng ta đang render (bị block bởi _isRendering guard), schedule 1 frame mới.
+  // Dùng compare_exchange để tránh race với scheduleRender() từ thread khác.
+  bool pendingAfterRender = true;
+  if (_renderPending.compare_exchange_strong(pendingAfterRender, false,
+        std::memory_order_acq_rel, std::memory_order_relaxed)) {
+    // Có dirty request trong lúc render — schedule thêm 1 frame
+    auto weakSelf = weak_from_this();
+    _platformContext->runOnMainThread([weakSelf]() {
+      if (auto self = weakSelf.lock()) {
+        self->doRender();
+      }
+    });
   }
 }
 

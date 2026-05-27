@@ -118,6 +118,8 @@ private:
 
   // Lock-free dedup: chỉ 1 render frame được schedule tại một thời điểm
   std::atomic<bool> _renderPending{false};
+  // Guard: ngăn doRender() tự gọi đệ quy (paint → scheduleRender → doRender → ...)
+  std::atomic<bool> _isRendering{false};
   // Flag: cần chạy calculateLayout trước khi draw
   std::atomic<bool> _needsLayout{false};
 
