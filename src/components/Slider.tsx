@@ -3,6 +3,7 @@ import { Box } from './Box';
 import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
 import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
+import { useLayoutSharedValues } from '../hooks/useLayoutSharedValues';
 import type { WidgetProps, PanEvent } from '../types/widget.types';
 import type {
   ColorStyle,
@@ -98,6 +99,10 @@ export const Slider = React.memo(function Slider({
   const finalWidth =
     layout?.width > 0 ? layout.width : typeof width === 'number' ? width : 200;
 
+  // Phase 5: layoutSVs để worklet đọc layout trực tiếp mà không cần re-register
+  const layoutSVs = useLayoutSharedValues(widgetId);
+  const defaultWidth = typeof width === 'number' ? width : 200;
+
   const [internalValue, setInternalValue] = React.useState(value);
   const isDragging = React.useRef(false);
 
@@ -119,8 +124,12 @@ export const Slider = React.memo(function Slider({
     () => animatedRatio.value,
     (r) => {
       'worklet';
-      const fillW = r * finalWidth;
-      const thumbCx = r * finalWidth;
+      // Phase 5: đọc layout trực tiếp từ SharedValue — không qua JS state
+      // layoutSVs.width.value luôn là giá trị mới nhất từ C++ Yoga cycle
+      // Không cần finalWidth trong deps → không re-register khi layout thay đổi
+      const fw = layoutSVs.width.value > 0 ? layoutSVs.width.value : defaultWidth;
+      const fillW = r * fw;
+      const thumbCx = r * fw;
       // Perf fix: use updateAnimatedStylesDirect (worklet-thread direct C++ call)
       // instead of scheduleOnRN which hops to JS thread → avoids FPS drop during pan.
       const direct = (global as any).updateAnimatedStylesDirect;
@@ -133,7 +142,9 @@ export const Slider = React.memo(function Slider({
       }
       (global as any).skiaKitScrollRedraw?.();
     },
-    [finalWidth, fillId, thumbId, thumbR]
+    // Phase 5: finalWidth removed from deps — worklet reads layoutSVs.width.value inline.
+    // layoutSVs.width is a stable SharedValue ref captured by closure — NOT needed in deps.
+    [fillId, thumbId, thumbR, defaultWidth]
   );
 
   const calculateValue = (localX: number) => {

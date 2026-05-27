@@ -13,6 +13,7 @@ import { Expanded } from './Expanded';
 import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
 import { useNativeYogaLayout } from '../hooks/useNativeYogaLayout';
+import { useLayoutSharedValues } from '../hooks/useLayoutSharedValues';
 import { useEngine } from '../core/EngineContext';
 import type { WidgetProps } from '../types/widget.types';
 import type {
@@ -95,6 +96,25 @@ export const TabBar = React.memo(function TabBar({
   React.useEffect(() => {
     indicatorX.value = withTiming(activeIndex * tabWidth, { duration: 220 });
   }, [activeIndex, tabWidth, indicatorX]);
+
+  // Phase 5: layoutSVs để auto-snap indicator khi layout thay đổi (screen rotation)
+  // Không cần finalWidth/tabWidth trong worklet deps
+  const layoutSVs = useLayoutSharedValues(widgetId);
+  const numItems = items.length;
+
+  useAnimatedReaction(
+    () => layoutSVs.width.value,
+    (newWidth) => {
+      'worklet';
+      // Khi width thay đổi (layout computed/re-computed), re-snap indicator
+      // sà không cần JS thread re-render để đưa lại indicator về đúng vị trí
+      if (newWidth > 0) {
+        const tw = newWidth / Math.max(1, numItems);
+        indicatorX.value = activeIndex * tw;
+      }
+    },
+    [numItems, activeIndex] // indicatorX là stable ref — không cần trong deps
+  );
 
   useAnimatedReaction(
     () => indicatorX.value,
