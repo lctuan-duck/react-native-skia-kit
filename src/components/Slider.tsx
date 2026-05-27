@@ -81,13 +81,16 @@ export const Slider = React.memo(function Slider({
   const fillId = useWidgetId('SliderFill');
   const thumbId = useWidgetId('SliderThumb');
 
-  // WORKLET-SAFE: useCallback + runOnJS thay vì mutable ref bị worklet capture
+  // WORKLET-SAFE + THREAD-SAFE: dùng GPU transforms thay vì Yoga layout props.
+  // width/left là Yoga props → không an toàn từ UI thread worklet → JniException + giật.
+  // scaleX + transformOriginX=0: thu giãn fill từ trái, không trigger Yoga.
+  // translateX: dịch chuyển thumb, không trigger Yoga.
   const updateSliderUI = React.useCallback(
-    (fId: string, tId: string, fillW: number, thumbLeft: number) => {
-      engine.updateAnimatedStyles(fId, { width: fillW });
-      engine.updateAnimatedStyles(tId, { left: thumbLeft });
+    (fId: string, tId: string, ratio: number) => {
+      engine.updateAnimatedStyles(fId, { scaleX: ratio, transformOriginX: 0 });
+      engine.updateAnimatedStyles(tId, { translateX: ratio * finalWidth - thumbR });
     },
-    [engine]
+    [engine, finalWidth, thumbR]
   );
 
   const layout = useNativeYogaLayout(widgetId, { width, height: totalHeight });
@@ -119,23 +122,17 @@ export const Slider = React.memo(function Slider({
     () => animatedRatio.value,
     (r) => {
       'worklet';
-      // Phase 5: đọc layout trực tiếp từ SharedValue — không qua JS state
-      // layoutSVs.width.value luôn là giá trị mới nhất từ C++ Yoga cycle
-      // Không cần finalWidth trong deps → không re-register khi layout thay đổi
+      // GPU transforms: scaleX cho fill, translateX cho thumb.
+      // Không dùng width/left (Yoga props) → an toàn trên UI thread, không giật.
       const fw = layoutSVs.width.value > 0 ? layoutSVs.width.value : defaultWidth;
-      const fillW = r * fw;
-      const thumbCx = r * fw;
       const direct = (global as any).skiaKitEngines?.[engineId]?.unbox();
       if (direct) {
-        direct.updateAnimatedStyles(fillId, { width: fillW });
-        direct.updateAnimatedStyles(thumbId, { left: thumbCx - thumbR });
+        direct.updateAnimatedStyles(fillId, { scaleX: r, transformOriginX: 0 });
+        direct.updateAnimatedStyles(thumbId, { translateX: r * fw - thumbR });
       } else {
-        // Fallback to JS-thread path if direct call not registered
-        runOnJS(updateSliderUI)(fillId, thumbId, fillW, thumbCx - thumbR);
+        runOnJS(updateSliderUI)(fillId, thumbId, r);
       }
     },
-    // Phase 5: finalWidth removed from deps — worklet reads layoutSVs.width.value inline.
-    // layoutSVs.width is a stable SharedValue ref captured by closure — NOT needed in deps.
     [fillId, thumbId, thumbR, defaultWidth, engineId, updateSliderUI]
   );
 
@@ -180,8 +177,9 @@ export const Slider = React.memo(function Slider({
   const initialThumbLeft = initialRatio * finalWidth - thumbR;
 
   React.useLayoutEffect(() => {
-    updateSliderUI(fillId, thumbId, initialFillWidth, initialThumbLeft);
-  }, [fillId, thumbId, initialFillWidth, initialThumbLeft, updateSliderUI]);
+    // Initial sync: đặt visual về đúng vị trí khởi đầu qua GPU transforms
+    updateSliderUI(fillId, thumbId, initialRatio);
+  }, [fillId, thumbId, initialRatio, updateSliderUI]);
 
   return (
     <Box
@@ -210,10 +208,11 @@ export const Slider = React.memo(function Slider({
         }}
       />
 
-      {/* Track Fill */}
+      {/* Track Fill — width=finalWidth (full), scaleX animates 0..1 from left via transformOriginX=0 */}
       <Box
         id={fillId}
         style={{
+          width: finalWidth,
           height: trackH,
           backgroundColor: activeColor,
           borderRadius: trackH / 2,

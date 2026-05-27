@@ -63,11 +63,14 @@ export const Radio = React.memo(function Radio({
   const uncheckedBorderColor = theme.colors.outline;
   const disabledBorderColor = theme.colors.textDisabled;
 
-  // WORKLET-SAFE: useCallback + runOnJS thay vì mutable ref
+  // WORKLET-SAFE + THREAD-SAFE: dùng GPU transforms thay vì Yoga layout props.
+  // dot dùng scale (0→1) thay vì width/height — không trigger Yoga.
+  // borderColor/borderRadius/borderWidth là paint props (không phải Yoga) — OK.
   const updateRadioUI = React.useCallback(
-    (wId: string, dId: string, borderStr: string, dotSize: number, radius: number, bw: number, dotColorStr: string) => {
+    (wId: string, dId: string, borderStr: string, radius: number, bw: number, dotScale: number, dotColorStr: string) => {
       engine.updateAnimatedStyles(wId, { borderColor: parseColor(borderStr), borderRadius: radius, borderWidth: bw });
-      engine.updateAnimatedStyles(dId, { width: dotSize, height: dotSize, backgroundColor: parseColor(dotColorStr), borderRadius: dotSize / 2 });
+      // scale thay vì width/height — GPU transform, không trigger Yoga
+      engine.updateAnimatedStyles(dId, { scale: dotScale, backgroundColor: parseColor(dotColorStr) });
     },
     [engine]
   );
@@ -121,20 +124,19 @@ export const Radio = React.memo(function Radio({
           borderRadius: r,
           borderWidth: borderWidth,
         });
+        // scale thay vì width/height (Yoga props) — GPU transform, thread-safe
         direct.updateAnimatedStyles(dotId, {
-          width: currentDotSize,
-          height: currentDotSize,
+          scale: p,
           backgroundColor: parseColor(dotColor),
-          borderRadius: currentDotSize / 2,
         });
       } else {
         runOnJS(updateRadioUI)(
           widgetId,
           dotId,
           currentBorder.toString(),
-          currentDotSize,
           r,
           borderWidth,
+          p,
           dotColor
         );
       }
@@ -148,7 +150,6 @@ export const Radio = React.memo(function Radio({
       dotId,
       r,
       borderWidth,
-      maxDotSize,
       dotColor,
       engineId,
       updateRadioUI,

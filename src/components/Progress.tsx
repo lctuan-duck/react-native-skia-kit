@@ -71,16 +71,20 @@ export const Progress = React.memo(function Progress({
   const widgetId = useWidgetId('Progress');
   const fillId = useWidgetId('ProgressFill');
 
-  // WORKLET-SAFE: useCallback + runOnJS thay vì mutable ref bị worklet capture
+  // WORKLET-SAFE + THREAD-SAFE: dùng GPU transforms thay vì Yoga layout props.
+  // determinate linear: scaleX (0..1) + transformOriginX=0 — không trigger Yoga.
+  // indeterminate linear: translateX — đã đúng.
+  // circular: rotateZ — đã đúng.
   const updateProgressUI = React.useCallback(
-    (fId: string, isDet: boolean, p: number, fw: number, v: 'linear' | 'circular') => {
+    (fId: string, isDet: boolean, p: number, _fw: number, v: 'linear' | 'circular') => {
       if (v === 'circular') {
         engine.updateAnimatedStyles(fId, { rotateZ: p * 360 });
       } else if (isDet) {
-        engine.updateAnimatedStyles(fId, { width: p * fw });
+        // scaleX thay vì width — GPU transform, không trigger Yoga
+        engine.updateAnimatedStyles(fId, { scaleX: p, transformOriginX: 0 });
       } else {
-        const fillW = fw * 0.4;
-        engine.updateAnimatedStyles(fId, { translateX: p * (fw - fillW) });
+        const fillW = _fw * 0.4;
+        engine.updateAnimatedStyles(fId, { translateX: p * (_fw - fillW) });
       }
     },
     [engine]
@@ -137,7 +141,8 @@ export const Progress = React.memo(function Progress({
         if (variant === 'circular') {
           direct.updateAnimatedStyles(fillId, { rotateZ: p * 360 });
         } else if (isDeterminate) {
-          direct.updateAnimatedStyles(fillId, { width: p * fw });
+          // scaleX thay vì width (Yoga) — GPU transform, thread-safe, 60fps
+          direct.updateAnimatedStyles(fillId, { scaleX: p, transformOriginX: 0 });
         } else {
           const fillW = fw * 0.4;
           direct.updateAnimatedStyles(fillId, { translateX: p * (fw - fillW) });
@@ -180,7 +185,9 @@ export const Progress = React.memo(function Progress({
         <Box
           id={fillId}
           style={{
-            width: isDeterminate ? undefined : '40%',
+            // width=100% (initial full width) — scaleX animates from 0 to 1 via transformOriginX=0
+            // Không dùng width animation (Yoga prop) — dùng scaleX (GPU transform) để smooth 60fps
+            width: '100%',
             height: '100%',
             backgroundColor: resolvedColor,
             borderRadius: height / 2,
