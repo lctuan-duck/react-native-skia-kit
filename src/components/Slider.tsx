@@ -17,8 +17,9 @@ import {
   useSharedValue,
   withTiming,
   useAnimatedReaction,
+  runOnJS,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+
 
 // === Slider Types ===
 
@@ -80,20 +81,14 @@ export const Slider = React.memo(function Slider({
   const fillId = useWidgetId('SliderFill');
   const thumbId = useWidgetId('SliderThumb');
 
-  // Stable ref cho fallback JS-thread path (khi worklet direct call không có)
-  // Pattern giống useSkiaAnimatedStyle — capture engine đúng per-instance
-  const updateSliderUIRef = React.useRef(
+  // WORKLET-SAFE: useCallback + runOnJS thay vì mutable ref bị worklet capture
+  const updateSliderUI = React.useCallback(
     (fId: string, tId: string, fillW: number, thumbLeft: number) => {
       engine.updateAnimatedStyles(fId, { width: fillW });
       engine.updateAnimatedStyles(tId, { left: thumbLeft });
-      (global as any).skiaKitScrollRedraw?.();
-    }
+    },
+    [engine]
   );
-  updateSliderUIRef.current = (fId, tId, fillW, thumbLeft) => {
-    engine.updateAnimatedStyles(fId, { width: fillW });
-    engine.updateAnimatedStyles(tId, { left: thumbLeft });
-    (global as any).skiaKitScrollRedraw?.();
-  };
 
   const layout = useNativeYogaLayout(widgetId, { width, height: totalHeight });
   const finalWidth =
@@ -136,12 +131,12 @@ export const Slider = React.memo(function Slider({
         direct.updateAnimatedStyles(thumbId, { left: thumbCx - thumbR });
       } else {
         // Fallback to JS-thread path if direct call not registered
-        scheduleOnRN(updateSliderUIRef.current, fillId, thumbId, fillW, thumbCx - thumbR);
+        runOnJS(updateSliderUI)(fillId, thumbId, fillW, thumbCx - thumbR);
       }
     },
     // Phase 5: finalWidth removed from deps — worklet reads layoutSVs.width.value inline.
     // layoutSVs.width is a stable SharedValue ref captured by closure — NOT needed in deps.
-    [fillId, thumbId, thumbR, defaultWidth, engineId]
+    [fillId, thumbId, thumbR, defaultWidth, engineId, updateSliderUI]
   );
 
   const calculateValue = (localX: number) => {
@@ -185,8 +180,8 @@ export const Slider = React.memo(function Slider({
   const initialThumbLeft = initialRatio * finalWidth - thumbR;
 
   React.useLayoutEffect(() => {
-    updateSliderUIRef.current(fillId, thumbId, initialFillWidth, initialThumbLeft);
-  }, [fillId, thumbId, initialFillWidth, initialThumbLeft]);
+    updateSliderUI(fillId, thumbId, initialFillWidth, initialThumbLeft);
+  }, [fillId, thumbId, initialFillWidth, initialThumbLeft, updateSliderUI]);
 
   return (
     <Box

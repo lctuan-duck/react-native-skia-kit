@@ -18,8 +18,9 @@ import {
   withRepeat,
   cancelAnimation,
   useAnimatedReaction,
+  runOnJS,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+
 
 // === Progress Types ===
 
@@ -70,8 +71,8 @@ export const Progress = React.memo(function Progress({
   const widgetId = useWidgetId('Progress');
   const fillId = useWidgetId('ProgressFill');
 
-  // Stable ref cho scheduleOnRN fallback và useLayoutEffect — capture engine per-instance
-  const updateProgressUIRef = React.useRef(
+  // WORKLET-SAFE: useCallback + runOnJS thay vì mutable ref bị worklet capture
+  const updateProgressUI = React.useCallback(
     (fId: string, isDet: boolean, p: number, fw: number, v: 'linear' | 'circular') => {
       if (v === 'circular') {
         engine.updateAnimatedStyles(fId, { rotateZ: p * 360 });
@@ -81,20 +82,9 @@ export const Progress = React.memo(function Progress({
         const fillW = fw * 0.4;
         engine.updateAnimatedStyles(fId, { translateX: p * (fw - fillW) });
       }
-      (global as any).skiaKitScrollRedraw?.();
-    }
+    },
+    [engine]
   );
-  updateProgressUIRef.current = (fId, isDet, p, fw, v) => {
-    if (v === 'circular') {
-      engine.updateAnimatedStyles(fId, { rotateZ: p * 360 });
-    } else if (isDet) {
-      engine.updateAnimatedStyles(fId, { width: p * fw });
-    } else {
-      const fillW = fw * 0.4;
-      engine.updateAnimatedStyles(fId, { translateX: p * (fw - fillW) });
-    }
-    (global as any).skiaKitScrollRedraw?.();
-  };
 
   const layout = useNativeYogaLayout(widgetId, {
     width: variant === 'linear' ? width : size,
@@ -156,8 +146,7 @@ export const Progress = React.memo(function Progress({
         // Fallback: throttle to ~15fps to avoid JS thread flooding
         updateCounter.value += 1;
         if (updateCounter.value % 4 === 0) {
-          scheduleOnRN(
-            updateProgressUIRef.current,
+          runOnJS(updateProgressUI)(
             fillId,
             isDeterminate,
             p,
@@ -169,12 +158,12 @@ export const Progress = React.memo(function Progress({
     },
     // Phase 5: finalWidth removed from deps — worklet reads layoutSVs.width.value inline.
     // layoutSVs.width is a stable SharedValue ref — NOT needed in deps array.
-    [isDeterminate, fillId, variant, defaultWidth, engineId]
+    [isDeterminate, fillId, variant, defaultWidth, engineId, updateProgressUI]
   );
 
   React.useLayoutEffect(() => {
-    updateProgressUIRef.current(fillId, isDeterminate, safeValue, finalWidth, variant);
-  }, [fillId, isDeterminate, safeValue, finalWidth, variant]);
+    updateProgressUI(fillId, isDeterminate, safeValue, finalWidth, variant);
+  }, [fillId, isDeterminate, safeValue, finalWidth, variant, updateProgressUI]);
 
   if (variant === 'linear') {
     return (

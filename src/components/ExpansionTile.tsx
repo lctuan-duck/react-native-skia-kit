@@ -3,8 +3,9 @@ import {
   useSharedValue,
   withTiming,
   useAnimatedReaction,
+  runOnJS,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+
 import { Box } from './Box';
 import { Text } from './Text';
 import { Icon } from './Icon';
@@ -66,6 +67,11 @@ export const ExpansionTile = React.memo(function ExpansionTile({
   const chevronWidgetId = useWidgetId('ET-chevron');
   const panelWidgetId = useWidgetId('ET-panel');
 
+  // WORKLET-SAFE: useCallback + runOnJS thay vì scheduleOnRN với inline closure
+  const updateChevronUI = React.useCallback((id: string, rot: number) => {
+    engine.updateAnimatedStyles(id, { rotateZ: rot });
+  }, [engine]);
+
   const chevronRotation = useSharedValue(initiallyExpanded ? 1 : 0);
 
   // ET1 fix: Animate chevron rotation via C++ updateAnimatedStyles
@@ -79,16 +85,10 @@ export const ExpansionTile = React.memo(function ExpansionTile({
         if (direct) {
           direct.updateAnimatedStyles(chevronWidgetId, { rotateZ: angleDeg });
         } else {
-          scheduleOnRN(
-            (id: string, rot: number) => {
-              engine.updateAnimatedStyles(id, { rotateZ: rot });
-            },
-            chevronWidgetId,
-            angleDeg
-          );
+          runOnJS(updateChevronUI)(chevronWidgetId, angleDeg);
         }
     },
-    [chevronWidgetId, engineId]
+    [chevronWidgetId, engineId, updateChevronUI]
   );
 
   const chevronColor = style?.iconColor ?? theme.colors.textSecondary;
