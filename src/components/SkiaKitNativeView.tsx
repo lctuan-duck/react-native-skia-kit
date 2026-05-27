@@ -10,8 +10,8 @@
  *   const engineId = useMemo(() => uiEngine.getEngineId(), []);
  *   <SkiaKitNativeView engineId={engineId} style={{ flex: 1 }} />
  */
-import { requireNativeComponent, ViewStyle } from 'react-native';
-import type { HostComponent } from 'react-native';
+import { requireNativeComponent } from 'react-native';
+import type { ViewStyle, HostComponent } from 'react-native';
 
 interface SkiaKitNativeViewProps {
   style?: ViewStyle;

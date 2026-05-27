@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import { Box } from './Box';
 import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
@@ -40,33 +40,6 @@ export interface RadioProps extends WidgetProps {
   onPress?: () => void;
 }
 
-const updateRadioUI = (
-  widgetId: string,
-  dotId: string,
-  currentBorderStr: string,
-  currentDotSize: number,
-  r: number,
-  borderWidth: number,
-  dotColorStr: string
-) => {
-    engine.updateAnimatedStyles(widgetId, {
-    borderColor: parseColor(currentBorderStr),
-    borderRadius: r,
-    borderWidth: borderWidth,
-  });
-
-  // R1 fix: animate width/height directly via updateAnimatedStyles (_animWidth/_animHeight)
-  // This correctly changes visual size without leaving ghost hit-test area (scale approach bug).
-  // R2: borderRadius animates proportionally with size to keep circle shape.
-  engine.updateAnimatedStyles(dotId, {
-    width: currentDotSize,
-    height: currentDotSize,
-    backgroundColor: parseColor(dotColorStr), // R3: dotColorStr already string, no .toString() needed
-    borderRadius: currentDotSize / 2,
-  });
-  (global as any).skiaKitScrollRedraw?.();
-};
-
 /**
  * Radio — single selection within a group.
  * Equivalent to Flutter Radio.
@@ -88,6 +61,21 @@ export const Radio = React.memo(function Radio({
 
   const uncheckedBorderColor = theme.colors.outline;
   const disabledBorderColor = theme.colors.textDisabled;
+
+  // Stable ref cho scheduleOnRN fallback — capture engine per-instance
+  const updateRadioUIRef = React.useRef(
+    (wId: string, dId: string, borderStr: string, dotSize: number, radius: number, bw: number, dotColorStr: string) => {
+      engine.updateAnimatedStyles(wId, { borderColor: parseColor(borderStr), borderRadius: radius, borderWidth: bw });
+      engine.updateAnimatedStyles(dId, { width: dotSize, height: dotSize, backgroundColor: parseColor(dotColorStr), borderRadius: dotSize / 2 });
+      (global as any).skiaKitScrollRedraw?.();
+    }
+  );
+  updateRadioUIRef.current = (wId, dId, borderStr, dotSize, radius, bw, dotColorStr) => {
+    engine.updateAnimatedStyles(wId, { borderColor: parseColor(borderStr), borderRadius: radius, borderWidth: bw });
+    engine.updateAnimatedStyles(dId, { width: dotSize, height: dotSize, backgroundColor: parseColor(dotColorStr), borderRadius: dotSize / 2 });
+    (global as any).skiaKitScrollRedraw?.();
+  };
+
 
   const targetBorderColor = disabled
     ? disabledBorderColor
@@ -147,7 +135,7 @@ export const Radio = React.memo(function Radio({
         (global as any).skiaKitScrollRedraw?.();
       } else {
         scheduleOnRN(
-          updateRadioUI,
+          updateRadioUIRef.current,
           widgetId,
           dotId,
           currentBorder.toString(),

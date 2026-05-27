@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
   useSharedValue,
   withTiming,
@@ -39,12 +39,6 @@ export interface ExpansionTileProps extends WidgetProps {
   /** Style override */
   style?: ExpansionTileStyle;
 }
-
-// ── JS-thread bridge for animated panel height ───────────────────────────────
-const applyPanelHeight = (panelId: string, h: number) => {
-    engine.updateAnimatedStyles(panelId, { height: h, opacity: h > 4 ? 1 : 0 });
-  (global as any).skiaKitScrollRedraw?.();
-};
 
 export const ExpansionTile = React.memo(function ExpansionTile({
   title,
@@ -98,7 +92,6 @@ export const ExpansionTile = React.memo(function ExpansionTile({
     [chevronWidgetId]
   );
 
-  const expandedMaxHeight = style?.expandedMaxHeight ?? 400;
   const chevronColor = style?.iconColor ?? theme.colors.textSecondary;
   const tilePadding = style?.tilePadding ?? 16;
   const childrenPadding = style?.childrenPadding ?? 16;

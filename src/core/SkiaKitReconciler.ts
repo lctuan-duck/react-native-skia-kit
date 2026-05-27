@@ -493,8 +493,7 @@ const baseHostConfig = {
         const fit = props.resizeMode ?? props.style?.objectFit ?? 'cover';
         const borderRadius = props.style?.borderRadius ?? 0;
         engine.createImageNode(id, src, fit, borderRadius);
-        // Phase 6E: C++ fetches image data natively via RNSkPlatformContext
-        engine.startImageLoad(id);
+        // C++ auto-triggers image load when uri is non-empty (no JS call needed)
         if (isInteractive(props)) {
           const zIndex = props.style?.zIndex ?? 0;
           engine.registerWidget(id, 0, 0, 0, 0, zIndex, 0);
@@ -803,7 +802,7 @@ const baseHostConfig = {
         const fit = newProps.resizeMode ?? newProps.style?.objectFit ?? 'cover';
         const borderRadius = newProps.style?.borderRadius ?? 0;
         engine.updateImageNode(id, src, fit, borderRadius);
-        engine.startImageLoad(id);
+        // C++ auto-triggers image load when uri changes
         break;
       }
 

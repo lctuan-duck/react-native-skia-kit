@@ -92,14 +92,15 @@ export const CanvasRoot = React.memo(function CanvasRoot({
 
     // Worklet thread globals
     const boxedEngine = NitroModules.box(engine);
-    runOnUI((engine) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    runOnUI((boxed: any) => {
       'worklet';
       (global as any).updateAnimatedStylesDirect = (
         id: string,
         style: Record<string, unknown>
       ) => {
         'worklet';
-        const eng = engine.unbox();
+        const eng = boxed.unbox();
         if (eng && id) {
           eng.updateAnimatedStyles(id, style as any);
         }
@@ -428,7 +429,7 @@ export const CanvasRoot = React.memo(function CanvasRoot({
           {/* Phase 3: SkiaKitNativeView là renderer duy nhất — C++ vẽ trực tiếp lên GPU */}
           <SkiaKitNativeView
             engineId={engineId}
-            style={[styles.canvas, { width: screenWidth, height: screenHeight }, style]}
+            style={[styles.canvas, { width: screenWidth, height: screenHeight }, style] as any}
           />
         </RNGestureDetector>
       </WidgetContext.Provider>

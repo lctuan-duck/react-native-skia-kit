@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import {
   useSharedValue,
   withTiming,
@@ -49,12 +49,6 @@ export interface TabBarProps extends WidgetProps {
   style?: TabBarStyle;
 }
 
-// Bridge: slide the indicator Box to position X
-const applyIndicatorPosition = (indicatorId: string, left: number) => {
-    engine.updateAnimatedStyles(indicatorId, { left });
-  (global as any).skiaKitScrollRedraw?.();
-};
-
 export const TabBar = React.memo(function TabBar({
   items,
   activeIndex = 0,
@@ -76,8 +70,18 @@ export const TabBar = React.memo(function TabBar({
   const width = style?.width ?? 360;
   const height = style?.height ?? 48;
   const widgetId = useWidgetId('TabBar');
-  // Stable ID for the animated indicator pill (tab variant only)
   const indicatorId = useWidgetId('TabBar-indicator');
+
+  // Stable ref cho scheduleOnRN fallback — capture engine per-instance
+  const applyIndicatorPositionRef = React.useRef((iId: string, left: number) => {
+    engine.updateAnimatedStyles(iId, { left });
+    (global as any).skiaKitScrollRedraw?.();
+  });
+  applyIndicatorPositionRef.current = (iId, left) => {
+    engine.updateAnimatedStyles(iId, { left });
+    (global as any).skiaKitScrollRedraw?.();
+  };
+
 
   const layout = useNativeYogaLayout(widgetId, { width, height });
   const finalWidth =
@@ -101,7 +105,7 @@ export const TabBar = React.memo(function TabBar({
         direct(indicatorId, { left: x });
         (global as any).skiaKitScrollRedraw?.();
       } else {
-        scheduleOnRN(applyIndicatorPosition, indicatorId, x);
+        scheduleOnRN(applyIndicatorPositionRef.current, indicatorId, x);
       }
     },
     [indicatorId]

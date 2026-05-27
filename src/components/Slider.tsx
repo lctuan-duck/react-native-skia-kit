@@ -177,7 +177,7 @@ export const Slider = React.memo(function Slider({
   const initialThumbLeft = initialRatio * finalWidth - thumbR;
 
   React.useLayoutEffect(() => {
-    updateSliderUI(fillId, thumbId, initialFillWidth, initialThumbLeft);
+    updateSliderUIRef.current(fillId, thumbId, initialFillWidth, initialThumbLeft);
   }, [fillId, thumbId, initialFillWidth, initialThumbLeft]);
 
   return (

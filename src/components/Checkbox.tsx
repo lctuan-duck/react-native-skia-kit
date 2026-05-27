@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import { Box } from './Box';
 import { Icon } from './Icon';
 import { useWidgetId } from '../hooks/useWidgetId';
@@ -41,27 +41,6 @@ export interface CheckboxProps extends WidgetProps {
   onPress?: () => void;
 }
 
-const updateCheckboxUI = (
-  widgetId: string,
-  iconId: string,
-  currentBgStr: string,
-  currentBorderStr: string,
-  borderRadius: number,
-  borderWidth: number,
-  opacity: number
-) => {
-    engine.updateAnimatedStyles(widgetId, {
-    backgroundColor: parseColor(currentBgStr),
-    borderColor: parseColor(currentBorderStr),
-    borderRadius: borderRadius,
-    borderWidth: borderWidth,
-  });
-
-  // updateAnimatedStyles: set _opacity trực tiếp trên RenderNode.
-  engine.updateAnimatedStyles(iconId, { opacity });
-  (global as any).skiaKitScrollRedraw?.();
-};
-
 /**
  * Checkbox — boolean toggle with checkmark.
  * Equivalent to Flutter Checkbox.
@@ -82,6 +61,31 @@ export const Checkbox = React.memo(function Checkbox({
 
   const uncheckedBorderColor = theme.colors.outline;
   const disabledBorderColor = theme.colors.textDisabled;
+
+  // Stable ref cho scheduleOnRN fallback path — capture engine đúng per-instance
+  const updateCheckboxUIRef = React.useRef(
+    (wId: string, iId: string, bgStr: string, borderStr: string, br: number, bw: number, opacity: number) => {
+      engine.updateAnimatedStyles(wId, {
+        backgroundColor: parseColor(bgStr),
+        borderColor: parseColor(borderStr),
+        borderRadius: br,
+        borderWidth: bw,
+      });
+      engine.updateAnimatedStyles(iId, { opacity });
+      (global as any).skiaKitScrollRedraw?.();
+    }
+  );
+  updateCheckboxUIRef.current = (wId, iId, bgStr, borderStr, br, bw, opacity) => {
+    engine.updateAnimatedStyles(wId, {
+      backgroundColor: parseColor(bgStr),
+      borderColor: parseColor(borderStr),
+      borderRadius: br,
+      borderWidth: bw,
+    });
+    engine.updateAnimatedStyles(iId, { opacity });
+    (global as any).skiaKitScrollRedraw?.();
+  };
+
 
   const targetBorderColor = disabled
     ? disabledBorderColor
@@ -145,7 +149,7 @@ export const Checkbox = React.memo(function Checkbox({
         (global as any).skiaKitScrollRedraw?.();
       } else {
         scheduleOnRN(
-          updateCheckboxUI,
+          updateCheckboxUIRef.current,
           widgetId,
           iconId,
           currentBg.toString(),

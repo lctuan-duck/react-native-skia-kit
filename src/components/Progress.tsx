@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import { Box } from './Box';
 import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
@@ -44,36 +44,6 @@ export interface ProgressProps extends WidgetProps {
   style?: ProgressStyle;
 }
 
-const updateProgressUI = (
-  fillId: string,
-  isDeterminate: boolean,
-  p: number,
-  finalWidth: number,
-  variant: 'linear' | 'circular'
-) => {
-    if (variant === 'circular') {
-    // rotateZ đã dùng updateAnimatedStyles (bypass Yoga) ✅
-    engine.updateAnimatedStyles(fillId, { rotateZ: p * 360 });
-  } else {
-    if (isDeterminate) {
-      // updateAnimatedStyles → set _animWidth trực tiếp, bypass Yoga recalc
-      engine.updateAnimatedStyles(fillId, { width: p * finalWidth });
-    } else {
-      // Indeterminate: use translateX to avoid Yoga layout thrashing
-      const fillW = finalWidth * 0.4;
-      const maxLeft = finalWidth - fillW;
-      engine.updateAnimatedStyles(fillId, {
-        translateX: p * maxLeft,
-      });
-    }
-  }
-  (global as any).skiaKitScrollRedraw?.();
-};
-
-/**
- * Progress — linear bar or circular spinner.
- * Equivalent to Flutter LinearProgressIndicator / CircularProgressIndicator.
- */
 export const Progress = React.memo(function Progress({
   variant = 'linear',
   value,
@@ -98,6 +68,33 @@ export const Progress = React.memo(function Progress({
 
   const widgetId = useWidgetId('Progress');
   const fillId = useWidgetId('ProgressFill');
+
+  // Stable ref cho scheduleOnRN fallback và useLayoutEffect — capture engine per-instance
+  const updateProgressUIRef = React.useRef(
+    (fId: string, isDet: boolean, p: number, fw: number, v: 'linear' | 'circular') => {
+      if (v === 'circular') {
+        engine.updateAnimatedStyles(fId, { rotateZ: p * 360 });
+      } else if (isDet) {
+        engine.updateAnimatedStyles(fId, { width: p * fw });
+      } else {
+        const fillW = fw * 0.4;
+        engine.updateAnimatedStyles(fId, { translateX: p * (fw - fillW) });
+      }
+      (global as any).skiaKitScrollRedraw?.();
+    }
+  );
+  updateProgressUIRef.current = (fId, isDet, p, fw, v) => {
+    if (v === 'circular') {
+      engine.updateAnimatedStyles(fId, { rotateZ: p * 360 });
+    } else if (isDet) {
+      engine.updateAnimatedStyles(fId, { width: p * fw });
+    } else {
+      const fillW = fw * 0.4;
+      engine.updateAnimatedStyles(fId, { translateX: p * (fw - fillW) });
+    }
+    (global as any).skiaKitScrollRedraw?.();
+  };
+
   const layout = useNativeYogaLayout(widgetId, {
     width: variant === 'linear' ? width : size,
     height: variant === 'linear' ? height : size,
@@ -152,7 +149,7 @@ export const Progress = React.memo(function Progress({
         updateCounter.value += 1;
         if (updateCounter.value % 4 === 0) {
           scheduleOnRN(
-            updateProgressUI,
+            updateProgressUIRef.current,
             fillId,
             isDeterminate,
             p,
@@ -166,7 +163,7 @@ export const Progress = React.memo(function Progress({
   );
 
   React.useLayoutEffect(() => {
-    updateProgressUI(fillId, isDeterminate, safeValue, finalWidth, variant);
+    updateProgressUIRef.current(fillId, isDeterminate, safeValue, finalWidth, variant);
   }, [fillId, isDeterminate, safeValue, finalWidth, variant]);
 
   if (variant === 'linear') {

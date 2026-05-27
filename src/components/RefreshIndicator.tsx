@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import { useState, useCallback, useRef } from 'react';
 import { useSharedValue, withSpring, withTiming, useAnimatedReaction } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -33,12 +33,6 @@ export interface RefreshIndicatorProps extends WidgetProps {
   style?: RefreshIndicatorStyle;
 }
 
-// Bridge: apply translateY to the content wrapper to show pull displacement
-const applyPullOffset = (contentId: string, ty: number) => {
-    engine.updateAnimatedStyles(contentId, { translateY: ty });
-  (global as any).skiaKitScrollRedraw?.();
-};
-
 /**
  * RefreshIndicator — pull-to-refresh container.
  * - Wraps `children` in a pan-gesture-aware container.
@@ -64,6 +58,17 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
   const engine = useEngine();
   const isRefreshingRef = useRef(false);
 
+  // Stable ref cho scheduleOnRN fallback — capture engine per-instance
+  const applyPullOffsetRef = useRef((cId: string, ty: number) => {
+    engine.updateAnimatedStyles(cId, { translateY: ty });
+    (global as any).skiaKitScrollRedraw?.();
+  });
+  applyPullOffsetRef.current = (cId, ty) => {
+    engine.updateAnimatedStyles(cId, { translateY: ty });
+    (global as any).skiaKitScrollRedraw?.();
+  };
+
+
   // Shared value tracks the pull offset (0 = neutral, positive = pulled down)
   const pullOffset = useSharedValue(0);
 
@@ -77,7 +82,7 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
         direct(contentId, { translateY: ty });
         (global as any).skiaKitScrollRedraw?.();
       } else {
-        scheduleOnRN(applyPullOffset, contentId, ty);
+        scheduleOnRN(applyPullOffsetRef.current, contentId, ty);
       }
     },
     [contentId]

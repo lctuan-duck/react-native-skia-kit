@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import { useEffect } from 'react';
 import {
   useSharedValue,
@@ -34,12 +34,6 @@ export interface SnackBarProps extends WidgetProps {
   onDismiss?: () => void;
 }
 
-// ── Worklet-bridge update ─────────────────────────────────────────────────────
-const updateSnackBarUI = (widgetId: string, translateY: number) => {
-    engine.updateAnimatedStyles(widgetId, { translateY });
-  (global as any).skiaKitScrollRedraw?.();
-};
-
 // Three render states:
 //  - 'idle'      → not rendered (return null)
 //  - 'entering'  → rendered, animating in (translateY: 80 → 0)
@@ -63,6 +57,17 @@ export const SnackBar = React.memo(function SnackBar({
   const fgColor = style?.textColor ?? theme.colors.textInverse;
 
   const widgetId = useWidgetId('SnackBar');
+
+  // Stable ref cho scheduleOnRN fallback — capture engine per-instance
+  const updateSnackBarUIRef = React.useRef((wId: string, ty: number) => {
+    engine.updateAnimatedStyles(wId, { translateY: ty });
+    (global as any).skiaKitScrollRedraw?.();
+  });
+  updateSnackBarUIRef.current = (wId, ty) => {
+    engine.updateAnimatedStyles(wId, { translateY: ty });
+    (global as any).skiaKitScrollRedraw?.();
+  };
+
   const translateY = useSharedValue(80);
 
   // SN1 fix: apply translateY to C++ node via worklet reaction
@@ -75,7 +80,7 @@ export const SnackBar = React.memo(function SnackBar({
         direct(widgetId, { translateY: ty });
         (global as any).skiaKitScrollRedraw?.();
       } else {
-        scheduleOnRN(updateSnackBarUI, widgetId, ty);
+        scheduleOnRN(updateSnackBarUIRef.current, widgetId, ty);
       }
     },
     [widgetId]

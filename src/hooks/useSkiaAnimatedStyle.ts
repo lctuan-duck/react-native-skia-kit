@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAnimatedReaction } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { useEngine } from '../core/EngineContext';
-import type { NativeAnimatedStyle } from '../nitro/engine.nitro';
+import type { NativeAnimatedStyle } from '../nitro/UIEngine.nitro';
 import { scheduleOnRN } from 'react-native-worklets';
 
 /**

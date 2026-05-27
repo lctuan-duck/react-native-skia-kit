@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import { Box } from './Box';
 import { useWidgetId } from '../hooks/useWidgetId';
 import { useTheme } from '../hooks/useTheme';
@@ -43,19 +43,6 @@ export interface SwitchProps extends WidgetProps {
   onPress?: () => void;
 }
 
-const updateSwitchUI = (
-  tid: string,
-  cid: string,
-  colorStr: string,
-  leftPadding: number
-) => {
-    engine.updateAnimatedStyles(tid, {
-    backgroundColor: parseColor(colorStr),
-  });
-  engine.updateAnimatedStyles(cid, { translateX: leftPadding });
-  (global as any).skiaKitScrollRedraw?.();
-};
-
 /**
  * Switch — toggle on/off with animated thumb.
  * Equivalent to Flutter Switch.
@@ -74,6 +61,21 @@ export const Switch = React.memo(function Switch({
     style?.backgroundColor ?? resolveSemanticColor(color, theme.colors);
   const inactiveTrack = style?.trackColor ?? theme.colors.border;
   const thumbClr = style?.thumbColor ?? theme.colors.background;
+
+  // Stable ref cho scheduleOnRN fallback — capture engine per-instance
+  const updateSwitchUIRef = React.useRef(
+    (tid: string, cid: string, colorStr: string, leftPadding: number) => {
+      engine.updateAnimatedStyles(tid, { backgroundColor: parseColor(colorStr) });
+      engine.updateAnimatedStyles(cid, { translateX: leftPadding });
+      (global as any).skiaKitScrollRedraw?.();
+    }
+  );
+  updateSwitchUIRef.current = (tid, cid, colorStr, leftPadding) => {
+    engine.updateAnimatedStyles(tid, { backgroundColor: parseColor(colorStr) });
+    engine.updateAnimatedStyles(cid, { translateX: leftPadding });
+    (global as any).skiaKitScrollRedraw?.();
+  };
+
 
   const trackId = useWidgetId('SwitchTrack');
   const thumbId = useWidgetId('SwitchThumb');
@@ -116,7 +118,7 @@ export const Switch = React.memo(function Switch({
         (global as any).skiaKitScrollRedraw?.();
       } else {
         scheduleOnRN(
-          updateSwitchUI,
+          updateSwitchUIRef.current,
           trackId,
           thumbId,
           currentTrackColor.toString(),
