@@ -6,7 +6,6 @@ import android.view.TextureView
 import android.view.ViewGroup
 import android.util.Log
 import com.facebook.react.bridge.ReactContext
-import com.shopify.reactnative.skia.RNSkiaModule
 import com.shopify.reactnative.skia.PlatformContext
 
 /**
@@ -86,14 +85,23 @@ class SkiaKitNativeView(context: Context) : ViewGroup(context),
         }
     }
 
-    /** Helper để lấy PlatformContext từ RNSkiaModule */
+    /** 
+     * PlatformContext field — tạo 1 lần và cache lại.
+     * KHÔNG dùng RNSkiaModule.getNativeModule() vì trong Bridgeless/TurboModule mode,
+     * getNativeModule() trả về null. PlatformContext chỉ cần ReactContext để khởi tạo.
+     */
+    private var _platformContext: PlatformContext? = null
+
+    /** Helper để lấy PlatformContext — tạo trực tiếp từ ReactContext nếu chưa có */
     private fun getPlatformContextFromModule(): PlatformContext? {
+        _platformContext?.let { return it }
         return try {
             val reactContext = context as? ReactContext ?: return null
-            val skiaModule: RNSkiaModule? = reactContext.getNativeModule(RNSkiaModule::class.java)
-            skiaModule?.getSkiaManager()?.platformContext
+            val ctx = PlatformContext(reactContext)
+            _platformContext = ctx
+            ctx
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to get PlatformContext: ${e.message}")
+            Log.e(TAG, "Failed to create PlatformContext: ${e.message}")
             null
         }
     }
