@@ -160,7 +160,12 @@ class SkiaKitNativeView(context: Context) : ViewGroup(context),
     }
 
     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
-        // C++ tự drive updates
+        // Android gọi callback này khi SurfaceTexture nhận frame mới thành công.
+        // Điều này có nghĩa là EGL context đã attach và GL thread đang hoạt động.
+        // Dùng để reset EGL throttle và kick-start lại rendering nếu bị dừng.
+        if (_engineId >= 0) {
+            nativeScheduleRender(_engineId)
+        }
     }
 
     // ── JNI Natives (tất cả nhận engineId để lookup đúng engine) ─────────────
@@ -180,6 +185,9 @@ class SkiaKitNativeView(context: Context) : ViewGroup(context),
     )
 
     private external fun nativeOnSurfaceDestroyed(engineId: Long)
+
+    /** Reset EGL throttle và schedule 1 render frame — dùng sau khi EGL context sẵn sàng. */
+    private external fun nativeScheduleRender(engineId: Long)
 
     companion object {
         private const val TAG = "SkiaKitNativeView"

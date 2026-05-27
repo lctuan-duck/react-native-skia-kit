@@ -69,26 +69,31 @@ bool SkiaKitRenderer::isAttached() const {
 // ── Scheduling ────────────────────────────────────────────────────────────
 
 void SkiaKitRenderer::scheduleRender() {
-  // STACK OVERFLOW GUARD:
-  // RenderNode::paint() có thể gọi scheduleRender() (qua onRequestRedraw) trong lúc
-  // doRender() đang chạy trên main thread. runOnMainThread() trên Android thực thi
-  // NGAY LẬP TỨC nếu đã ở trên main thread → doRender() đệ quy vô tận → SIGSEGV.
-  //
-  // Fix: nếu _isRendering=true, chỉ set _renderPending=true và return.
-  // Sau khi doRender() hoàn tất, nó tự schedule thêm 1 frame nếu _renderPending=true.
+  // STACK OVERFLOW GUARD: nếu doRender() đang chạy, chỉ mark pending, không post task mới.
   if (_isRendering.load(std::memory_order_acquire)) {
     _renderPending.store(true, std::memory_order_release);
     return;
   }
 
-  // Lock-free dedup: nếu đã pending thì bỏ qua, tránh queue nhiều frames
+  // EGL THROTTLE: nếu EGL đang fail liên tục, không post task mới lên main thread.
+  // Reanimated animation gọi scheduleRender() 60fps — mỗi post → doRender() chạy trên main
+  // thread → EGL fail → return → main thread 100% busy → UI freeze/unresponsive.
+  // Fix: khi fail >= threshold, chỉ set _renderPending=true (không post).
+  // Khi EGL recover: attachCanvasProvider → _eglFailCount=0 → scheduleLayoutAndRender()
+  // sẽ bypass throttle và kick-start render lại ngay.
+  constexpr int kMaxEglFailBeforeThrottle = 3;
+  if (_eglFailCount.load(std::memory_order_relaxed) >= kMaxEglFailBeforeThrottle) {
+    _renderPending.store(true, std::memory_order_release); // Nhớ có dirty request
+    return; // Không post task — đợi EGL recover
+  }
+
+  // Lock-free dedup: chỉ 1 render frame được queue tại một thời điểm
   bool expected = false;
   if (!_renderPending.compare_exchange_strong(expected, true,
         std::memory_order_acq_rel, std::memory_order_relaxed)) {
-    return; // Đã có render đang được schedule
+    return; // Đã có task đang pending
   }
 
-  // Capture weak_ptr để tránh dangling pointer nếu renderer bị destroy
   auto weakSelf = weak_from_this();
   _platformContext->runOnMainThread([weakSelf]() {
     if (auto self = weakSelf.lock()) {
@@ -187,47 +192,21 @@ void SkiaKitRenderer::doRender() {
         cb();
       });
     }
-  } else {
-    // EGL/surface không ready — KHÔNG reset _needsLayout.
-    // Layout results đã cached trong RenderSubsystem._nodes (cachedX/Y/W/H).
-    // Reset _needsLayout → layout tính lại từ 0 khi EGL recover → flicker (values jump).
-    // Chỉ cần đợi EGL attach, sau đó draw với layout cũ.
-    _eglFailCount.fetch_add(1, std::memory_order_relaxed);
-    RENDERER_LOG("renderToCanvas returned false (EGL not ready), fail#%d",
-      _eglFailCount.load(std::memory_order_relaxed));
-  }
-
-  if (rendered) {
-    // Reset EGL fail counter sau khi draw thành công
     _eglFailCount.store(0, std::memory_order_relaxed);
+  } else {
+    _eglFailCount.fetch_add(1, std::memory_order_relaxed);
+    RENDERER_LOG("renderToCanvas returned false (EGL not ready), fail#%d — throttling after %d",
+      _eglFailCount.load(std::memory_order_relaxed), 3);
   }
 
-  // ── Cleanup _isRendering và xử lý deferred scheduleRender ────────────────
+  // ── Cleanup _isRendering ────────────────────────────────────────────────
   _isRendering.store(false, std::memory_order_release);
 
-  // THROTTLE khi EGL liên tục fail: nếu đã fail nhiều lần liên tiếp,
-  // dừng busy-loop — chỉ render lại khi có external dirty event
-  // (attachCanvasProvider, resize, reconciler commit, scroll...).
-  // Khi EGL recover, nativeOnSurfaceAvailable → attachCanvasProvider
-  // → scheduleLayoutAndRender() sẽ kick-start render lại.
-  constexpr int kMaxEglFailBeforeThrottle = 3;
-  if (_eglFailCount.load(std::memory_order_relaxed) >= kMaxEglFailBeforeThrottle) {
-    // Surface không ready — dừng polling, đợi surface lifecycle event.
-    // _renderPending và _needsLayout vẫn giữ nguyên để render ngay khi EGL ready.
-    return;
-  }
-
-  // Nếu paint() hoặc callback đã set _renderPending=true trong lúc render,
-  // schedule 1 frame mới. EGL fail count vẫn < threshold → vẫn cần thử.
+  // Schedule frame tiếp theo nếu có dirty request từ bên ngoài.
   bool pendingAfterRender = true;
   if (_renderPending.compare_exchange_strong(pendingAfterRender, false,
         std::memory_order_acq_rel, std::memory_order_relaxed)) {
-    auto weakSelf = weak_from_this();
-    _platformContext->runOnMainThread([weakSelf]() {
-      if (auto self = weakSelf.lock()) {
-        self->doRender();
-      }
-    });
+    scheduleRender(); // Sử dụng scheduleRender() để throttle logic được apply
   }
 }
 

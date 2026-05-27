@@ -140,4 +140,18 @@ Java_com_margelo_nitro_skiakit_SkiaKitNativeView_nativeOnSurfaceDestroyed(
     engine->detachNativeView();
 }
 
+JNIEXPORT void JNICALL
+Java_com_margelo_nitro_skiakit_SkiaKitNativeView_nativeScheduleRender(
+    JNIEnv* /*env*/,
+    jobject /*thiz*/,
+    jlong engineId
+) {
+    // Gọi từ onSurfaceTextureUpdated — EGL context đã attach và GL thread sẵn sàng.
+    // Reset EGL throttle và schedule 1 render để resume sau khi bị dừng do EGL fail.
+    auto engine = HybridUIEngine::findById((int64_t)engineId);
+    if (!engine) return;
+
+    engine->scheduleRenderFromSurface();
+}
+
 } // extern "C"

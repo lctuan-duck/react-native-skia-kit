@@ -85,6 +85,10 @@ namespace margelo::nitro::skiakit {
     void detachNativeView() override;
     void resize(double width, double height) override;
 
+    // Gọi từ onSurfaceTextureUpdated (JNI) khi EGL context đã sẵn sàng.
+    // Reset EGL throttle và kick-start rendering sau khi bị dừng do EGL fail.
+    void scheduleRenderFromSurface();
+
     // ── Hit-Test Subsystem ────────────────────────────────────────────────────
     void registerWidget(const std::string& id, double x, double y, double w, double h, double zIndex, double behavior) override;
     void unregisterWidget(const std::string& id) override;

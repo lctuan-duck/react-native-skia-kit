@@ -414,6 +414,14 @@ std::mutex                                                  HybridUIEngine::_sRe
     }
   }
 
+  void HybridUIEngine::scheduleRenderFromSurface() {
+    if (!_renderer) return;
+    // Reset EGL throttle — onSurfaceTextureUpdated báo hiệu EGL đã sẵn sàng.
+    // Sau đó schedule layout+render để resume từ trạng thái throttle.
+    _renderer->resetEglThrottle();
+    _renderer->scheduleLayoutAndRender();
+  }
+
   // ── Engine Identity (Phase 3: multi-instance) ──────────────────────────
 
   double HybridUIEngine::getEngineId() {

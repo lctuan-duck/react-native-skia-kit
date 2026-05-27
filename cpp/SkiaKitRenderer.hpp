@@ -66,7 +66,16 @@ public:
    */
   void resize(float width, float height);
 
-  bool isAttached() const;
+  bool isAttached() const {
+    std::shared_lock<std::shared_mutex> lock(_providerMutex);
+    return _canvasProvider != nullptr;
+  }
+
+  // Reset EGL throttle counter — gọi khi EGL context xác nhận sẵn sàng
+  // (via onSurfaceTextureUpdated callback từ Android)
+  void resetEglThrottle() {
+    _eglFailCount.store(0, std::memory_order_release);
+  }
 
   // ── Render scheduling ────────────────────────────────────────────────────
 
