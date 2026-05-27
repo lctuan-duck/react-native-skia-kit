@@ -35,11 +35,8 @@ export function ComponentShowcaseScreen() {
   const theme = useTheme();
   const nav = useNav();
 
-  // Two-state tab system for smooth fade:
-  // activeTab = what the TabBar highlights (immediate)
-  // renderTab = what content is mounted (delayed by fade-out duration)
+  // Single state: 1 setState = 1 reconciler commit = 1 calculateLayout pass.
   const [activeTab, setActiveTab] = React.useState(0);
-  const [renderTab, setRenderTab] = React.useState(0);
 
   const tabTitles = ['Display', 'Forms', 'Buttons', 'Feedback'];
   const contentH = height - TOP_CHROME;
@@ -47,12 +44,7 @@ export function ComponentShowcaseScreen() {
   const handleTabChange = React.useCallback(
     (nextTab: number) => {
       if (nextTab === activeTab) return;
-      // Single state update = 1 reconciler commit = 1 calculateLayout pass.
-      // The old 3-phase setTimeout approach caused 3 rapid commits
-      // (setFading, setRenderTab, setFading) each triggering full Yoga layout
-      // recalc with 60+ text measurements → dropped frames + blank screen.
       setActiveTab(nextTab);
-      setRenderTab(nextTab);
     },
     [activeTab]
   );
@@ -130,10 +122,10 @@ export function ComponentShowcaseScreen() {
           backgroundColor: theme.colors.background,
         }}
       >
-        {renderTab === 0 && <DisplayTab width={width} height={contentH} />}
-        {renderTab === 1 && <FormsTab width={width} height={contentH} />}
-        {renderTab === 2 && <ButtonsTab width={width} height={contentH} />}
-        {renderTab === 3 && <FeedbackTab width={width} height={contentH} />}
+        {activeTab === 0 && <DisplayTab width={width} height={contentH} />}
+        {activeTab === 1 && <FormsTab width={width} height={contentH} />}
+        {activeTab === 2 && <ButtonsTab width={width} height={contentH} />}
+        {activeTab === 3 && <FeedbackTab width={width} height={contentH} />}
       </Box>
     </Box>
   );
