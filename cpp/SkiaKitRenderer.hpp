@@ -67,7 +67,7 @@ public:
   void resize(float width, float height);
 
   bool isAttached() const {
-    std::shared_lock<std::shared_mutex> lock(_providerMutex);
+    std::lock_guard<std::mutex> lock(_providerMutex);
     return _canvasProvider != nullptr;
   }
 
