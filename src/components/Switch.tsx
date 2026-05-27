@@ -15,8 +15,9 @@ import {
   withTiming,
   useAnimatedReaction,
   interpolateColor,
+  runOnJS,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+
 
 // === Switch Types ===
 
@@ -62,20 +63,14 @@ export const Switch = React.memo(function Switch({
   const inactiveTrack = style?.trackColor ?? theme.colors.border;
   const thumbClr = style?.thumbColor ?? theme.colors.background;
 
-  // Stable ref cho scheduleOnRN fallback — capture engine per-instance
-  const updateSwitchUIRef = React.useRef(
+  // WORKLET-SAFE: useCallback + runOnJS thay vì mutable ref
+  const updateSwitchUI = React.useCallback(
     (tid: string, cid: string, colorStr: string, leftPadding: number) => {
       engine.updateAnimatedStyles(tid, { backgroundColor: parseColor(colorStr) });
       engine.updateAnimatedStyles(cid, { translateX: leftPadding });
-      (global as any).skiaKitScrollRedraw?.();
-    }
+    },
+    [engine]
   );
-  updateSwitchUIRef.current = (tid, cid, colorStr, leftPadding) => {
-    engine.updateAnimatedStyles(tid, { backgroundColor: parseColor(colorStr) });
-    engine.updateAnimatedStyles(cid, { translateX: leftPadding });
-    (global as any).skiaKitScrollRedraw?.();
-  };
-
 
   const trackId = useWidgetId('SwitchTrack');
   const thumbId = useWidgetId('SwitchThumb');
@@ -116,8 +111,7 @@ export const Switch = React.memo(function Switch({
         direct.updateAnimatedStyles(trackId, { backgroundColor: parseColor(currentTrackColor) });
         direct.updateAnimatedStyles(thumbId, { translateX: currentLeft });
       } else {
-        scheduleOnRN(
-          updateSwitchUIRef.current,
+        runOnJS(updateSwitchUI)(
           trackId,
           thumbId,
           currentTrackColor.toString(),
@@ -135,6 +129,7 @@ export const Switch = React.memo(function Switch({
       thumbId,
       finalH,
       engineId,
+      updateSwitchUI,
     ]
   );
 

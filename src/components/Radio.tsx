@@ -16,8 +16,9 @@ import {
   withTiming,
   useAnimatedReaction,
   interpolateColor,
+  runOnJS,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+
 
 // === Radio Types ===
 
@@ -62,20 +63,14 @@ export const Radio = React.memo(function Radio({
   const uncheckedBorderColor = theme.colors.outline;
   const disabledBorderColor = theme.colors.textDisabled;
 
-  // Stable ref cho scheduleOnRN fallback — capture engine per-instance
-  const updateRadioUIRef = React.useRef(
+  // WORKLET-SAFE: useCallback + runOnJS thay vì mutable ref
+  const updateRadioUI = React.useCallback(
     (wId: string, dId: string, borderStr: string, dotSize: number, radius: number, bw: number, dotColorStr: string) => {
       engine.updateAnimatedStyles(wId, { borderColor: parseColor(borderStr), borderRadius: radius, borderWidth: bw });
       engine.updateAnimatedStyles(dId, { width: dotSize, height: dotSize, backgroundColor: parseColor(dotColorStr), borderRadius: dotSize / 2 });
-      (global as any).skiaKitScrollRedraw?.();
-    }
+    },
+    [engine]
   );
-  updateRadioUIRef.current = (wId, dId, borderStr, dotSize, radius, bw, dotColorStr) => {
-    engine.updateAnimatedStyles(wId, { borderColor: parseColor(borderStr), borderRadius: radius, borderWidth: bw });
-    engine.updateAnimatedStyles(dId, { width: dotSize, height: dotSize, backgroundColor: parseColor(dotColorStr), borderRadius: dotSize / 2 });
-    (global as any).skiaKitScrollRedraw?.();
-  };
-
 
   const targetBorderColor = disabled
     ? disabledBorderColor
@@ -133,8 +128,7 @@ export const Radio = React.memo(function Radio({
           borderRadius: currentDotSize / 2,
         });
       } else {
-        scheduleOnRN(
-          updateRadioUIRef.current,
+        runOnJS(updateRadioUI)(
           widgetId,
           dotId,
           currentBorder.toString(),
@@ -157,6 +151,7 @@ export const Radio = React.memo(function Radio({
       maxDotSize,
       dotColor,
       engineId,
+      updateRadioUI,
     ]
   );
 

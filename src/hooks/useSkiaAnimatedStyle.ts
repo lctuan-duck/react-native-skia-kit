@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
-import { useAnimatedReaction } from 'react-native-reanimated';
+import { useEffect, useRef, useCallback } from 'react';
+import { useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { useEngineContext } from '../core/EngineContext';
 import type { NativeAnimatedStyle } from '../nitro/UIEngine.nitro';
-import { scheduleOnRN } from 'react-native-worklets';
+
 
 /**
  * Hook kết nối React Native Reanimated với C++ Render Engine của SkiaKit.
@@ -37,13 +37,10 @@ export function useSkiaAnimatedStyle(
   const _widgetIdRef = useRef(widgetId);
   _widgetIdRef.current = widgetId;
 
-  // updateAnimatedStyleJS định nghĩa trong hook để capture engine instance đúng
-  const updateAnimatedStyleJS = useRef((id: string | undefined, data: NativeAnimatedStyle) => {
+  // WORKLET-SAFE: useCallback + runOnJS thay vì mutable ref bị worklet capture
+  const updateAnimatedStyleJS = useCallback((id: string | undefined, data: NativeAnimatedStyle) => {
     if (id) engine.updateAnimatedStyles(id, data);
-  });
-  updateAnimatedStyleJS.current = (id, data) => {
-    if (id) engine.updateAnimatedStyles(id, data);
-  };
+  }, [engine]);
 
   try {
     useAnimatedReaction(
@@ -62,10 +59,10 @@ export function useSkiaAnimatedStyle(
         if (directCall) {
           directCall.updateAnimatedStyles(_widgetIdRef.current, result);
         } else {
-          scheduleOnRN(updateAnimatedStyleJS.current, _widgetIdRef.current, result);
+          runOnJS(updateAnimatedStyleJS)(_widgetIdRef.current, result);
         }
       },
-      [widgetId, style] // Restart reaction khi ID đổi
+      [widgetId, style, updateAnimatedStyleJS] // Restart reaction khi ID đổi
     );
   } catch {
     // Dự phòng lỗi nếu Reanimated không sẵn sàng trong secondary renderer

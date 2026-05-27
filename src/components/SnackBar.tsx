@@ -4,8 +4,9 @@ import {
   useSharedValue,
   withTiming,
   useAnimatedReaction,
+  runOnJS,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+
 import { Box } from './Box';
 import { Text } from './Text';
 import { Expanded } from './Expanded';
@@ -58,15 +59,10 @@ export const SnackBar = React.memo(function SnackBar({
 
   const widgetId = useWidgetId('SnackBar');
 
-  // Stable ref cho scheduleOnRN fallback — capture engine per-instance
-  const updateSnackBarUIRef = React.useRef((wId: string, ty: number) => {
+  // WORKLET-SAFE: useCallback + runOnJS thay vì mutable ref (bị worklet capture và freeze)
+  const updateSnackBarUI = React.useCallback((wId: string, ty: number) => {
     engine.updateAnimatedStyles(wId, { translateY: ty });
-    (global as any).skiaKitScrollRedraw?.();
-  });
-  updateSnackBarUIRef.current = (wId, ty) => {
-    engine.updateAnimatedStyles(wId, { translateY: ty });
-    (global as any).skiaKitScrollRedraw?.();
-  };
+  }, [engine]);
 
   const translateY = useSharedValue(80);
 
@@ -79,10 +75,10 @@ export const SnackBar = React.memo(function SnackBar({
       if (direct) {
         direct.updateAnimatedStyles(widgetId, { translateY: ty });
       } else {
-        scheduleOnRN(updateSnackBarUIRef.current, widgetId, ty);
+        runOnJS(updateSnackBarUI)(widgetId, ty);
       }
     },
-    [widgetId, engineId]
+    [widgetId, engineId, updateSnackBarUI]
   );
 
   // Dismiss-state machine — only render DOM node during enter/visible/exit phases.

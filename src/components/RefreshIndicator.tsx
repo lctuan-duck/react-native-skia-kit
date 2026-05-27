@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useState, useCallback, useRef } from 'react';
 import { useSharedValue, withSpring, withTiming, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+
 import { Box } from './Box';
 import { Progress } from './Progress';
 import { useWidgetId } from '../hooks/useWidgetId';
@@ -61,16 +61,10 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
   const { engine, engineId } = useEngineContext();
   const isRefreshingRef = useRef(false);
 
-  // Stable ref cho scheduleOnRN fallback — capture engine per-instance
-  const applyPullOffsetRef = useRef((cId: string, ty: number) => {
+  // WORKLET-SAFE: useCallback + runOnJS thay vì mutable ref bị worklet capture
+  const applyPullOffsetJS = useCallback((cId: string, ty: number) => {
     engine.updateAnimatedStyles(cId, { translateY: ty });
-    (global as any).skiaKitScrollRedraw?.();
-  });
-  applyPullOffsetRef.current = (cId, ty) => {
-    engine.updateAnimatedStyles(cId, { translateY: ty });
-    (global as any).skiaKitScrollRedraw?.();
-  };
-
+  }, [engine]);
 
   // Shared value tracks the pull offset (0 = neutral, positive = pulled down)
   const pullOffset = useSharedValue(0);
@@ -87,10 +81,10 @@ export const RefreshIndicator = React.memo(function RefreshIndicator({
       if (direct) {
         direct.updateAnimatedStyles(contentId, { translateY: ty });
       } else {
-        scheduleOnRN(applyPullOffsetRef.current, contentId, ty);
+        runOnJS(applyPullOffsetJS)(contentId, ty);
       }
     },
-    [contentId, engineId]
+    [contentId, engineId, applyPullOffsetJS]
   );
 
   const triggerRefresh = useCallback(async () => {

@@ -3,8 +3,9 @@ import {
   useSharedValue,
   withTiming,
   useAnimatedReaction,
+  runOnJS,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+
 import { Box } from './Box';
 import { Text } from './Text';
 import { Icon } from './Icon';
@@ -73,15 +74,14 @@ export const TabBar = React.memo(function TabBar({
   const widgetId = useWidgetId('TabBar');
   const indicatorId = useWidgetId('TabBar-indicator');
 
-  // Stable ref cho scheduleOnRN fallback — capture engine per-instance
-  const applyIndicatorPositionRef = React.useRef((iId: string, left: number) => {
+  // WORKLET-SAFE FALLBACK: dùng useCallback + runOnJS thay vì ref.current pattern.
+  // Lý do: Reanimated capture ref object vào worklet closure, đánh dấu nó là "serializable".
+  // Sau đó viết ref.current = ... trên JS thread sẽ trigger warning:
+  // "Tried to modify key 'current' of an object which has been passed to a worklet".
+  // useCallback tạo stable fn reference — chỉ thay đổi khi engine thay đổi (không bao giờ).
+  const applyIndicatorPositionJS = React.useCallback((iId: string, left: number) => {
     engine.updateAnimatedStyles(iId, { left });
-    (global as any).skiaKitScrollRedraw?.();
-  });
-  applyIndicatorPositionRef.current = (iId, left) => {
-    engine.updateAnimatedStyles(iId, { left });
-    (global as any).skiaKitScrollRedraw?.();
-  };
+  }, [engine]);
 
 
   const layout = useNativeYogaLayout(widgetId, { width, height });
@@ -131,10 +131,11 @@ export const TabBar = React.memo(function TabBar({
       if (direct) {
         direct.updateAnimatedStyles(indicatorId, { left: x });
       } else {
-        scheduleOnRN(applyIndicatorPositionRef.current, indicatorId, x);
+        // runOnJS là cách đúng để gọi JS function từ worklet mà không cần mutable ref
+        runOnJS(applyIndicatorPositionJS)(indicatorId, x);
       }
     },
-    [indicatorId, engineId]
+    [indicatorId, engineId, applyIndicatorPositionJS]
   );
 
   if (variant === 'segment') {

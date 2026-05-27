@@ -274,14 +274,18 @@ export const CanvasRoot = React.memo(function CanvasRoot({
     // React context từ primary renderer tree KHÔNG tự động có trong secondary reconciler tree.
     // Cần wrap skiaChildren với các context providers để components (TabBar, Button...)
     // có thể gọi useEngineContext() / useCanvasId() khi render trong secondary reconciler.
+    // ROOT CAUSE: secondary reconciler createContainer(node, ..., null, ...) — parentComponent=null
+    // → context từ primary renderer tree KHÔNG propagate vào secondary reconciler.
+    // FIX: wrap skiaChildren với EngineContext.Provider để useEngineContext() work.
+    // QUAN TRỌNG: KHÔNG thêm WidgetContext.Provider — Box đọc WidgetContext để biết parent ID
+    // và gọi engine.addChildNode(). Nếu add provider, Box double-register (host config + context)
+    // → gây lỗi cây C++ và màn hình trắng.
     const skiaChildren = (
       <EngineContext.Provider value={engineContextValue}>
-        <WidgetContext.Provider value={canvasId}>
-          {children}
-          {sortedOverlaysRef.current.map((o) => (
-            <React.Fragment key={o.id}>{o.node}</React.Fragment>
-          ))}
-        </WidgetContext.Provider>
+        {children}
+        {sortedOverlaysRef.current.map((o) => (
+          <React.Fragment key={o.id}>{o.node}</React.Fragment>
+        ))}
       </EngineContext.Provider>
     );
 
@@ -319,7 +323,7 @@ export const CanvasRoot = React.memo(function CanvasRoot({
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [children, reconciler, engineContextValue, canvasId]); // sortedOverlays intentionally via ref
+  }, [children, reconciler, engineContextValue]); // sortedOverlays intentionally via ref
 
   // Re-run layout khi screen thay đổi
   React.useEffect(() => {

@@ -24,8 +24,9 @@ import {
   useSharedValue,
   withTiming,
   useAnimatedReaction,
+  runOnJS,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+
 
 // === Button Types ===
 
@@ -110,8 +111,8 @@ export const Button = React.memo(function Button({
   const widgetId = useWidgetId('Button');
   const { engine, engineId } = useEngineContext();
 
-  // BUG-5 Fix: stable ref cho scheduleOnRN fallback — pattern nhất quán với các component khác
-  const updateButtonUIRef = React.useRef(
+  // WORKLET-SAFE: useCallback + runOnJS thay vì mutable ref
+  const updateButtonUI = React.useCallback(
     (id: string, eff: string, isP: number) => {
       if (eff === 'opacity' || eff === 'ripple') {
         engine.updateAnimatedStyles(id, { opacity: isP ? 0.6 : 1.0 });
@@ -119,16 +120,9 @@ export const Button = React.memo(function Button({
         const s = isP ? 0.94 : 1.0;
         engine.updateAnimatedStyles(id, { scaleX: s, scaleY: s });
       }
-    }
+    },
+    [engine]
   );
-  updateButtonUIRef.current = (id, eff, isP) => {
-    if (eff === 'opacity' || eff === 'ripple') {
-      engine.updateAnimatedStyles(id, { opacity: isP ? 0.6 : 1.0 });
-    } else if (eff === 'bounce') {
-      const s = isP ? 0.94 : 1.0;
-      engine.updateAnimatedStyles(id, { scaleX: s, scaleY: s });
-    }
-  };
 
   // ── Interactive press effects ─────────────────────────────────────────────────────
   // `pressed` SharedValue: 0 = released, 1 = pressed
@@ -150,11 +144,10 @@ export const Button = React.memo(function Button({
           direct.updateAnimatedStyles(widgetId, { scaleX: s, scaleY: s });
         }
       } else {
-        // BUG-5 Fix: dùng stable ref thay vì inline closure
-        scheduleOnRN(updateButtonUIRef.current, widgetId, interactive, p);
+        runOnJS(updateButtonUI)(widgetId, interactive, p);
       }
     },
-    [widgetId, interactive, engineId]
+    [widgetId, interactive, engineId, updateButtonUI]
   );
 
   const handlePressIn = () => {

@@ -17,8 +17,9 @@ import {
   withTiming,
   useAnimatedReaction,
   interpolateColor,
+  runOnJS,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+
 
 // === Checkbox Types ===
 
@@ -62,8 +63,8 @@ export const Checkbox = React.memo(function Checkbox({
   const uncheckedBorderColor = theme.colors.outline;
   const disabledBorderColor = theme.colors.textDisabled;
 
-  // Stable ref cho scheduleOnRN fallback path — capture engine đúng per-instance
-  const updateCheckboxUIRef = React.useRef(
+  // WORKLET-SAFE: useCallback + runOnJS thay vì mutable ref
+  const updateCheckboxUI = React.useCallback(
     (wId: string, iId: string, bgStr: string, borderStr: string, br: number, bw: number, opacity: number) => {
       engine.updateAnimatedStyles(wId, {
         backgroundColor: parseColor(bgStr),
@@ -72,20 +73,9 @@ export const Checkbox = React.memo(function Checkbox({
         borderWidth: bw,
       });
       engine.updateAnimatedStyles(iId, { opacity });
-      (global as any).skiaKitScrollRedraw?.();
-    }
+    },
+    [engine]
   );
-  updateCheckboxUIRef.current = (wId, iId, bgStr, borderStr, br, bw, opacity) => {
-    engine.updateAnimatedStyles(wId, {
-      backgroundColor: parseColor(bgStr),
-      borderColor: parseColor(borderStr),
-      borderRadius: br,
-      borderWidth: bw,
-    });
-    engine.updateAnimatedStyles(iId, { opacity });
-    (global as any).skiaKitScrollRedraw?.();
-  };
-
 
   const targetBorderColor = disabled
     ? disabledBorderColor
@@ -148,8 +138,7 @@ export const Checkbox = React.memo(function Checkbox({
         direct.updateAnimatedStyles(iconId, { opacity: p });
         (global as any).skiaKitScrollRedraw?.();
       } else {
-        scheduleOnRN(
-          updateCheckboxUIRef.current,
+        runOnJS(updateCheckboxUI)(
           widgetId,
           iconId,
           currentBg.toString(),
@@ -170,6 +159,7 @@ export const Checkbox = React.memo(function Checkbox({
       borderRadius,
       borderWidth,
       engineId,
+      updateCheckboxUI,
     ]
   );
 
