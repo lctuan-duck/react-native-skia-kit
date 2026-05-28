@@ -316,7 +316,8 @@ std::mutex                                                  HybridUIEngine::_sRe
   void HybridUIEngine::updateAnimatedStyles(const std::string& id, const NativeAnimatedStyle& style) {
     // 1. Cập nhật Render properties (Transform, Opacity, Colors, v.v...)
     // RenderSubsystem::updateAnimatedStyles dùng shared_lock — thread-safe từ UI thread.
-    _renderSubsystem.updateAnimatedStyles(id, style);
+    // Returns true nếu có thay đổi thực sự (value dedup đã được áp dụng).
+    bool changed = _renderSubsystem.updateAnimatedStyles(id, style);
     
     if (style.pointerEvents.has_value()) {
       _hitTestSubsystem.updatePointerEvents(id, style.pointerEvents.value());
@@ -364,8 +365,9 @@ std::mutex                                                  HybridUIEngine::_sRe
     }
 
     // 3. Schedule render cho pure visual updates (opacity, transform, color, translateX...)
-    // Đây là thread-safe: chỉ set atomic flags trong RenderNode.
-    if (_renderer && _renderer->isAttached()) {
+    // CHỈ schedule khi có thay đổi thực sự — tránh flood main thread với stale worklet calls
+    // (e.g. Progress worklet tiếp tục chạy sau khi node bị xóa khi chuyển tab).
+    if (changed && _renderer && _renderer->isAttached()) {
       _renderer->scheduleRender();
     }
   }
@@ -389,6 +391,18 @@ std::mutex                                                  HybridUIEngine::_sRe
   void HybridUIEngine::scheduleLayoutAndRender() {
     if (_renderer && _renderer->isAttached()) {
       _renderer->scheduleLayoutAndRender();
+    }
+  }
+
+  void HybridUIEngine::beginCommit() {
+    if (_renderer) {
+      _renderer->beginCommit();
+    }
+  }
+
+  void HybridUIEngine::endCommit() {
+    if (_renderer) {
+      _renderer->endCommit();
     }
   }
 

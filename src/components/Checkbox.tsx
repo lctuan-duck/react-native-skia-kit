@@ -103,9 +103,58 @@ export const Checkbox = React.memo(function Checkbox({
 
   const progress = useSharedValue(checked ? 1 : 0);
 
-  React.useEffect(() => {
-    progress.value = withTiming(checked ? 1 : 0, { duration: 150 });
-  }, [checked, progress]);
+  // Track previous checked to distinguish mount from state changes.
+  const prevCheckedRef = React.useRef<boolean | null>(null);
+
+  // useLayoutEffect: fires AFTER commitUpdate but BEFORE endCommit schedules doRender.
+  //
+  // Flicker root cause (two paths):
+  //
+  // A. MOUNT FLICKER: C++ IconNode._opacity defaults to 1.0f.
+  //    On mount with checked=false, without override:
+  //      doRender (PATH1a) → rebuildPicture → iconId.paint() reads _opacity=1.0f → VISIBLE! (1-frame flash)
+  //    Fix: set _animatedProps synchronously on mount → _animationDirty=true → PATH1+anim
+  //         → direct paint reads _opacity=0 → icon invisible from frame 0 ✓
+  //
+  // B. STATE-CHANGE FLICKER: commitUpdate writes FINAL state to _props.
+  //    withTiming evaluates to same p=0 on first Reanimated frame → useAnimatedReaction NOT fired.
+  //    → PATH1a → rebuildPicture reads FINAL state → 1-frame flash of target before animation starts.
+  //    Fix: override committed FINAL state with START state synchronously before endCommit.
+  //
+  // GUARD: only fires when 'checked' actually changes or on mount.
+  //   Prevents spurious start-state overrides when other deps (activeColor, etc.) change.
+  React.useLayoutEffect(() => {
+    const prevChecked = prevCheckedRef.current;
+    const isMount = prevChecked === null;
+    prevCheckedRef.current = checked;
+
+    if (isMount || prevChecked !== checked) {
+      if (isMount) {
+        // Mount: set CURRENT state (not opposite) so first paint is correct.
+        // This sets _animationDirty=true (icon opacity) → PATH1+anim on first doRender
+        // → direct paint with _opacity=(checked?1:0) instead of the default 1.0f.
+        updateCheckboxUI(
+          widgetId, iconId,
+          checked ? activeColor : 'transparent',
+          checked ? activeColor : uncheckedBorderColor,
+          borderRadius, borderWidth, checked ? 1 : 0
+        );
+      } else {
+        // State change: set animation START state (opposite of target) synchronously.
+        // Overrides commitUpdate's FINAL state before endCommit schedules doRender.
+        const startP = checked ? 0 : 1;
+        updateCheckboxUI(
+          widgetId, iconId,
+          checked ? 'transparent' : activeColor,
+          checked ? uncheckedBorderColor : activeColor,
+          borderRadius, borderWidth, startP
+        );
+      }
+
+      progress.value = withTiming(checked ? 1 : 0, { duration: 150 });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checked, widgetId, iconId, activeColor, uncheckedBorderColor, borderRadius, borderWidth, updateCheckboxUI, progress]);
 
   useAnimatedReaction(
     () => progress.value,

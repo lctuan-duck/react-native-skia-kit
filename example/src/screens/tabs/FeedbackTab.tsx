@@ -17,6 +17,7 @@ import {
   RefreshIndicator,
   Modal,
   BottomSheet,
+  linearGradient,
 } from 'react-native-skia-kit';
 import { useTheme } from 'react-native-skia-kit';
 import { SectionHeader } from '../components/SectionHeader';
@@ -24,6 +25,7 @@ import { SectionHeader } from '../components/SectionHeader';
 interface Props {
   width: number;
   height: number;
+  display?: 'flex' | 'none';
 }
 
 const PROGRESS_COLORS = [
@@ -34,7 +36,7 @@ const PROGRESS_COLORS = [
   'error',
 ] as const;
 
-export function FeedbackTab({ width, height }: Props) {
+export function FeedbackTab({ width, height, display = 'flex' }: Props) {
   const theme = useTheme();
   const [progressValue, setProgressValue] = React.useState(0.65);
   const [snackVisible, setSnackVisible] = React.useState(false);
@@ -54,26 +56,33 @@ export function FeedbackTab({ width, height }: Props) {
   };
 
   return (
-    <Box style={{ width, height }}>
+    <Box style={{ width, height, display }}>
       <ScrollView style={{ width, height }}>
         <Column style={{ gap: 0 }}>
-
           {/* ── Linear Progress — Determinate ── */}
           <SectionHeader title="Progress — Linear (Determinate)" />
           <Column style={{ gap: 14, padding: 16 }}>
             {/* Interactive slider to control progress */}
-            <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <Row
+              style={{ justifyContent: 'space-between', alignItems: 'center' }}
+            >
               <Text
                 text="Value"
                 style={{ fontSize: 13, color: theme.colors.textSecondary }}
               />
               <Text
                 text={`${Math.round(progressValue * 100)}%`}
-                style={{ fontSize: 14, fontWeight: 'bold', color: theme.colors.primary }}
+                style={{
+                  fontSize: 14,
+                  fontWeight: 'bold',
+                  color: theme.colors.primary,
+                }}
               />
             </Row>
             <Slider
-              min={0} max={100} step={1}
+              min={0}
+              max={100}
+              step={1}
               value={Math.round(progressValue * 100)}
               color="primary"
               style={{ width: width - 32 }}
@@ -95,6 +104,15 @@ export function FeedbackTab({ width, height }: Props) {
                 />
               </Column>
             ))}
+            <Progress
+              variant="linear"
+              value={progressValue} // slightly different values
+              gradient={linearGradient([
+                theme.colors.primary,
+                theme.colors.success,
+              ])}
+              style={{ width: width - 32 }}
+            />
 
             {/* Gradient progress */}
             <Column style={{ gap: 4 }}>
@@ -118,8 +136,10 @@ export function FeedbackTab({ width, height }: Props) {
                     gradient: {
                       type: 'linear',
                       colors: [theme.colors.primary, theme.colors.success],
-                      startX: 0, startY: 0,
-                      endX: 1, endY: 0,
+                      startX: 0,
+                      startY: 0,
+                      endX: 1,
+                      endY: 0,
                     },
                   }}
                 />
@@ -279,7 +299,11 @@ export function FeedbackTab({ width, height }: Props) {
         <Column style={{ padding: 20, gap: 12 }}>
           <Text
             text="Thông báo"
-            style={{ fontSize: 18, fontWeight: 'bold', color: theme.colors.textBody }}
+            style={{
+              fontSize: 18,
+              fontWeight: 'bold',
+              color: theme.colors.textBody,
+            }}
           />
           <Text
             text="Đây là Modal component với backdrop. Tap ngoài để đóng."
@@ -307,7 +331,11 @@ export function FeedbackTab({ width, height }: Props) {
         <Column style={{ gap: 12, padding: 16 }}>
           <Text
             text="BottomSheet"
-            style={{ fontSize: 18, fontWeight: 'bold', color: theme.colors.textBody }}
+            style={{
+              fontSize: 18,
+              fontWeight: 'bold',
+              color: theme.colors.textBody,
+            }}
           />
           <Text
             text="BottomSheet slides up từ dưới màn hình. Tap overlay để đóng."

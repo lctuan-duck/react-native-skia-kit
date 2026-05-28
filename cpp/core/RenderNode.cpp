@@ -110,8 +110,11 @@ void RenderNode::paint(SkCanvas* canvas) {
       canvas->concat(m44);
     } else {
       // Chỉ có 2D Transforms
+      // FIX N1: rotateZ được lưu bằng DEGREES (từ JS: rotateZ: p * 360).
+      // Skia canvas->rotate() nhận DEGREES → truyền thẳng, KHÔNG nhân 180/π.
+      // (Bug cũ: nhân 180/π biến 360° thành 20628° → circular progress quay sai hoàn toàn)
       if (rotateZ != 0.0f) {
-        canvas->rotate(rotateZ * 180.0f / M_PI); // Skia dùng degrees cho 2D
+        canvas->rotate(rotateZ); // rotateZ là degrees, Skia rotate() nhận degrees ✓
       }
       canvas->scale(scaleX, scaleY);
     }
@@ -127,19 +130,37 @@ void RenderNode::paint(SkCanvas* canvas) {
   {
     std::shared_lock<std::shared_mutex> lock(_childrenMutex);
     if (!children.empty()) {
-      // Sao chép danh sách con để sort cục bộ theo zIndex
-      std::vector<std::shared_ptr<RenderNode>> sortedChildren = children;
-      std::stable_sort(sortedChildren.begin(), sortedChildren.end(),
-        [](const std::shared_ptr<RenderNode>& a, const std::shared_ptr<RenderNode>& b) {
-          return a->_zIndex.load(std::memory_order_relaxed) < b->_zIndex.load(std::memory_order_relaxed);
+      // FAST PATH: kiểm tra xem có child nào dùng zIndex != 0 không.
+      // 90%+ trường hợp không dùng zIndex → skip copy+sort hoàn toàn.
+      // Tiết kiệm O(N) allocation + O(N log N) sort trên hot path 60fps.
+      bool hasCustomZIndex = false;
+      for (const auto& child : children) {
+        if (child->_zIndex.load(std::memory_order_relaxed) != 0) {
+          hasCustomZIndex = true;
+          break;
         }
-      );
+      }
 
-      for (auto& child : sortedChildren) {
-        child->paint(canvas);
+      if (!hasCustomZIndex) {
+        // Paint theo DOM order (không copy, không sort)
+        for (auto& child : children) {
+          child->paint(canvas);
+        }
+      } else {
+        // Có zIndex → copy + sort + paint
+        std::vector<std::shared_ptr<RenderNode>> sortedChildren = children;
+        std::stable_sort(sortedChildren.begin(), sortedChildren.end(),
+          [](const std::shared_ptr<RenderNode>& a, const std::shared_ptr<RenderNode>& b) {
+            return a->_zIndex.load(std::memory_order_relaxed) < b->_zIndex.load(std::memory_order_relaxed);
+          }
+        );
+        for (auto& child : sortedChildren) {
+          child->paint(canvas);
+        }
       }
     }
   }
+
 
   if (opacity < 1.0f) {
     canvas->restore(); // restore saveLayerAlpha

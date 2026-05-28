@@ -253,14 +253,21 @@ public:
 
   bool _hasFirstLayout = false;
 
-  void setCachedLayout(float x, float y, float w, float h) {
+  bool setCachedLayout(float x, float y, float w, float h) {
     std::unique_lock<std::shared_mutex> lock(_childrenMutex);
     
+    // Kiểm tra có thay đổi thực sự không (threshold 0.1f để tránh float noise)
+    bool changed = (!_hasFirstLayout ||
+                    std::abs(_cachedX - x) > 0.1f ||
+                    std::abs(_cachedY - y) > 0.1f ||
+                    std::abs(_cachedW - w) > 0.1f ||
+                    std::abs(_cachedH - h) > 0.1f);
+    
     // Animate layout updates if node is already initialized (first layout done)
-    if (_layoutTransitionEnabled.load(std::memory_order_relaxed) && _hasFirstLayout) {
-      bool changed = (std::abs(_cachedX - x) > 0.1f || std::abs(_cachedY - y) > 0.1f ||
-                      std::abs(_cachedW - w) > 0.1f || std::abs(_cachedH - h) > 0.1f);
-      if (changed) {
+    if (_layoutTransitionEnabled.load(std::memory_order_relaxed) && _hasFirstLayout && changed) {
+      bool posChanged = (std::abs(_cachedX - x) > 0.1f || std::abs(_cachedY - y) > 0.1f ||
+                         std::abs(_cachedW - w) > 0.1f || std::abs(_cachedH - h) > 0.1f);
+      if (posChanged) {
         // Start from current animated values to prevent jumps
         _transitionStartX = getXInternal();
         _transitionStartY = getYInternal();
@@ -291,6 +298,8 @@ public:
     _cachedLayout[1].store(y, std::memory_order_relaxed);
     _cachedLayout[2].store(w, std::memory_order_relaxed);
     _cachedLayout[3].store(h, std::memory_order_relaxed);
+
+    return changed; // Caller dùng để quyết định có set _isDirty không
   }
 
   float getWidth() const {

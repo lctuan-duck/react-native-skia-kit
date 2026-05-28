@@ -69,8 +69,22 @@ public:
     _fontCollection->enableFontFallback();
   }
 
+  /**
+   * setRedrawCallback — lưu external callback (scheduleRender) và tạo internal
+   * wrapper set _animationDirty=true trước khi gọi external callback.
+   *
+   * FIX: layout transitions gọi onRequestRedraw() từ trong paint().
+   * _animationDirty (được check trong drawTreeDirect Path 2) không bị rebuildPicture
+   * overwrite (khác với _isDirty). Path 2 dùng direct root->paint() để đọc
+   * interpolated positions từng frame → transition animate đúng.
+   */
   void setRedrawCallback(std::function<void()> cb) {
-    _redrawCallback = std::move(cb);
+    _externalRedrawCallback = std::move(cb);
+    // Wrap: set _animationDirty để drawTreeDirect Path 2 chạy (không bị _isDirty overwrite)
+    _redrawCallback = [this]() {
+      _animationDirty.store(true, std::memory_order_release);
+      if (_externalRedrawCallback) _externalRedrawCallback();
+    };
   }
 
   // ── Node lifecycle (JS/Reconciler thread) ─────────────────────────────────
@@ -203,15 +217,27 @@ public:
 
   // ── Layout sync ───────────────────────────────────────────────────────────
 
-  void syncLayoutResults(const std::unordered_map<std::string, CachedLayout>& layouts) {
+  /**
+   * syncLayoutResults — Sync layout kết quả từ Yoga sang RenderNode cache.
+   * Returns true nếu ít nhất 1 node có vị trí/kích thước thay đổi.
+   * Caller (doRender) dùng để quyết định có fire JS layout callback không.
+   * FIX M4: Tránh fire JS callback mỗi frame dù layout không đổi.
+   */
+  bool syncLayoutResults(const std::unordered_map<std::string, CachedLayout>& layouts) {
     std::shared_lock<std::shared_mutex> lock(_nodesMutex);
+    bool anyChanged = false;
     for (auto& [id, layout] : layouts) {
       auto it = _nodes.find(id);
       if (it != _nodes.end()) {
-        it->second->setCachedLayout(layout.x, layout.y, layout.width, layout.height);
+        if (it->second->setCachedLayout(layout.x, layout.y, layout.width, layout.height)) {
+          anyChanged = true;
+        }
       }
     }
-    _isDirty.store(true);
+    if (anyChanged) {
+      _isDirty.store(true, std::memory_order_release);
+    }
+    return anyChanged;
   }
 
   // ── Scroll ────────────────────────────────────────────────────────────────
@@ -233,34 +259,62 @@ public:
     }
   }
 
-  void updateAnimatedStyles(const std::string& id, const NativeAnimatedStyle& style) {
+  /**
+   * updateAnimatedStyles — returns true nếu có thay đổi thực sự (để caller
+   * quyết định có gọi scheduleRender() không).
+   *
+   * OPT: Tách loại dirty:
+   * - Transform/opacity only → _animationDirty (skip rebuildPicture, draw trực tiếp)
+   * - Visual/box props → _isDirty (rebuild bắt buộc)
+   */
+  bool updateAnimatedStyles(const std::string& id, const NativeAnimatedStyle& style) {
     std::shared_lock<std::shared_mutex> lock(_nodesMutex);
     auto it = _nodes.find(id);
-    if (it != _nodes.end()) {
-      // Phase 6 OPT-2: value dedup — only mark dirty if any value actually changed.
-      // Avoids unnecessary rebuildPicture when worklet sends identical values
-      // (e.g., animation stabilized at final value).
-      bool changed = it->second->updateAnimatedStyles(style);
-      if (changed) {
-        markDirty();
-        // Phase 6 OPT-3: record dirty rect for this node for culled redraw
-        float x = it->second->_cachedX;
-        float y = it->second->_cachedY;
-        float w = it->second->_cachedW;
-        float h = it->second->_cachedH;
-        if (w > 0 && h > 0) {
-          std::lock_guard<std::mutex> drLock(_dirtyRectsMutex);
-          _dirtyRects.push_back(SkRect::MakeXYWH(x, y, w, h));
-        }
-      }
+    if (it == _nodes.end()) return false;
+
+    // Phase 6 OPT-2: value dedup — chỉ dirty khi giá trị thực sự thay đổi.
+    bool changed = it->second->updateAnimatedStyles(style);
+    if (!changed) return false;
+
+    // Phân loại: transform-only hay cần rebuild visual?
+    if (isTransformOnlyUpdate(style)) {
+      // Chỉ transform/opacity → skip rebuildPicture, draw trực tiếp
+      _animationDirty.store(true, std::memory_order_release);
+    } else {
+      // Visual/box props thay đổi → rebuild bắt buộc
+      markDirty();
     }
+
+    // Phase 6 OPT-3: record dirty rect for culled redraw
+    float x = it->second->_cachedX;
+    float y = it->second->_cachedY;
+    float w = it->second->_cachedW;
+    float h = it->second->_cachedH;
+    if (w > 0 && h > 0) {
+      std::lock_guard<std::mutex> drLock(_dirtyRectsMutex);
+      _dirtyRects.push_back(SkRect::MakeXYWH(x, y, w, h));
+    }
+    return true;
   }
 
   // ── Dirty flag ────────────────────────────────────────────────────────────
 
-  void markDirty() { _isDirty.store(true); }
+  void markDirty() { _isDirty.store(true, std::memory_order_release); }
 
-  bool isDirty() const { return _isDirty.load(); }
+  bool isDirty() const { return _isDirty.load(std::memory_order_acquire); }
+
+  /**
+   * hasRenderContent — kiểm tra xem root node có children không.
+   * Dùng bởi SkiaKitRenderer::attachCanvasProvider để tránh render partial tree
+   * khi JS reconciler chưa commit xong (gây flicker ở góc trái khi chuyển tab).
+   */
+  bool hasRenderContent(const std::string& rootId) const {
+    std::shared_lock<std::shared_mutex> lock(_nodesMutex);
+    auto it = _nodes.find(rootId);
+    if (it == _nodes.end()) return false;
+    std::shared_lock<std::shared_mutex> childLock(it->second->_childrenMutex);
+    return !it->second->children.empty();
+  }
 
   // ── Draw (nội bộ — gọi trực tiếp với SkCanvas*) ──────────────────────────
 
@@ -277,77 +331,165 @@ public:
   }
 
   /**
-   * drawTreeDirect — Vẽ trực tiếp lên GPU canvas từ SkPicture cache.
+   * drawTreeDirect — Vẽ trực tiếp lên GPU canvas.
    *
-   * Dành cho C++ Autonomous Renderer (SkiaKitRenderer).
-   * Khác với getPictureBytes(): KHÔNG serialize bytes, không tạo ArrayBuffer,
-   * không cần JS reconstruct. SkPicture.replay() trực tiếp lên SkCanvas*.
+   * Có 3 paths:
+   * 1a. _isDirty=true, _animDirty=false → rebuildPicture + drawPicture
+   *     Values đã settle → SkPicture baked đúng, replay nhanh trong PATH3.
+   * 1b. _isDirty=true, _animDirty=true  → SKIP rebuild + direct paint (PATH1+anim)
+   *     Tránh bake stale transforms vào SkPicture khi animation đang chạy.
+   *     _isDirty giữ nguyên → khi animation dừng, PATH1a sẽ rebuild đúng.
+   * 2.  _animDirty=true only            → clear + paint() trực tiếp (PATH2)
+   * 3.  Không thay đổi                  → frame dedup, skip hoàn toàn (PATH3)
    *
-   * Performance: chỉ rebuild khi dirty (SkPicture cache). Scroll chỉ update
-   * scroll offset → không rebuild SkPicture, replay picture với offset mới.
+   * Thread safety: chỉ gọi từ Main Thread (doRender đảm bảo).
    */
   void drawTreeDirect(const std::string& rootId, SkCanvas* canvas, float w, float h) {
-    bool rebuilt = false;
-    if (_isDirty.load(std::memory_order_acquire)) {
+    bool needsRebuild  = _isDirty.load(std::memory_order_acquire);
+    bool needsAnimDraw = _animationDirty.load(std::memory_order_acquire);
+
+    // ── Path 1: Full rebuild ──────────────────────────────────────────────
+    if (needsRebuild) {
       _lastW = w;
       _lastH = h;
+
+      // FLICKER FIX (Progress/Thumb với scaleX/translateX animation):
+      // Vấn đề: rebuildPicture() bakes transform values (scaleX, translateX) vào
+      // SkPicture tại thời điểm rebuild. Nếu animation worklet fires SAU khi doRender
+      // bắt đầu (nhưng TRƯỚC khi display): drawPicture hiển thị snapshot stale →
+      // progress fill xuất hiện tại vị trí sai 1 frame → "thêm 1 đoạn" / flicker.
+      //
+      // Giải pháp: Check animation TRƯỚC rebuild.
+      // - Nếu animation active: SKIP rebuildPicture hoàn toàn + dùng direct paint
+      //   (đọc atomic transform values mới nhất). Giữ _isDirty=true để khi animation
+      //   dừng, PATH1 sẽ rebuild SkPicture đúng với values đã settle.
+      // - Nếu không có animation: rebuild bình thường (values đã settle) → safe to cache.
+      //
+      // So sánh với trước: rebuildPicture LUÔN chạy rồi mới check animation.
+      // Bug: worklet fires BEFORE doRender → _animationDirty cleared during rebuild check
+      //      → animStillActive=false → drawPicture (stale!) → flicker.
+      bool animActive = needsAnimDraw; // _animationDirty đã load ở đầu hàm
+      if (animActive) {
+        SKIAKIT_LOG("drawTreeDirect PATH1+anim(skip-rebuild) root=%s", rootId.c_str());
+        // Drain dirty rects
+        {
+          std::lock_guard<std::mutex> drLock(_dirtyRectsMutex);
+          _dirtyRects.clear();
+        }
+        _animationDirty.store(false, std::memory_order_relaxed);
+        // KHÔNG clear _isDirty → khi animation dừng (animDirty=false, isDirty=true)
+        // PATH1 sẽ chạy lại và rebuildPicture với values đã settle → SkPicture đúng.
+        canvas->clear(SK_ColorTRANSPARENT);
+        {
+          std::shared_lock<std::shared_mutex> lock(_nodesMutex);
+          auto it = _nodes.find(rootId);
+          if (it != _nodes.end()) {
+            it->second->paint(canvas);
+          }
+        }
+        return;
+      }
+
+      // Không có animation active → rebuild SkPicture (values đã settle = safe to cache)
+      SKIAKIT_LOG("drawTreeDirect PATH1(rebuild) root=%s w=%.0f h=%.0f", rootId.c_str(), w, h);
+      _animationDirty.store(false, std::memory_order_relaxed);
       rebuildPicture(rootId, w, h);
-      rebuilt = true;
+
+      // Drain dirty rects
+      std::vector<SkRect> dirtyRects;
+      {
+        std::lock_guard<std::mutex> drLock(_dirtyRectsMutex);
+        dirtyRects = std::move(_dirtyRects);
+      }
+
+      // Không có animation: drawPicture từ baked snapshot (nhanh hơn).
+      std::lock_guard<std::mutex> lock(_pictureMutex);
+      if (!_cachedPicture) return;
+
+      // Phase 6 OPT-3: Dirty rect culled draw
+      constexpr int   kMaxDirtyRects = 6;
+      constexpr float kShadowPad     = 20.f;
+      if (!dirtyRects.empty() && (int)dirtyRects.size() <= kMaxDirtyRects) {
+        SkRect unionRect = dirtyRects[0];
+        for (size_t i = 1; i < dirtyRects.size(); ++i) unionRect.join(dirtyRects[i]);
+        unionRect.outset(kShadowPad, kShadowPad);
+        unionRect.intersect(SkRect::MakeWH(w, h));
+        const float canvasArea = w * h;
+        const float dirtyArea  = unionRect.width() * unionRect.height();
+        if (canvasArea > 0.f && dirtyArea / canvasArea < 0.8f) {
+          canvas->save();
+          canvas->clipRect(unionRect);
+          canvas->drawPicture(_cachedPicture.get());
+          canvas->restore();
+          return;
+        }
+      }
+      canvas->drawPicture(_cachedPicture.get());
+      return;
     }
 
-    // Phase 6 OPT-1: Frame version dedup.
-    // Skip GPU flush entirely if nothing has changed since the last rendered frame.
-    // _lastRenderedVersion is only read/written on Main Thread (inside renderToCanvas callback),
-    // so no atomic needed for it.
+    // ── Path 2: Animation-only draw (skip rebuildPicture) ─────────────────
+    // Dùng khi chỉ transform/opacity thay đổi HOẶC khi layout transition
+    // yêu cầu redraw (onRequestRedraw → _animationDirty=true).
+    //
+    // Direct paint: đọc atomic transform values + interpolated positions
+    // từng node tại thời điểm hiện tại → không cần rebuild SkPicture.
+    //
+    // QUAN TRỌNG: KHÔNG dùng dirty rect clip ở đây.
+    // Sau canvas->clear(), phải paint TOÀN BỘ cây không có clip.
+    // Nếu clip → phần ngoài clip trở thành transparent (màn hình trắng).
+    if (needsAnimDraw) {
+      SKIAKIT_LOG("drawTreeDirect PATH2(anim) root=%s w=%.0f h=%.0f", rootId.c_str(), w, h);
+      // Safeguard: nếu chưa có picture (first frame), force full rebuild
+      // để đảm bảo canvas được populate đúng cách trước khi dùng direct draw.
+      bool hasPicture = false;
+      {
+        std::lock_guard<std::mutex> lock(_pictureMutex);
+        hasPicture = (_cachedPicture != nullptr);
+      }
+      if (!hasPicture) {
+        // Chưa có picture → rebuild để khởi tạo
+        _isDirty.store(true, std::memory_order_release);
+        _animationDirty.store(false, std::memory_order_relaxed);
+        return drawTreeDirect(rootId, canvas, w, h); // recurse với _isDirty=true
+      }
+
+      _animationDirty.store(false, std::memory_order_release);
+
+      // Drain dirty rects (không dùng làm clip — không an toàn sau clear())
+      {
+        std::lock_guard<std::mutex> drLock(_dirtyRectsMutex);
+        _dirtyRects.clear();
+      }
+
+      // Clear TOÀN BỘ surface rồi paint TOÀN BỘ cây
+      // clear() + full paint = không có ghost artifacts, không có màn hình trắng
+      canvas->clear(SK_ColorTRANSPARENT);
+
+      {
+        std::shared_lock<std::shared_mutex> lock(_nodesMutex);
+        auto it = _nodes.find(rootId);
+        if (it != _nodes.end()) {
+          it->second->paint(canvas);
+        }
+      }
+      return;
+    }
+
+    // ── Path 3: Frame dedup ───────────────────────────────────────────────
+    // Phase 6 OPT-1: Skip GPU flush nếu picture không đổi từ frame trước.
     uint64_t currentVersion = _frameVersion.load(std::memory_order_relaxed);
-    if (!rebuilt && currentVersion == _lastRenderedVersion) {
-      return; // GPU already has this frame — no work to do
+    if (currentVersion == _lastRenderedVersion) {
+      SKIAKIT_LOG("drawTreeDirect PATH3(skip/dedup) root=%s ver=%llu", rootId.c_str(), (unsigned long long)currentVersion);
+      return; // GPU đã có frame này rồi
     }
     _lastRenderedVersion = currentVersion;
 
-    // Phase 6 OPT-3: Dirty rect culled draw.
-    // If only a few nodes changed (small update), clip the canvas to the union of
-    // dirty rects + shadow padding. Skia's BBH (R-Tree from SkRTreeFactory) then
-    // automatically culls draw commands outside the clip region.
-    // For large updates (many dirty rects) or full redraws, skip clipping.
-    std::vector<SkRect> dirtyRects;
-    {
-      std::lock_guard<std::mutex> drLock(_dirtyRectsMutex);
-      dirtyRects = std::move(_dirtyRects);
-      _dirtyRects.clear();
-    }
-
+    // Replay picture từ cache (không có gì thay đổi ngoài version bump)
     std::lock_guard<std::mutex> lock(_pictureMutex);
-    if (!_cachedPicture) return;
-
-    // Use dirty rect clip when: few rects AND they don't cover most of the screen
-    constexpr int kMaxDirtyRects = 6;
-    constexpr float kShadowPad   = 20.f; // extra margin for shadows/border radius
-    if (!dirtyRects.empty() && (int)dirtyRects.size() <= kMaxDirtyRects) {
-      // Compute union of all dirty rects
-      SkRect unionRect = dirtyRects[0];
-      for (size_t i = 1; i < dirtyRects.size(); ++i) {
-        unionRect.join(dirtyRects[i]);
-      }
-      // Expand by shadow padding
-      unionRect.outset(kShadowPad, kShadowPad);
-      // Clamp to canvas bounds
-      unionRect.intersect(SkRect::MakeWH(w, h));
-
-      // Only use clip if it covers < 80% of canvas (else full draw is cheaper)
-      const float canvasArea = w * h;
-      const float dirtyArea  = unionRect.width() * unionRect.height();
-      if (canvasArea > 0.f && dirtyArea / canvasArea < 0.8f) {
-        canvas->save();
-        canvas->clipRect(unionRect);
-        canvas->drawPicture(_cachedPicture.get());
-        canvas->restore();
-        return;
-      }
+    if (_cachedPicture) {
+      canvas->drawPicture(_cachedPicture.get());
     }
-
-    // Full screen draw (no clip)
-    canvas->drawPicture(_cachedPicture.get());
   }
 
   // ── Canvas integration (Phase 6E — serialization bridge) ─────────────────
@@ -462,27 +604,72 @@ private:
 
   sk_sp<SkPicture> _cachedPicture;
   mutable std::mutex _pictureMutex;
+
+  // _isDirty: cần rebuildPicture (structure/visual/layout thay đổi)
   std::atomic<bool> _isDirty{true};
+  // _animationDirty: chỉ transform/opacity thay đổi → skip rebuildPicture, direct draw
+  std::atomic<bool> _animationDirty{false};
 
   // Phase 6 OPT-1: Frame version dedup
-  // _frameVersion incremented each rebuildPicture — compared with _lastRenderedVersion
-  // to skip GPU flush when picture hasn't changed.
-  // _lastRenderedVersion is Main Thread-only → no atomic needed.
   std::atomic<uint64_t> _frameVersion{0};
-  uint64_t _lastRenderedVersion{UINT64_MAX}; // starts mismatched to force first draw
+  uint64_t _lastRenderedVersion{UINT64_MAX};
 
   // Phase 6 OPT-3: Dirty rect accumulation
-  // Nodes accumulate their bounding rects here on updateAnimatedStyles.
-  // drawTreeDirect drains this and uses union rect as clip.
   std::vector<SkRect> _dirtyRects;
   mutable std::mutex _dirtyRectsMutex;
 
-  // Lưu lại dimensions từ lần rebuildPicture gần nhất
   float _lastW = 0.f;
   float _lastH = 0.f;
 
   sk_sp<skia::textlayout::FontCollection> _fontCollection;
+  // _redrawCallback: internal wrapper (set _animationDirty + gọi external)
+  // Dùng _animationDirty thay vì _isDirty để không bị rebuildPicture() overwrite.
+  // Cho phép layout transitions animate đúng qua Path 2 (direct paint).
   std::function<void()> _redrawCallback;
+  // _externalRedrawCallback: scheduleRender() từ SkiaKitRenderer
+  std::function<void()> _externalRedrawCallback;
+
+  /**
+   * isTransformOnlyUpdate — kiểm tra NativeAnimatedStyle có chỉ chứa
+   * transform/opacity props không (không cần rebuildPicture).
+   *
+   * Transform-only: opacity, scale*, translate*, rotate*, skew*, perspective,
+   *   transformOrigin*, zIndex, pointerEvents, width/height/top/left (anim overrides).
+   * Visual (cần rebuild): backgroundColor, border*, gradient, backdropBlur, blend, colorFilter.
+   */
+  static bool isTransformOnlyUpdate(const NativeAnimatedStyle& style) {
+    return !style.backgroundColor.has_value() &&
+           !style.borderRadius.has_value() &&
+           !style.borderTopLeftRadius.has_value() &&
+           !style.borderTopRightRadius.has_value() &&
+           !style.borderBottomRightRadius.has_value() &&
+           !style.borderBottomLeftRadius.has_value() &&
+           !style.borderWidth.has_value() &&
+           !style.borderTopWidth.has_value() &&
+           !style.borderRightWidth.has_value() &&
+           !style.borderBottomWidth.has_value() &&
+           !style.borderLeftWidth.has_value() &&
+           !style.borderColor.has_value() &&
+           !style.borderTopColor.has_value() &&
+           !style.borderRightColor.has_value() &&
+           !style.borderBottomColor.has_value() &&
+           !style.borderLeftColor.has_value() &&
+           !style.borderStyle.has_value() &&
+           !style.dashLength.has_value() &&
+           !style.dashSpacing.has_value() &&
+           !style.gradient.has_value() &&
+           !style.backdropBlurRadius.has_value() &&
+           !style.blendMode.has_value() &&
+           !style.colorFilter.has_value() &&
+           !style.shadowColor.has_value() &&
+           !style.shadowBlur.has_value() &&
+           !style.shadowOffsetX.has_value() &&
+           !style.shadowOffsetY.has_value() &&
+           !style.shadowOpacity.has_value() &&
+           !style.shadowSpread.has_value() &&
+           !style.shadowType.has_value();
+  }
 };
 
 } // namespace margelo::nitro::skiakit
+

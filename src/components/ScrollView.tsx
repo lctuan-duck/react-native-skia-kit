@@ -238,10 +238,17 @@ export const ScrollView = React.forwardRef<any, ScrollViewProps>(
         onPanUpdate,
         onPanEnd,
       },
-      <Box
-        id={contentBoxId}
-        style={{ flexDirection: horizontal ? 'row' : 'column' }}
-      >
+        <Box
+          id={contentBoxId}
+          style={{
+            flexDirection: horizontal ? 'row' : 'column',
+            // Children của vertical ScrollView phải fill full width theo viewport.
+            // alignItems:'stretch' = Yoga sẽ set cross-size của mỗi child bằng parent width.
+            // Nếu không có flag này, children co theo content (wrap) → ListTile, Column bị hẹp.
+            // Horizontal ScrollView không cần stretch height vì scroll theo chiều ngang.
+            alignItems: horizontal ? 'start' : 'stretch',
+          }}
+        >
         {props.children}
       </Box>
     );

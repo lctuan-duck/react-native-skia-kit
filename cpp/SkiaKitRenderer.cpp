@@ -38,10 +38,16 @@ void SkiaKitRenderer::attachCanvasProvider(
   }
   // Reset EGL throttle — surface mới đã sẵn sàng, cho phép render ngay
   _eglFailCount.store(0, std::memory_order_release);
+  _eglThrottleStartNs.store(0, std::memory_order_relaxed); // reset timer
   RENDERER_LOG("attachCanvasProvider: canvasId=%s w=%.0f h=%.0f", canvasId.c_str(), width, height);
 
-  // Initial render ngay sau khi attach
-  scheduleLayoutAndRender();
+  // BUG-1 FIX: Chỉ scheduleLayoutAndRender nếu tree đã có content.
+  // Nếu gọi ngay khi surface attach nhưng JS reconciler chưa commit xong
+  // → render cây rỗng → thấy partial UI ở góc trái (flicker khi chuyển tab).
+  // JS reconciler's resetAfterCommit sẽ tự gọi scheduleLayoutAndRender sau khi commit.
+  if (_renderSubsystem.hasRenderContent(canvasId)) {
+    scheduleLayoutAndRender();
+  }
 }
 
 void SkiaKitRenderer::detachCanvasProvider() {
@@ -64,37 +70,98 @@ void SkiaKitRenderer::resize(float width, float height) {
 // ── Scheduling ────────────────────────────────────────────────────────────
 
 void SkiaKitRenderer::scheduleRender() {
-  // STACK OVERFLOW GUARD: nếu doRender() đang chạy, chỉ mark pending, không post task mới.
+  // COMMIT BATCH GUARD: nếu reconciler đang commit partial tree → chỉ mark dirty.
+  // endCommit() sẽ gọi scheduleChoreographerFrame() sau khi commit xong.
+  if (_commitActive.load(std::memory_order_acquire)) {
+    _renderPending.store(true, std::memory_order_release);
+    return;
+  }
+
+  // RENDER-IN-PROGRESS GUARD: doRender đang chạy → mark dirty.
+  // Cuối doRender sẽ tự re-register Choreographer nếu pending.
   if (_isRendering.load(std::memory_order_acquire)) {
     _renderPending.store(true, std::memory_order_release);
     return;
   }
 
-  // EGL THROTTLE: nếu EGL đang fail liên tục, không post task mới lên main thread.
-  // Reanimated animation gọi scheduleRender() 60fps — mỗi post → doRender() chạy trên main
-  // thread → EGL fail → return → main thread 100% busy → UI freeze/unresponsive.
-  // Fix: khi fail >= threshold, chỉ set _renderPending=true (không post).
-  // Khi EGL recover: attachCanvasProvider → _eglFailCount=0 → scheduleLayoutAndRender()
-  // sẽ bypass throttle và kick-start render lại ngay.
-  constexpr int kMaxEglFailBeforeThrottle = 3;
-  if (_eglFailCount.load(std::memory_order_relaxed) >= kMaxEglFailBeforeThrottle) {
-    _renderPending.store(true, std::memory_order_release); // Nhớ có dirty request
-    return; // Không post task — đợi EGL recover
+  // EGL THROTTLE: tránh busy-loop khi EGL chưa sẵn sàng.
+  constexpr int kMaxEglFailBeforeThrottle = 5;
+  int currentFails = _eglFailCount.load(std::memory_order_relaxed);
+  if (currentFails >= kMaxEglFailBeforeThrottle) {
+    int64_t startNs = _eglThrottleStartNs.load(std::memory_order_relaxed);
+    bool pastTimeout = false;
+    if (startNs != 0) {
+      auto now = std::chrono::steady_clock::now();
+      int64_t nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        now.time_since_epoch()).count();
+      pastTimeout = ((nowNs - startNs) > 1'000'000'000LL);
+    }
+    if (pastTimeout) {
+      RENDERER_LOG("EGL throttle recovery: resetting after 1s");
+      _eglFailCount.store(0, std::memory_order_release);
+      _eglThrottleStartNs.store(0, std::memory_order_relaxed);
+    } else {
+      _renderPending.store(true, std::memory_order_release);
+      return;
+    }
   }
 
-  // Lock-free dedup: chỉ 1 render frame được queue tại một thời điểm
+  // Mark dirty + đăng ký Choreographer (deduplicated).
+  _renderPending.store(true, std::memory_order_release);
+  scheduleChoreographerFrame();
+}
+
+void SkiaKitRenderer::scheduleChoreographerFrame() {
+  // Deduplicate: chỉ 1 Choreographer callback được đăng ký tại một thời điểm.
+  // Dùng _choreographerRegistered riêng biệt thay vì _renderPending để:
+  // 1. FLICKER FIX: N endCommits → 1 callback duy nhất → 1 doRender với FINAL tree state.
+  // 2. ANIMATION FIX: cuối doRender có thể re-register cho frame tiếp theo
+  //    mà không conflict với _renderPending (animation continuity).
   bool expected = false;
-  if (!_renderPending.compare_exchange_strong(expected, true,
+  if (!_choreographerRegistered.compare_exchange_strong(expected, true,
         std::memory_order_acq_rel, std::memory_order_relaxed)) {
-    return; // Đã có task đang pending
+    // Đã có callback pending — không cần đăng ký thêm.
+    // _renderPending đã được set → callback hiện tại sẽ render khi VSync fires.
+    return;
   }
 
+#ifdef __ANDROID__
+  RENDERER_LOG("scheduleChoreographerFrame: registering VSync callback");
+  auto weakSelf = weak_from_this();
+  _platformContext->runOnMainThread([weakSelf]() {
+    AChoreographer* choreographer = AChoreographer_getInstance();
+    if (!choreographer) {
+      RENDERER_LOG("scheduleChoreographerFrame: AChoreographer unavailable, fallback");
+      if (auto self = weakSelf.lock()) {
+        self->_choreographerRegistered.store(false, std::memory_order_release);
+        self->doRender();
+      }
+      return;
+    }
+    AChoreographer_postFrameCallback(
+      choreographer,
+      [](long frameTimeNanos, void* data) {
+        auto* weakPtr = static_cast<std::weak_ptr<SkiaKitRenderer>*>(data);
+        if (auto self = weakPtr->lock()) {
+          RENDERER_LOG("VSync fired (frame=%ldns)", frameTimeNanos);
+          // _choreographerRegistered sẽ được clear TRONG doRender trước khi render.
+          self->doRender();
+        }
+        delete weakPtr;
+      },
+      new std::weak_ptr<SkiaKitRenderer>(weakSelf)
+    );
+  });
+#else
+  RENDERER_LOG("scheduleChoreographerFrame: posting to main thread (iOS)");
   auto weakSelf = weak_from_this();
   _platformContext->runOnMainThread([weakSelf]() {
     if (auto self = weakSelf.lock()) {
+      self->_choreographerRegistered.store(false, std::memory_order_release);
       self->doRender();
     }
   });
+#endif
 }
 
 void SkiaKitRenderer::scheduleLayoutAndRender() {
@@ -105,10 +172,45 @@ void SkiaKitRenderer::scheduleLayoutAndRender() {
 // ── doRender (Main Thread only) ───────────────────────────────────────────
 
 void SkiaKitRenderer::doRender() {
-  // Set _isRendering TRƯỚC KHI reset _renderPending.
-  // Bất kỳ scheduleRender() nào được gọi trong lúc đang render
-  // sẽ thấy _isRendering=true và chỉ set _renderPending=true (không post task mới).
-  _isRendering.store(true, std::memory_order_release);
+  // ── Guard 1: Commit Safety ────────────────────────────────────────────────
+  // Nếu doRender task được queue BEFORE beginCommit() nhưng chạy AFTER reconciler
+  // bắt đầu mutate tree → data race trên render tree → undefined behavior.
+  // Bail out: endCommit() sẽ force-reset _renderPending=false rồi gọi
+  // scheduleLayoutAndRender() → CAS(false→true) → post fresh doRender task.
+  //
+  // QUAN TRỌNG: KHÔNG set _renderPending=true ở đây!
+  // Nếu set true: endCommit→scheduleRender thấy pending=true → CAS fail
+  // → không post task mới → FROZEN FOREVER.
+  if (_commitActive.load(std::memory_order_acquire)) {
+    // Guard 1: commit đang chạy → clear _choreographerRegistered để endCommit
+    // có thể re-register callback sau khi commit xong. KHÔNG set _renderPending=true
+    // vì endCommit sẽ set nó trong scheduleChoreographerFrame.
+    _choreographerRegistered.store(false, std::memory_order_release);
+    return;
+  }
+
+  // ── Guard 2: RAII _isRendering ────────────────────────────────────────────
+  // Đảm bảo _isRendering luôn được reset kể cả khi drawTreeDirect() throw C++
+  // exception. Nếu không có RAII: exception → stack unwind → _isRendering stuck
+  // = true → mọi scheduleRender() sau đó đều bị block → FREEZE FOREVER.
+  struct IsRenderingGuard {
+    std::atomic<bool>& _flag;
+    std::atomic<bool>& _pending;
+    bool _needsReschedule = false;
+    explicit IsRenderingGuard(std::atomic<bool>& f, std::atomic<bool>& p)
+      : _flag(f), _pending(p) {
+      _flag.store(true, std::memory_order_release);
+    }
+    ~IsRenderingGuard() {
+      _flag.store(false, std::memory_order_release);
+      // Nếu bị exception, reschedule để không mất render request
+      if (_needsReschedule) {
+        _pending.store(true, std::memory_order_release);
+      }
+    }
+  } renderGuard(_isRendering, _renderPending);
+  // Mặc định nếu exception → reschedule. Sẽ clear flag khi render thành công.
+  renderGuard._needsReschedule = true;
 
   // Reset _renderPending để cho phép dirty updates trong lúc render
   // được schedule lại ngay sau khi frame này xong.
@@ -132,6 +234,7 @@ void SkiaKitRenderer::doRender() {
 
   // ── Step 1: Layout (nếu cần) ──────────────────────────────────────────
   bool didLayout = false;
+  bool anyLayoutChanged = false; // FIX M4: track xem layout có thực sự thay đổi không
   if (_needsLayout.exchange(false, std::memory_order_acq_rel)) {
     didLayout = true;
     // calculateLayout là pure C++ Yoga computation — thread-safe vì chỉ
@@ -162,7 +265,8 @@ void SkiaKitRenderer::doRender() {
         static_cast<float>(rect.height)
       };
     }
-    _renderSubsystem.syncLayoutResults(renderLayouts);
+    // syncLayoutResults returns true nếu có node nào thực sự thay đổi position/size
+    anyLayoutChanged = _renderSubsystem.syncLayoutResults(renderLayouts);
     // AUTO-BRIDGE 3 (JS notify) sẽ được fire SAU khi draw thành công (bên dưới)
   }
 
@@ -175,33 +279,56 @@ void SkiaKitRenderer::doRender() {
     const float pd = _platformContext->getPixelDensity();
     canvas->save();
     canvas->scale(pd, pd);
+    RENDERER_LOG("doRender: draw w=%.0f h=%.0f pd=%.2f", w, h, pd);
     _renderSubsystem.drawTreeDirect(canvasId, canvas, w, h);
     canvas->restore();
   });
 
   if (rendered) {
-    // Draw thành công → notify JS để update layout SharedValues
-    if (didLayout && _layoutUpdateCallback) {
+    // FIX M4: Chỉ fire JS layout callback khi layout THỰC SỰ thay đổi.
+    // Tránh JSI roundtrip + Reanimated SharedValues update vô ích mỗi frame tĩnh.
+    if (didLayout && anyLayoutChanged && _layoutUpdateCallback) {
       auto cb = _layoutUpdateCallback;
       _platformContext->runOnJavascriptThread([cb]() {
         cb();
       });
     }
     _eglFailCount.store(0, std::memory_order_relaxed);
+    _eglThrottleStartNs.store(0, std::memory_order_relaxed);
   } else {
-    _eglFailCount.fetch_add(1, std::memory_order_relaxed);
-    RENDERER_LOG("renderToCanvas returned false (EGL not ready), fail#%d — throttling after %d",
-      _eglFailCount.load(std::memory_order_relaxed), 3);
+    // FIX C4: Nếu draw thất bại (EGL not ready) nhưng layout đã được tính,
+    // re-queue layout để lần render tiếp theo không dùng layout stale.
+    if (didLayout) {
+      _needsLayout.store(true, std::memory_order_release);
+    }
+    int newFails = _eglFailCount.fetch_add(1, std::memory_order_relaxed) + 1;
+    RENDERER_LOG("renderToCanvas returned false (EGL not ready), fail#%d", newFails);
+    if (newFails == 5) {
+      auto now = std::chrono::steady_clock::now();
+      int64_t nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        now.time_since_epoch()).count();
+      _eglThrottleStartNs.store(nowNs, std::memory_order_relaxed);
+      RENDERER_LOG("EGL throttle started — will auto-recover after 1s");
+    }
   }
 
-  // ── Cleanup _isRendering ────────────────────────────────────────────────
-  _isRendering.store(false, std::memory_order_release);
+  // ── RAII Cleanup ─────────────────────────────────────────────────────────
+  // Xóa _choreographerRegistered TRƯỚC KHI check _renderPending.
+  // Điều này cho phép scheduleChoreographerFrame() bên dưới đăng ký callback mới
+  // ngay trong lần gọi này (không bị block bởi CAS _choreographerRegistered=true).
+  _choreographerRegistered.store(false, std::memory_order_release);
+  renderGuard._needsReschedule = false; // Normal completion.
 
-  // Schedule frame tiếp theo nếu có dirty request từ bên ngoài.
-  bool pendingAfterRender = true;
-  if (_renderPending.compare_exchange_strong(pendingAfterRender, false,
-        std::memory_order_acq_rel, std::memory_order_relaxed)) {
-    scheduleRender(); // Sử dụng scheduleRender() để throttle logic được apply
+  // Re-register Choreographer cho frame tiếp theo nếu còn dirty.
+  // ANIMATION CONTINUITY FIX:
+  //   - Animation worklet → scheduleRender() → set _renderPending=true (trong lúc isRendering=true → skip)
+  //   - Cuối doRender: _renderPending=true → scheduleChoreographerFrame() → register next VSync
+  //   - Kể cả khi slider bị held (không move), animation vẫn tự duy trì vòng lặp này.
+  //
+  // KHÁC VỚI TRƯỚC: trước đây dùng CAS(_renderPending, true→false) nên nếu
+  // animation set _renderPending=true trong lúc render, nó bị swap về false → animation dừng.
+  if (_renderPending.load(std::memory_order_acquire)) {
+    scheduleChoreographerFrame(); // CAS _choreographerRegistered: false→true → register VSync
   }
 }
 

@@ -101,8 +101,30 @@ export const Slider = React.memo(function Slider({
   const layoutSVs = useLayoutSharedValues(widgetId);
   const defaultWidth = typeof width === 'number' ? width : 200;
 
+  // FIX: Không dùng React state cho internalValue trong khi drag.
+  // Visual (fill + thumb) được control hoàn toàn bởi worklet qua animatedRatio.
+  // internalValueRef chỉ để onSlidingComplete trả về đúng giá trị cuối.
+  const internalValueRef = React.useRef(value);
   const [internalValue, setInternalValue] = React.useState(value);
   const isDragging = React.useRef(false);
+
+  // Throttle onChange: tối đa 1 lần/30ms (~30fps).
+  // Caller (vd: setProgressValue) trigger reconciler commit → calculateLayout.
+  // Nếu gọi mỗi pixel → flood reconciler → lag cực kì.
+  const lastOnChangeTimeRef = React.useRef(0);
+  const pendingValueRef = React.useRef<number | null>(null);
+
+  const throttledOnChange = React.useCallback(
+    (newVal: number) => {
+      pendingValueRef.current = newVal;
+      const now = Date.now();
+      if (now - lastOnChangeTimeRef.current >= 30) {
+        lastOnChangeTimeRef.current = now;
+        onChange?.(newVal);
+      }
+    },
+    [onChange]
+  );
 
   const getRatio = React.useCallback(
     (v: number) => Math.max(0, Math.min(1, (v - min) / (max - min))),
@@ -111,12 +133,23 @@ export const Slider = React.memo(function Slider({
 
   const animatedRatio = useSharedValue(getRatio(value));
 
-  React.useEffect(() => {
+  // useLayoutEffect for withTiming: Reanimated registers Choreographer BEFORE endCommit
+  // → worklet fires BEFORE doRender at Frame N → fill/thumb positions updated before paint.
+  // (setInternalValue stays in useEffect — setState inside useLayoutEffect can cause
+  // unexpected synchronous re-renders in React's commit phase.)
+  React.useLayoutEffect(() => {
     if (!isDragging.current) {
-      setInternalValue(value);
       animatedRatio.value = withTiming(getRatio(value), { duration: 200 });
     }
   }, [value, min, max, animatedRatio, getRatio]);
+
+  // Internal value sync (state update — safe in async useEffect).
+  React.useEffect(() => {
+    if (!isDragging.current) {
+      internalValueRef.current = value;
+      setInternalValue(value);
+    }
+  }, [value]);
 
   useAnimatedReaction(
     () => animatedRatio.value,
@@ -152,29 +185,38 @@ export const Slider = React.memo(function Slider({
     isDragging.current = true;
     startLocalX.current = e?.localX ?? 0;
     const newValue = calculateValue(startLocalX.current);
+    internalValueRef.current = newValue;
     setInternalValue(newValue);
+    // Visual animation đã được worklet xử lý
     animatedRatio.value = getRatio(newValue);
-    onChange?.(newValue);
+    throttledOnChange(newValue);
   };
 
   const handlePanUpdate = (e: PanEvent) => {
     if (disabled) return;
     const currentLocalX = startLocalX.current + (e?.translationX ?? 0);
     const newValue = calculateValue(currentLocalX);
-    setInternalValue(newValue);
+    internalValueRef.current = newValue;
+    // FIX: KHÔNG gọi setInternalValue trong pan update.
+    // Visual đã được worklet xử lý qua animatedRatio (Path 2, không rebuild).
+    // setInternalValue mỗi pixel → 2 reconciler commits/pixel → calculateLayout flood.
     animatedRatio.value = getRatio(newValue);
-    onChange?.(newValue);
+    throttledOnChange(newValue);
   };
 
   const handlePanEnd = () => {
     isDragging.current = false;
-    onSlidingComplete?.(internalValue);
+    // Flush pending onChange với giá trị cuối chính xác
+    if (pendingValueRef.current != null) {
+      onChange?.(pendingValueRef.current);
+      pendingValueRef.current = null;
+    }
+    setInternalValue(internalValueRef.current);
+    onSlidingComplete?.(internalValueRef.current);
   };
 
   // Initial calculation for first render
   const initialRatio = getRatio(internalValue);
-  const initialFillWidth = initialRatio * finalWidth;
-  const initialThumbLeft = initialRatio * finalWidth - thumbR;
 
   React.useLayoutEffect(() => {
     // Initial sync: đặt visual về đúng vị trí khởi đầu qua GPU transforms

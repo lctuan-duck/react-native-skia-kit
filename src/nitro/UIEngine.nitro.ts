@@ -459,6 +459,19 @@ export interface UIEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   scheduleLayoutAndRender(): void;
 
   /**
+   * beginCommit — Gọi từ reconciler's prepareForCommit.
+   * Ngăn tất cả renders trong khi reconciler đang commit partial state.
+   * Tránh render intermediate tree → flicker khi chuyển tab.
+   */
+  beginCommit(): void;
+
+  /**
+   * endCommit — Gọi từ reconciler's resetAfterCommit (TRƯỚC scheduleLayoutAndRender).
+   * Mở khóa rendering.
+   */
+  endCommit(): void;
+
+  /**
    * detachNativeView — Cleanup khi CanvasRoot unmount.
    * Gọi từ useLayoutEffect cleanup trong CanvasRoot.
    */

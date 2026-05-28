@@ -90,7 +90,9 @@ export const Switch = React.memo(function Switch({
 
   const progress = useSharedValue(value ? 1 : 0);
 
-  React.useEffect(() => {
+  // useLayoutEffect: Reanimated registers Choreographer BEFORE endCommit → worklet fires
+  // BEFORE doRender at Frame N → track color + thumb position updated before paint.
+  React.useLayoutEffect(() => {
     progress.value = withTiming(value ? 1 : 0, { duration: 200 });
   }, [value, progress]);
 

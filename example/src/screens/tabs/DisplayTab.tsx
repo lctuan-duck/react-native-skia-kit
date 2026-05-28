@@ -24,9 +24,10 @@ import { SectionHeader } from '../components/SectionHeader';
 interface Props {
   width: number;
   height: number;
+  display?: 'flex' | 'none';
 }
 
-export function DisplayTab({ width, height }: Props) {
+export function DisplayTab({ width, height, display = 'flex' }: Props) {
   const theme = useTheme();
   const [switchOn, setSwitchOn] = React.useState(false);
   const [selectedChips, setSelectedChips] = React.useState<number[]>([0]);
@@ -38,16 +39,19 @@ export function DisplayTab({ width, height }: Props) {
   };
 
   return (
-    <ScrollView style={{ width, height }}>
+    <ScrollView style={{ width, height, display }}>
       <Column style={{ gap: 0, padding: 0 }}>
-
         {/* ── Cards ── */}
         <SectionHeader title="Card" />
         <Column style={{ gap: 12, padding: 16 }}>
           <Card variant="solid" style={{ width: width - 32, padding: 16 }}>
             <Text
               text="Solid Card"
-              style={{ fontSize: 16, fontWeight: 'bold', color: theme.colors.textBody }}
+              style={{
+                fontSize: 16,
+                fontWeight: 'bold',
+                color: theme.colors.textBody,
+              }}
             />
             <Box style={{ height: 4 }} />
             <Text
@@ -58,7 +62,11 @@ export function DisplayTab({ width, height }: Props) {
           <Card variant="outline" style={{ width: width - 32, padding: 16 }}>
             <Text
               text="Outline Card"
-              style={{ fontSize: 16, fontWeight: 'bold', color: theme.colors.textBody }}
+              style={{
+                fontSize: 16,
+                fontWeight: 'bold',
+                color: theme.colors.textBody,
+              }}
             />
             <Box style={{ height: 4 }} />
             <Text
@@ -69,7 +77,11 @@ export function DisplayTab({ width, height }: Props) {
           <Card variant="ghost" style={{ width: width - 32, padding: 16 }}>
             <Text
               text="Ghost Card"
-              style={{ fontSize: 16, fontWeight: 'bold', color: theme.colors.textBody }}
+              style={{
+                fontSize: 16,
+                fontWeight: 'bold',
+                color: theme.colors.textBody,
+              }}
             />
             <Box style={{ height: 4 }} />
             <Text
@@ -90,8 +102,10 @@ export function DisplayTab({ width, height }: Props) {
               gradient: {
                 type: 'linear',
                 colors: [theme.colors.primary, theme.colors.secondary],
-                startX: 0, startY: 0,
-                endX: 1, endY: 0,
+                startX: 0,
+                startY: 0,
+                endX: 1,
+                endY: 0,
               },
               justifyContent: 'center',
               alignItems: 'center',
@@ -110,7 +124,8 @@ export function DisplayTab({ width, height }: Props) {
               gradient: {
                 type: 'radial',
                 colors: [theme.colors.success, theme.colors.primary],
-                centerX: 0.5, centerY: 0.5,
+                centerX: 0.5,
+                centerY: 0.5,
                 radius: 0.8,
               },
               justifyContent: 'center',
@@ -129,8 +144,15 @@ export function DisplayTab({ width, height }: Props) {
               borderRadius: 12,
               gradient: {
                 type: 'sweep',
-                colors: [theme.colors.error, theme.colors.warning, theme.colors.success, theme.colors.primary, theme.colors.error],
-                centerX: 0.5, centerY: 0.5,
+                colors: [
+                  theme.colors.error,
+                  theme.colors.warning,
+                  theme.colors.success,
+                  theme.colors.primary,
+                  theme.colors.error,
+                ],
+                centerX: 0.5,
+                centerY: 0.5,
               },
               justifyContent: 'center',
               alignItems: 'center',
@@ -149,20 +171,42 @@ export function DisplayTab({ width, height }: Props) {
         <SectionHeader title="Avatar" />
         <Row style={{ gap: 16, padding: 16, alignItems: 'center' }}>
           <Column style={{ alignItems: 'center', gap: 6 }}>
-            <Avatar variant="circle" size={56} color="primary" status="online" />
-            <Text text="Online" style={{ fontSize: 11, color: theme.colors.textSecondary }} />
+            <Avatar
+              variant="circle"
+              size={56}
+              color="primary"
+              status="online"
+            />
+            <Text
+              text="Online"
+              style={{ fontSize: 11, color: theme.colors.textSecondary }}
+            />
           </Column>
           <Column style={{ alignItems: 'center', gap: 6 }}>
-            <Avatar variant="rounded" size={56} color="secondary" status="offline" />
-            <Text text="Offline" style={{ fontSize: 11, color: theme.colors.textSecondary }} />
+            <Avatar
+              variant="rounded"
+              size={56}
+              color="secondary"
+              status="offline"
+            />
+            <Text
+              text="Offline"
+              style={{ fontSize: 11, color: theme.colors.textSecondary }}
+            />
           </Column>
           <Column style={{ alignItems: 'center', gap: 6 }}>
             <Avatar variant="square" size={56} color="success" />
-            <Text text="Square" style={{ fontSize: 11, color: theme.colors.textSecondary }} />
+            <Text
+              text="Square"
+              style={{ fontSize: 11, color: theme.colors.textSecondary }}
+            />
           </Column>
           <Column style={{ alignItems: 'center', gap: 6 }}>
             <Avatar variant="circle" size={56} color="error" />
-            <Text text="Error" style={{ fontSize: 11, color: theme.colors.textSecondary }} />
+            <Text
+              text="Error"
+              style={{ fontSize: 11, color: theme.colors.textSecondary }}
+            />
           </Column>
         </Row>
 
@@ -231,7 +275,9 @@ export function DisplayTab({ width, height }: Props) {
           <ListTile
             title="Standard ListTile"
             subtitle="With leading icon and trailing switch"
-            leading={<Icon name="bell" size={24} color={theme.colors.primary} />}
+            leading={
+              <Icon name="bell" size={24} color={theme.colors.primary} />
+            }
             trailing={<Switch value={switchOn} onChange={setSwitchOn} />}
           />
           <Divider style={{ length: width }} />
@@ -239,7 +285,13 @@ export function DisplayTab({ width, height }: Props) {
             title="Dense ListTile"
             dense
             leading={<Avatar variant="circle" size={36} color="success" />}
-            trailing={<Icon name="chevron-right" size={20} color={theme.colors.textSecondary} />}
+            trailing={
+              <Icon
+                name="chevron-right"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+            }
             onPress={() => {}}
           />
           <Divider style={{ length: width }} />
@@ -261,18 +313,35 @@ export function DisplayTab({ width, height }: Props) {
           style={{ width }}
         >
           <Column style={{ gap: 8 }}>
-            <Text text="✓ 60fps animations via Reanimated + C++ bridge" style={{ fontSize: 14, color: theme.colors.textBody }} />
-            <Text text="✓ Yoga layout engine" style={{ fontSize: 14, color: theme.colors.textBody }} />
-            <Text text="✓ Hero shared element transitions" style={{ fontSize: 14, color: theme.colors.textBody }} />
-            <Text text="✓ Skia-rendered UI components" style={{ fontSize: 14, color: theme.colors.textBody }} />
+            <Text
+              text="✓ 60fps animations via Reanimated + C++ bridge"
+              style={{ fontSize: 14, color: theme.colors.textBody }}
+            />
+            <Text
+              text="✓ Yoga layout engine"
+              style={{ fontSize: 14, color: theme.colors.textBody }}
+            />
+            <Text
+              text="✓ Hero shared element transitions"
+              style={{ fontSize: 14, color: theme.colors.textBody }}
+            />
+            <Text
+              text="✓ Skia-rendered UI components"
+              style={{ fontSize: 14, color: theme.colors.textBody }}
+            />
           </Column>
         </ExpansionTile>
         <ExpansionTile
           title="Performance"
-          leading={<Icon name="activity" size={20} color={theme.colors.success} />}
+          leading={
+            <Icon name="activity" size={20} color={theme.colors.success} />
+          }
           style={{ width }}
         >
-          <Text text="Worklet → scheduleOnRN → C++ → Skia pipeline" style={{ fontSize: 14, color: theme.colors.textBody }} />
+          <Text
+            text="Worklet → scheduleOnRN → C++ → Skia pipeline"
+            style={{ fontSize: 14, color: theme.colors.textBody }}
+          />
         </ExpansionTile>
 
         {/* Bottom padding */}

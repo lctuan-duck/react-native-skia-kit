@@ -133,8 +133,12 @@ namespace margelo::nitro::skiakit {
     double adjustedY = y;
     
     // Shift coords based on active scroll areas
+    // FIX: Chỉ apply scroll offset khi scroll area có kích thước thực sự (w > 0 && h > 0).
+    // display:none tabs có scroll area size = 0, nếu vẫn áp offset → adjustedX/Y sai
+    // → toàn bộ hit test fail (user không click/scroll được).
     for (auto& pair : _scrollAreas) {
       auto& area = pair.second;
+      if (area.w <= 0 || area.h <= 0) continue; // Skip zero-size areas (display:none tabs)
       if (x >= area.x && x <= area.x + area.w && y >= area.y && y <= area.y + area.h) {
         if (area.horizontal) {
           adjustedX += area.offset;
@@ -151,6 +155,7 @@ namespace margelo::nitro::skiakit {
 
     // 2. Quét danh sách Dynamic (O(N) - N cực nhỏ)
     for (const auto& node : _dynamicNodes) {
+      if (node.w <= 0 || node.h <= 0) continue; // Skip zero-size (display:none)
       if (adjustedX >= node.x && adjustedX <= node.x + node.w &&
           adjustedY >= node.y && adjustedY <= node.y + node.h) {
         hits.push_back(node);
@@ -161,6 +166,7 @@ namespace margelo::nitro::skiakit {
     // Because adjustedX/Y will miss the ScrollView's own static bounds!
     for (auto& pair : _scrollAreas) {
       auto& area = pair.second;
+      if (area.w <= 0 || area.h <= 0) continue; // Skip zero-size (display:none)
       if (x >= area.x && x <= area.x + area.w && y >= area.y && y <= area.y + area.h) {
         auto it = _allWidgets.find(area.id);
         if (it != _allWidgets.end()) {

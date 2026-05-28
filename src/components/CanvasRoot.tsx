@@ -436,116 +436,136 @@ export const CanvasRoot = React.memo(function CanvasRoot({
     []
   );
 
-  const gesture = Gesture.Simultaneous(
-    Gesture.Tap()
-      .runOnJS(true)
-      .onBegin((e) => {
-        const hits = engine.hitTest(e.x, e.y);
-        for (let i = hits.length - 1; i >= 0; i--) {
-          const hit = hits[i]!;
-          const handled = triggerJSCallback(hit.id, 'pressIn', {
+  // ── Tap + LongPress gesture (mutually exclusive) ────────────────────────
+  const tapGesture = Gesture.Tap()
+    .runOnJS(true)
+    .maxDuration(300)
+    .onBegin((e) => {
+      const hits = engine.hitTest(e.x, e.y);
+      for (let i = hits.length - 1; i >= 0; i--) {
+        const hit = hits[i]!;
+        const handled = triggerJSCallback(hit.id, 'pressIn', {
+          x: hit.localX,
+          y: hit.localY,
+        });
+        if (handled) {
+          globalActivePressIdRef.current = hit.id;
+          break;
+        }
+      }
+    })
+    .onEnd((e) => {
+      const hits = engine.hitTest(e.x, e.y);
+      for (let i = hits.length - 1; i >= 0; i--) {
+        const hit = hits[i]!;
+        if (hit.id === globalActivePressIdRef.current) {
+          const handled = triggerJSCallback(hit.id, 'press', {
             x: hit.localX,
             y: hit.localY,
           });
-          if (handled) {
-            globalActivePressIdRef.current = hit.id;
-            break;
-          }
-        }
-      })
-      .onEnd((e) => {
-        const hits = engine.hitTest(e.x, e.y);
-        for (let i = hits.length - 1; i >= 0; i--) {
-          const hit = hits[i]!;
-          if (hit.id === globalActivePressIdRef.current) {
-            const handled = triggerJSCallback(hit.id, 'press', {
-              x: hit.localX,
-              y: hit.localY,
-            });
-            if (handled) break;
-          }
-        }
-      })
-      .onFinalize(() => {
-        if (globalActivePressIdRef.current) {
-          triggerJSCallback(globalActivePressIdRef.current, 'pressOut', {});
-          globalActivePressIdRef.current = '';
-        }
-      }),
-
-    Gesture.LongPress()
-      .runOnJS(true)
-      .onStart((e) => {
-        const hits = engine.hitTest(e.x, e.y);
-        for (let i = hits.length - 1; i >= 0; i--) {
-          const hit = hits[i]!;
-          const handled = triggerJSCallback(hit.id, 'longPress', {});
           if (handled) break;
         }
-      }),
+      }
+    })
+    .onFinalize(() => {
+      if (globalActivePressIdRef.current) {
+        triggerJSCallback(globalActivePressIdRef.current, 'pressOut', {});
+        globalActivePressIdRef.current = '';
+      }
+    });
 
-    Gesture.Pan()
-      .runOnJS(true)
-      .onStart((e) => {
-        const hits = engine.hitTest(e.x, e.y);
-        for (let i = hits.length - 1; i >= 0; i--) {
-          const hit = hits[i]!;
-          const ev = {
-            translationX: 0,
-            translationY: 0,
-            velocityX: 0,
-            velocityY: 0,
-            absoluteX: e.absoluteX,
-            absoluteY: e.absoluteY,
-            localX: hit.localX,
-            localY: hit.localY,
-            state: 2,
-          };
-          const handled = triggerJSCallback(hit.id, 'panStart', ev);
-          if (handled) {
-            globalActivePanIdRef.current = hit.id;
-            break;
-          }
+  const longPressGesture = Gesture.LongPress()
+    .runOnJS(true)
+    .onStart((e) => {
+      const hits = engine.hitTest(e.x, e.y);
+      for (let i = hits.length - 1; i >= 0; i--) {
+        const hit = hits[i]!;
+        const handled = triggerJSCallback(hit.id, 'longPress', {});
+        if (handled) break;
+      }
+    });
+
+  // ── Pan gesture (scroll/drag) ────────────────────────────────────────────
+  // TÁCH BIỆT khỏi Tap/LongPress để tránh "Can't cancel already finished gesture".
+  // Gesture.Simultaneous(Tap, Pan) → khi Pan active, Tap nhận UP event → conflict.
+  // Fix: Pan độc lập, minDistance=5 để phân biệt với tap tự nhiên.
+  const panGesture = Gesture.Pan()
+    .runOnJS(true)
+    .onStart((e) => {
+      globalActivePanIdRef.current = ''; // Reset state mỗi lần start mới
+      const hits = engine.hitTest(e.x, e.y);
+      for (let i = hits.length - 1; i >= 0; i--) {
+        const hit = hits[i]!;
+        const ev = {
+          translationX: 0,
+          translationY: 0,
+          velocityX: 0,
+          velocityY: 0,
+          absoluteX: e.absoluteX,
+          absoluteY: e.absoluteY,
+          localX: hit.localX,
+          localY: hit.localY,
+          state: 2,
+        };
+        const handled = triggerJSCallback(hit.id, 'panStart', ev);
+        if (handled) {
+          globalActivePanIdRef.current = hit.id;
+          break;
         }
-      })
-      .onUpdate((e) => {
-        if (globalActivePanIdRef.current) {
-          const ev = {
-            translationX: e.translationX,
-            translationY: e.translationY,
-            velocityX: e.velocityX,
-            velocityY: e.velocityY,
-            absoluteX: e.absoluteX,
-            absoluteY: e.absoluteY,
-            localX: 0,
-            localY: 0,
-            state: 4,
-          };
-          triggerJSCallback(globalActivePanIdRef.current, 'panUpdate', ev);
-        }
-      })
-      .onEnd((e) => {
-        if (globalActivePanIdRef.current) {
-          const ev = {
-            translationX: e.translationX,
-            translationY: e.translationY,
-            velocityX: e.velocityX,
-            velocityY: e.velocityY,
-            absoluteX: e.absoluteX,
-            absoluteY: e.absoluteY,
-            localX: 0,
-            localY: 0,
-            state: 5,
-          };
-          triggerJSCallback(globalActivePanIdRef.current, 'panEnd', ev);
-          globalActivePanIdRef.current = '';
-        }
-      })
-      .onFinalize(() => {
-        if (globalActivePanIdRef.current) {
-          globalActivePanIdRef.current = '';
-        }
-      })
+      }
+    })
+    .onUpdate((e) => {
+      if (globalActivePanIdRef.current) {
+        const ev = {
+          translationX: e.translationX,
+          translationY: e.translationY,
+          velocityX: e.velocityX,
+          velocityY: e.velocityY,
+          absoluteX: e.absoluteX,
+          absoluteY: e.absoluteY,
+          localX: 0,
+          localY: 0,
+          state: 4,
+        };
+        triggerJSCallback(globalActivePanIdRef.current, 'panUpdate', ev);
+      }
+    })
+    .onEnd((e) => {
+      if (globalActivePanIdRef.current) {
+        const ev = {
+          translationX: e.translationX,
+          translationY: e.translationY,
+          velocityX: e.velocityX,
+          velocityY: e.velocityY,
+          absoluteX: e.absoluteX,
+          absoluteY: e.absoluteY,
+          localX: 0,
+          localY: 0,
+          state: 5,
+        };
+        triggerJSCallback(globalActivePanIdRef.current, 'panEnd', ev);
+        globalActivePanIdRef.current = '';
+      }
+    })
+    .onFinalize(() => {
+      // Đảm bảo state luôn được clean kể cả khi gesture bị cancel/interrupted
+      if (globalActivePanIdRef.current) {
+        triggerJSCallback(globalActivePanIdRef.current, 'panEnd', {
+          translationX: 0, translationY: 0,
+          velocityX: 0, velocityY: 0,
+          absoluteX: 0, absoluteY: 0,
+          localX: 0, localY: 0,
+          state: 6, // CANCELLED
+        });
+        globalActivePanIdRef.current = '';
+      }
+    });
+
+  // Race: nếu Pan activate trước → cancel Tap/LongPress (và ngược lại)
+  // Tránh conflict "Can't cancel already finished gesture" từ Simultaneous.
+  const gesture = Gesture.Race(
+    panGesture,
+    Gesture.Simultaneous(tapGesture, longPressGesture)
   );
 
   return (

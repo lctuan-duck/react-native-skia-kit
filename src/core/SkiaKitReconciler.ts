@@ -877,15 +877,29 @@ const baseHostConfig = {
  */
 export function createSkiaKitHostConfig(
   engine: UIEngine,
-  requestRedraw: () => void
+  _requestRedraw: () => void  // giữ tham số để không break caller, nhưng không dùng nữa
 ) {
   return {
     ...baseHostConfig,
-    resetAfterCommit(containerInfo: { canvasId: string; engine: UIEngine }) {
-      if (containerInfo?.canvasId) {
-        engine.markDirty(containerInfo.canvasId);
-        requestRedraw();
-      }
+
+    /**
+     * prepareForCommit — Gọi TRƯỚC khi reconciler bắt đầu mutate tree.
+     * beginCommit() block scheduleRender() trong C++ để tránh render partial state.
+     */
+    prepareForCommit(containerInfo: { canvasId: string; engine: UIEngine }) {
+      // Block C++ renders trong khi reconciler đang commit
+      engine.beginCommit();
+      return containerInfo;
+    },
+
+    /**
+     * resetAfterCommit — Gọi SAU khi reconciler commit xong toàn bộ tree.
+     * endCommit() mở khóa rendering VÀ tự gọi scheduleLayoutAndRender() bên trong C++.
+     * Không cần gọi scheduleLayoutAndRender() riêng từ JS để tránh race window (FIX C3).
+     */
+    resetAfterCommit(_containerInfo: { canvasId: string; engine: UIEngine }) {
+      // endCommit() = endCommit + scheduleLayoutAndRender (atomic trong C++)
+      engine.endCommit();
     },
   };
 }

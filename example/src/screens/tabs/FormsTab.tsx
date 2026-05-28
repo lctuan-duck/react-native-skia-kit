@@ -25,6 +25,7 @@ import { SectionHeader } from '../components/SectionHeader';
 interface Props {
   width: number;
   height: number;
+  display?: 'flex' | 'none';
 }
 
 const DROPDOWN_ITEMS: DropdownItem[] = [
@@ -40,7 +41,7 @@ const TAB_ITEMS = [
   { label: 'Tab 3', icon: 'user' },
 ];
 
-export function FormsTab({ width, height }: Props) {
+export function FormsTab({ width, height, display = 'flex' }: Props) {
   const theme = useTheme();
 
   const [inputValue] = React.useState('');
@@ -59,7 +60,7 @@ export function FormsTab({ width, height }: Props) {
   const [activeSegment, setActiveSegment] = React.useState(0);
 
   return (
-    <ScrollView style={{ width, height }}>
+    <ScrollView style={{ width, height, display }}>
       <Column style={{ gap: 0 }}>
 
         {/* ── Input ── */}

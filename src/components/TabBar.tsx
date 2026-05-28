@@ -91,7 +91,9 @@ export const TabBar = React.memo(function TabBar({
   const indicatorX = useSharedValue(activeIndex * tabWidth);
 
   // When activeIndex changes externally, slide indicator
-  React.useEffect(() => {
+  // useLayoutEffect: Reanimated registers Choreographer BEFORE endCommit → worklet fires
+  // BEFORE doRender at Frame N → indicator translateX updated before paint.
+  React.useLayoutEffect(() => {
     indicatorX.value = withTiming(activeIndex * tabWidth, { duration: 220 });
   }, [activeIndex, tabWidth, indicatorX]);
 
@@ -103,7 +105,9 @@ export const TabBar = React.memo(function TabBar({
   // BUG-6 Fix: dùng SharedValue cho activeIndex trong worklet — tránh re-register
   // khi user chuyển tab. Worklet đọc activeIndexSV.value inline thay vì dùng closure.
   const activeIndexSV = useSharedValue(activeIndex);
-  React.useEffect(() => {
+  // useLayoutEffect: activeIndexSV is read inside the layout reaction worklet.
+  // Syncing it synchronously ensures the worklet sees the correct value immediately.
+  React.useLayoutEffect(() => {
     activeIndexSV.value = activeIndex;
   }, [activeIndex, activeIndexSV]);
 

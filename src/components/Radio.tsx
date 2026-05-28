@@ -97,9 +97,51 @@ export const Radio = React.memo(function Radio({
 
   const progress = useSharedValue(selected ? 1 : 0);
 
-  React.useEffect(() => {
-    progress.value = withTiming(selected ? 1 : 0, { duration: 150 });
-  }, [selected, progress]);
+  // Track previous selected to distinguish mount from state changes.
+  const prevSelectedRef = React.useRef<boolean | null>(null);
+
+  // useLayoutEffect: fires AFTER commitUpdate but BEFORE endCommit schedules doRender.
+  //
+  // Flicker root cause (two paths):
+  //
+  // A. MOUNT FLICKER: C++ BoxNode._scaleX/_scaleY defaults to 1.0f.
+  //    On mount with selected=false, without override:
+  //      doRender (PATH1a) → rebuildPicture → dotId.paint() reads _scaleX=1 → FULL SIZE! (1-frame flash)
+  //    Fix: set _scaleX=0 synchronously on mount → first paint reads scale=0 → dot invisible ✓
+  //
+  // B. STATE-CHANGE FLICKER: commitUpdate writes FINAL borderColor to _props.
+  //    PATH1a reads FINAL state before Reanimated fires → 1-frame flash of target.
+  //    Fix: override with START state synchronously before endCommit.
+  //
+  // GUARD: only fires when 'selected' actually changes or on mount.
+  React.useLayoutEffect(() => {
+    const prevSelected = prevSelectedRef.current;
+    const isMount = prevSelected === null;
+    prevSelectedRef.current = selected;
+
+    if (isMount || prevSelected !== selected) {
+      if (isMount) {
+        // Mount: set CURRENT state so first paint is correct.
+        // _scaleX=0 for dot (when unselected) → _animationDirty/markDirty → correct first frame.
+        updateRadioUI(
+          widgetId, dotId,
+          selected ? activeColor : uncheckedBorderColor,
+          r, borderWidth, selected ? 1 : 0, dotColor
+        );
+      } else {
+        // State change: set animation START state (opposite of target) synchronously.
+        const startP = selected ? 0 : 1;
+        const startBorder = selected
+          ? (disabled ? disabledBorderColor : uncheckedBorderColor)
+          : (disabled ? disabledBorderColor : activeColor);
+        updateRadioUI(widgetId, dotId, startBorder, r, borderWidth, startP, dotColor);
+      }
+
+      progress.value = withTiming(selected ? 1 : 0, { duration: 150 });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, widgetId, dotId, activeColor, disabledBorderColor, uncheckedBorderColor,
+      disabled, r, borderWidth, dotColor, updateRadioUI, progress]);
 
   // Use Worklet to directly update engine for smooth 60fps animations
   useAnimatedReaction(

@@ -75,8 +75,17 @@ export const ListTile = React.memo(function ListTile({
         // User style applied first (can override colors/bg/dimensions)
         ...style,
         // Layout-critical props always applied LAST — cannot be overridden
-        width: style?.width ?? '100%',
-        alignSelf: 'stretch', // <--- Force it to fill parent's width even if parent is flex-start
+        //
+        // BUG FIX: Không dùng width:'100%' làm fallback.
+        // Trong Yoga, '100%' = 100% của kích thước thực tế của parent.
+        // Nếu parent là Column với alignItems:'start' (wrap content) thì parent
+        // sẽ co theo children trước → ListTile lấy '100%' của kích thước nhỏ đó.
+        //
+        // FIX: Khi không có width tường minh → dùng alignSelf:'stretch'.
+        // Yoga sẽ fill toàn bộ cross-axis của parent bất kể parent alignItems.
+        ...(style?.width != null
+          ? { width: style.width }            // user truyền width cụ thể → dùng đúng
+          : { alignSelf: 'stretch' as const }), // không có width → stretch theo parent
         height: tileHeight,
         backgroundColor: bgColor,
         flexDirection: 'row',
@@ -89,8 +98,7 @@ export const ListTile = React.memo(function ListTile({
       onLongPress={onLongPress}
     >
       {leading}
-
-      <Expanded>
+      <Expanded style={{ flex: 1 }}>
         <Column mainAxisAlignment="center" style={{ gap: 2 }}>
           <Text
             text={title}
@@ -114,7 +122,6 @@ export const ListTile = React.memo(function ListTile({
           )}
         </Column>
       </Expanded>
-
       {trailing}
     </Box>
   );

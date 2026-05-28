@@ -131,6 +131,8 @@ namespace margelo::nitro::skiakit {
 
     // ── Render Control ───────────────────────────────────────────────────────
     void scheduleLayoutAndRender() override;
+    void beginCommit() override;
+    void endCommit() override;
 
     // ── Engine Identity (Phase 3: multi-instance) ────────────────────────────
     double getEngineId() override;

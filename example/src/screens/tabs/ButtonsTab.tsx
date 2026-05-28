@@ -19,6 +19,7 @@ import { SectionHeader } from '../components/SectionHeader';
 interface Props {
   width: number;
   height: number;
+  display?: 'flex' | 'none';
 }
 
 const MENU_ITEMS: PopupMenuItem[] = [
@@ -31,7 +32,7 @@ const MENU_ITEMS: PopupMenuItem[] = [
 
 const COLORS = ['primary', 'secondary', 'success', 'warning', 'error', 'info'] as const;
 
-export function ButtonsTab({ width, height }: Props) {
+export function ButtonsTab({ width, height, display = 'flex' }: Props) {
   const theme = useTheme();
   const [pressLog, setPressLog] = React.useState('(chưa nhấn)');
 
@@ -40,7 +41,7 @@ export function ButtonsTab({ width, height }: Props) {
   };
 
   return (
-    <ScrollView style={{ width, height }}>
+    <ScrollView style={{ width, height, display }}>
       <Column style={{ gap: 0 }}>
 
         {/* ── Solid Buttons ── */}
