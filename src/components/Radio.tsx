@@ -113,35 +113,46 @@ export const Radio = React.memo(function Radio({
   //    PATH1a reads FINAL state before Reanimated fires → 1-frame flash of target.
   //    Fix: override with START state synchronously before endCommit.
   //
-  // GUARD: only fires when 'selected' actually changes or on mount.
+  // C. STYLE-ONLY CHANGE FLICKER (new): activeColor/borderColor changes but selected stays same.
+  //    C++ fix (_animatedProps={} in updateProps) clears stale animated overlay → frame 1 shows
+  //    _props FINAL colors. Re-sync _animatedProps to current progress with new colors.
+  //
+  // GUARD: only fires when 'selected' actually changes, on mount, or when style props change.
   React.useLayoutEffect(() => {
     const prevSelected = prevSelectedRef.current;
     const isMount = prevSelected === null;
     prevSelectedRef.current = selected;
 
-    if (isMount || prevSelected !== selected) {
-      if (isMount) {
-        // Mount: set CURRENT state so first paint is correct.
-        // _scaleX=0 for dot (when unselected) → _animationDirty/markDirty → correct first frame.
-        updateRadioUI(
-          widgetId, dotId,
-          selected ? activeColor : uncheckedBorderColor,
-          r, borderWidth, selected ? 1 : 0, dotColor
-        );
-      } else {
-        // State change: set animation START state (opposite of target) synchronously.
-        const startP = selected ? 0 : 1;
-        const startBorder = selected
-          ? (disabled ? disabledBorderColor : uncheckedBorderColor)
-          : (disabled ? disabledBorderColor : activeColor);
-        updateRadioUI(widgetId, dotId, startBorder, r, borderWidth, startP, dotColor);
-      }
-
+    if (isMount) {
+      // Mount: set CURRENT state so first paint is correct.
+      // _scaleX=0 for dot (when unselected) → _animationDirty/markDirty → correct first frame.
+      updateRadioUI(
+        widgetId, dotId,
+        selected ? activeColor : uncheckedBorderColor,
+        r, borderWidth, selected ? 1 : 0, dotColor
+      );
       progress.value = withTiming(selected ? 1 : 0, { duration: 150 });
+    } else if (prevSelected !== selected) {
+      // State change: set animation START state (opposite of target) synchronously.
+      const startP = selected ? 0 : 1;
+      const startBorder = selected
+        ? (disabled ? disabledBorderColor : uncheckedBorderColor)
+        : (disabled ? disabledBorderColor : activeColor);
+      updateRadioUI(widgetId, dotId, startBorder, r, borderWidth, startP, dotColor);
+      progress.value = withTiming(selected ? 1 : 0, { duration: 150 });
+    } else {
+      // Style-only change: activeColor/dotColor/etc. changed but selected didn't.
+      // Re-sync _animatedProps to current animation progress with the new colors.
+      const currentP = progress.value;
+      const currentBorder = currentP > 0.5
+        ? (disabled ? disabledBorderColor : activeColor)
+        : (disabled ? disabledBorderColor : uncheckedBorderColor);
+      updateRadioUI(widgetId, dotId, currentBorder, r, borderWidth, currentP, dotColor);
+      // Do NOT restart withTiming — animation continues seamlessly with new colors.
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, widgetId, dotId, activeColor, disabledBorderColor, uncheckedBorderColor,
-      disabled, r, borderWidth, dotColor, updateRadioUI, progress]);
+  }, [selected, disabled, widgetId, dotId, activeColor, disabledBorderColor, uncheckedBorderColor,
+      r, borderWidth, dotColor, updateRadioUI, progress]);
 
   // Use Worklet to directly update engine for smooth 60fps animations
   useAnimatedReaction(
@@ -157,8 +168,7 @@ export const Radio = React.memo(function Radio({
         ]
       );
 
-      const currentDotSize = p * maxDotSize;
-
+      // p (0..1) drives scale directly — CSS scale(0) hides the dot, scale(1) shows full size.
       const direct = (global as any).skiaKitEngines?.[engineId]?.unbox();
       if (direct) {
         direct.updateAnimatedStyles(widgetId, {

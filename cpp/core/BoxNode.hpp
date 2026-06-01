@@ -174,6 +174,22 @@ public:
   void updateProps(const BoxProps& props) {
     std::lock_guard<std::mutex> lock(_propMutex);
     _props = props;
+    // FLICKER FIX: Clear stale animated overlay whenever base props are updated
+    // from the JS reconciler (commitUpdate → updateBoxNode → updateProps).
+    //
+    // Root cause of flicker in Checkbox/Radio/Switch:
+    //   1. commitUpdate() writes FINAL state to _props.
+    //   2. Reanimated tears down+re-registers useAnimatedReaction (deps changed).
+    //   3. doRender fires (VSync) before worklet re-registers.
+    //   4. draw() merges: _props=FINAL + _animatedProps=STALE_OLD → wrong color!
+    //
+    // Fix: reset _animatedProps so draw() falls back to _props (FINAL state)
+    // for that 1-frame window. Worklet will re-populate _animatedProps next frame
+    // with the correct interpolated values.
+    //
+    // JS useLayoutEffect then sets the START state into _animatedProps synchronously
+    // before the VSync fires, so the first rendered frame shows the animation start.
+    _animatedProps = {};
   }
 
   bool updateAnimatedStyles(const NativeAnimatedStyle& style) override {

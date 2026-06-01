@@ -90,11 +90,79 @@ export const Switch = React.memo(function Switch({
 
   const progress = useSharedValue(value ? 1 : 0);
 
-  // useLayoutEffect: Reanimated registers Choreographer BEFORE endCommit → worklet fires
-  // BEFORE doRender at Frame N → track color + thumb position updated before paint.
+  // Track previous value to distinguish mount from state changes.
+  const prevValueRef = React.useRef<boolean | null>(null);
+  const prevDisabledRef = React.useRef<boolean | null>(null);
+
+  // useLayoutEffect: fires AFTER commitUpdate but BEFORE endCommit schedules doRender.
+  //
+  // Flicker root cause (two paths):
+  //
+  // A. MOUNT FLICKER: C++ BoxNode._translateX defaults to 0 and _backgroundColor to 0.
+  //    On mount with value=true, without override:
+  //      doRender → thumb appears at left (translateX=0) and track shows transparent.
+  //    Fix: set CURRENT state synchronously → correct first frame ✓
+  //
+  // B. STATE-CHANGE FLICKER: commitUpdate may not write track backgroundColor (it's not
+  //    in static JSX style — purely animated). _animatedProps still holds OLD values.
+  //    Fix: override with START state (opposite side / starting track color) before VSync.
+  //
+  // GUARD:
+  //   isMount                → set CURRENT state (correct first paint)
+  //   valueChanged           → set animation START state (opposite of target)
+  //   disabledChanged        → re-sync track color with new disabled state (no animation restart)
+  //   else (style-only change) → re-sync track color + thumb position with current values
   React.useLayoutEffect(() => {
-    progress.value = withTiming(value ? 1 : 0, { duration: 200 });
-  }, [value, progress]);
+    const prevValue = prevValueRef.current;
+    const prevDisabled = prevDisabledRef.current;
+    const isMount = prevValue === null;
+    prevValueRef.current = value;
+    prevDisabledRef.current = disabled;
+
+    const valueChanged = !isMount && prevValue !== value;
+    const disabledChanged = !isMount && prevDisabled !== disabled;
+
+    if (isMount || valueChanged) {
+      if (isMount) {
+        // Mount: set CURRENT state so first paint is correct.
+        updateSwitchUI(
+          trackId, thumbId,
+          value ? (disabled ? disabledColor : activeColor) : inactiveTrack,
+          value ? maxTravel : 0
+        );
+      } else {
+        // State change: set animation START state (opposite of target) synchronously.
+        // Overrides _animatedProps before endCommit schedules doRender.
+        updateSwitchUI(
+          trackId, thumbId,
+          value ? inactiveTrack : (disabled ? disabledColor : activeColor),
+          value ? 0 : maxTravel
+        );
+      }
+
+      progress.value = withTiming(value ? 1 : 0, { duration: 200 });
+    } else if (disabledChanged) {
+      // disabled changed but value didn't — re-sync track color with new disabled state.
+      // Do NOT restart withTiming: thumb position stays correct, only track color changes.
+      const currentTrack = disabled
+        ? disabledColor
+        : (value ? activeColor : inactiveTrack);
+      // Use progress.value for thumb position so we don't snap if animation is mid-way.
+      updateSwitchUI(trackId, thumbId, currentTrack, progress.value * maxTravel);
+    } else {
+      // Style-only change: activeColor/inactiveTrack/width/height changed, value+disabled same.
+      // commitUpdate may have cleared _animatedProps (C++ fix) for the track box if any JSX prop
+      // changed (e.g. borderRadius from finalH change). Re-sync to prevent transparent-track frame.
+      const currentTrack = disabled
+        ? disabledColor
+        : (value ? activeColor : inactiveTrack);
+      // Use progress.value for thumb position to avoid snapping mid-animation.
+      updateSwitchUI(trackId, thumbId, currentTrack, progress.value * maxTravel);
+      // Do NOT restart withTiming — thumb continues animating (or is at final position).
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, disabled, trackId, thumbId, activeColor, inactiveTrack, disabledColor,
+      maxTravel, updateSwitchUI, progress]);
 
   useAnimatedReaction(
     () => progress.value,

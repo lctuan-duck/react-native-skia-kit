@@ -121,40 +121,56 @@ export const Checkbox = React.memo(function Checkbox({
   //    → PATH1a → rebuildPicture reads FINAL state → 1-frame flash of target before animation starts.
   //    Fix: override committed FINAL state with START state synchronously before endCommit.
   //
-  // GUARD: only fires when 'checked' actually changes or on mount.
-  //   Prevents spurious start-state overrides when other deps (activeColor, etc.) change.
+  // C. STYLE-ONLY CHANGE FLICKER (new): activeColor/borderColor changes but checked stays same.
+  //    C++ fix (_animatedProps={} in updateProps) clears stale animated overlay → frame 1 shows
+  //    _props FINAL colors which is correct. But if animation was mid-way, we re-sync _animatedProps
+  //    to the current progress to keep visual state consistent with new theme colors.
+  //
+  // GUARD: only fires when 'checked' actually changes, on mount, or when style props change.
   React.useLayoutEffect(() => {
     const prevChecked = prevCheckedRef.current;
     const isMount = prevChecked === null;
     prevCheckedRef.current = checked;
 
-    if (isMount || prevChecked !== checked) {
-      if (isMount) {
-        // Mount: set CURRENT state (not opposite) so first paint is correct.
-        // This sets _animationDirty=true (icon opacity) → PATH1+anim on first doRender
-        // → direct paint with _opacity=(checked?1:0) instead of the default 1.0f.
-        updateCheckboxUI(
-          widgetId, iconId,
-          checked ? activeColor : 'transparent',
-          checked ? activeColor : uncheckedBorderColor,
-          borderRadius, borderWidth, checked ? 1 : 0
-        );
-      } else {
-        // State change: set animation START state (opposite of target) synchronously.
-        // Overrides commitUpdate's FINAL state before endCommit schedules doRender.
-        const startP = checked ? 0 : 1;
-        updateCheckboxUI(
-          widgetId, iconId,
-          checked ? 'transparent' : activeColor,
-          checked ? uncheckedBorderColor : activeColor,
-          borderRadius, borderWidth, startP
-        );
-      }
-
+    if (isMount) {
+      // Mount: set CURRENT state (not opposite) so first paint is correct.
+      // This sets _animationDirty=true (icon opacity) → PATH1+anim on first doRender
+      // → direct paint with _opacity=(checked?1:0) instead of the default 1.0f.
+      updateCheckboxUI(
+        widgetId, iconId,
+        checked ? activeColor : 'transparent',
+        checked ? activeColor : uncheckedBorderColor,
+        borderRadius, borderWidth, checked ? 1 : 0
+      );
       progress.value = withTiming(checked ? 1 : 0, { duration: 150 });
+    } else if (prevChecked !== checked) {
+      // State change: set animation START state (opposite of target) synchronously.
+      // Overrides commitUpdate's FINAL state before endCommit schedules doRender.
+      const startP = checked ? 0 : 1;
+      updateCheckboxUI(
+        widgetId, iconId,
+        checked ? 'transparent' : activeColor,
+        checked ? uncheckedBorderColor : activeColor,
+        borderRadius, borderWidth, startP
+      );
+      progress.value = withTiming(checked ? 1 : 0, { duration: 150 });
+    } else {
+      // Style-only change: activeColor/borderColor/etc. changed but checked didn't.
+      // Re-sync _animatedProps to current animation progress with the new colors.
+      // Prevents a 1-frame gap where _animatedProps is empty (cleared by C++ fix)
+      // and _props shows FINAL colors while the animation should be mid-interpolation.
+      const currentP = progress.value;
+      const currentBg = currentP > 0.5
+        ? (disabled ? disabledBorderColor : activeColor)  // matches worklet: interpolateColor → disabledBorderColor when disabled
+        : 'transparent';
+      const currentBorder = currentP > 0.5
+        ? (disabled ? disabledBorderColor : activeColor)
+        : (disabled ? disabledBorderColor : uncheckedBorderColor);
+      updateCheckboxUI(widgetId, iconId, currentBg, currentBorder, borderRadius, borderWidth, currentP);
+      // Do NOT restart withTiming — animation continues seamlessly with new colors.
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checked, widgetId, iconId, activeColor, uncheckedBorderColor, borderRadius, borderWidth, updateCheckboxUI, progress]);
+  }, [checked, disabled, widgetId, iconId, activeColor, disabledBorderColor, uncheckedBorderColor, borderRadius, borderWidth, updateCheckboxUI, progress]);
 
   useAnimatedReaction(
     () => progress.value,
